@@ -1,0 +1,22 @@
+{
+  "name": "ellipog.dev",
+  "private": true,
+  "version": "0.0.0",
+  "description": "ellipog.dev — Minecraft mods for Fabric and NeoForge",
+  "packageManager": "bun@1.3.14",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "sync": "bun scripts/sync.mjs",
+    "stats": "bun scripts/stats.mjs",
+    "check": "bun scripts/check.mjs",
+    "dev": "bun run sync && bun run stats && bun run --filter @ellipog/docs dev",
+    "build": "bun run sync && bun run stats && bun run --filter @ellipog/docs build && bun run check",
+    "start": "bun run --filter @ellipog/docs start",
+    "types": "bun run --filter @ellipog/docs types"
+  }
+}

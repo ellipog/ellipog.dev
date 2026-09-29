@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# The npm lockfile, if one is ever generated. `bun.lock` is the one that is committed -- two
+# lockfiles for one dependency tree is how a resolution difference between developers happens.
+package-lock.json
+yarn.lock
+
+# Next.js build output
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Fumadocs' generated MDX index. Rebuilt from source.config.ts on every build.
+.source/
+
+# The docs copied out of each mod repository by scripts/sync.mjs.
+#
+# GENERATED, AND DELIBERATELY NOT COMMITTED. Every page here exists in the repository
+# that owns it. A committed copy is a second home for a document, and a second home is
+# a thing that can disagree with the first -- which is the entire failure this site is
+# built to avoid. sync.mjs wipes this tree before it rebuilds it, so nothing stale can
+# survive a build even if it was committed by accident.
+apps/docs/content/
+
+# Copied out of the root by sync.mjs, because Next cannot import from outside its own directory.
+apps/docs/manifest.json
+
+# Fetched from Modrinth and CurseForge by scripts/stats.mjs on every build. Generated, so not
+# committed -- a committed copy is a download count that was true on the day somebody built.
+apps/docs/stats.json
+
+# The avatar, downloaded by stats.mjs from the Modrinth profile. Generated for the same reason, and
+# the glob is for the extension: which one it is depends on what the platform serves that day.
+apps/docs/public/avatar.*
+
+
+# The git checkouts sync.mjs makes when a mod is not present as a sibling folder.
+.cache/
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

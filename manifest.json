@@ -1,0 +1,104 @@
+{
+  "site": {
+    "title": "ellipog",
+    "domain": "ellipog.dev",
+    "description": "Manuals for the mods: how they work, how to configure them, and what the formats are."
+  },
+
+  "author": {
+    "handle": "Ellipog",
+    "bio": "I build Minecraft mods. A couple are in development now; the rest are already out.",
+    "links": [
+      { "id": "modrinth", "label": "Modrinth", "handle": "Ellipog", "url": "https://modrinth.com/user/Ellipog" },
+      { "id": "curseforge", "label": "CurseForge", "handle": "ellipog", "url": "https://www.curseforge.com/members/ellipog/projects" }
+    ]
+  },
+
+  "suite": [
+    {
+      "id": "tasked",
+      "name": "Tasked",
+      "status": "active",
+      "summary": "A questing engine. JSON files in, a pannable canvas out, and the server decides what counts as done.",
+      "repo": "https://github.com/ellipog/tasked",
+      "issues": "https://github.com/ellipog/tasked/issues",
+      "localPath": "../tasked",
+      "docsPath": "docs",
+      "minecraft": "1.21.1",
+      "loaders": ["fabric", "neoforge"]
+    },
+    {
+      "id": "armature",
+      "name": "Armature",
+      "status": "active",
+      "summary": "The library under it. Layout, themes, shapes, a graph canvas, and one seam between the code and the game's renderer.",
+      "repo": "https://github.com/ellipog/armature",
+      "issues": "https://github.com/ellipog/armature/issues",
+      "localPath": "../armature",
+      "docsPath": "docs",
+      "minecraft": "1.21.1",
+      "loaders": ["fabric", "neoforge"]
+    },
+    {
+      "id": "kindred",
+      "name": "Kindred",
+      "status": "planned",
+      "summary": "Kin and lineages.",
+      "localPath": "../kindred",
+      "minecraft": "26.3"
+    },
+    {
+      "id": "kith",
+      "name": "Kith",
+      "status": "planned",
+      "summary": "Traits and abilities.",
+      "localPath": "../kith",
+      "minecraft": "26.3"
+    },
+    {
+      "id": "stature",
+      "name": "Stature",
+      "status": "planned",
+      "summary": "Scale and hitboxes.",
+      "localPath": "../stature",
+      "minecraft": "26.3"
+    },
+    {
+      "id": "folio",
+      "name": "Folio",
+      "status": "planned",
+      "summary": "Documentation, in game.",
+      "localPath": "../folio",
+      "minecraft": "26.3"
+    }
+  ],
+
+  "selected": [
+    {
+      "id": "create-stellar",
+      "name": "Create Stellar",
+      "kind": "Modpack",
+      "summary": "Create, with a progression line through it rather than an inventory of machines and no direction.",
+      "url": "https://www.curseforge.com/minecraft/modpacks/create-stellar",
+      "curseforge": "create-stellar"
+    },
+    {
+      "id": "mythic-origins",
+      "name": "Mythic Origins",
+      "kind": "Origins addon",
+      "summary": "Mythical powers as playable origins.",
+      "url": "https://modrinth.com/mod/mythic-origins",
+      "modrinth": "mythic-origins",
+      "curseforge": "mythic-origins"
+    },
+    {
+      "id": "fairytale-origins",
+      "name": "Fairytale Origins",
+      "kind": "Origins addon",
+      "summary": "Eight storybook origins, each with a weakness that bites.",
+      "url": "https://modrinth.com/mod/fairytale-origins",
+      "modrinth": "fairytale-origins",
+      "curseforge": "fairytale-origins"
+    }
+  ]
+}

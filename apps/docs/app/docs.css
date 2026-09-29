@@ -1,0 +1,598 @@
+/*
+ * The documentation layer.
+ *
+ * `global.css` is the design system -- tokens, the grid, prose, the scrollbar. This file is what the
+ * docs pages add on top of it: the two rails, and the elements a manual needs that a landing page
+ * does not (callouts, tabs, step lists, a copy button).
+ *
+ * Every rule here obeys the four rules in `global.css`. The ones that matter most in this file:
+ *
+ * - LINES ARE DRAWN ONCE. A column draws one border on the side that faces its neighbour, never a box.
+ *   `.docs` puts one on the right of the left rail; `.docs-page` puts one on the left of the right
+ *   rail. Each line has exactly one owner.
+ * - NO SHADOWS, NO RADIUS. A callout is a band with a heavy left edge, not a floating card. A tab
+ *   strip is a row of cells, not a pill.
+ * - COLOUR IS EARNED. The four callout kinds are distinguished by the weight of that left edge and by
+ *   the label, not by four pastel backgrounds. `caution` gets the only red on the site, because it is
+ *   the only thing here that means "this loses data".
+ */
+
+/* ------------------------------------------------------------------ */
+/* The three columns                                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A page is prose plus an optional contents rail. `docs-page-with-rail` is only applied when the page
+ * has enough headings to be worth a rail -- see the page component.
+ *
+ * `minmax(0, 1fr)` rather than `1fr`: a grid column defaults to a minimum of its content's width, so
+ * a wide table or a long code block would push the rail off the page instead of scrolling inside its
+ * own box.
+ */
+.docs-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.docs-page-with-rail {
+  grid-template-columns: minmax(0, 1fr) var(--rail-right);
+}
+
+.docs-rail {
+  border-left: 1px solid var(--line);
+  padding: var(--s7) var(--s4);
+}
+
+/*
+ * Sticky under the masthead, and scrolling on its own if a page ever has more headings than fit.
+ *
+ * `max-height` is what makes the inner scroll work: without it the rail is as tall as its list and
+ * `position: sticky` has nothing to stick within. 56px is the masthead, `--s5` is the breathing room.
+ */
+.toc {
+  position: sticky;
+  top: calc(56px + var(--s5));
+  max-height: calc(100vh - 56px - var(--s5) * 2);
+  overflow-y: auto;
+}
+
+.toc ul {
+  list-style: none;
+  margin-top: var(--s3);
+}
+
+.toc li {
+  border-left: 1px solid var(--line);
+  /* The rail's own left border is the column edge; this second line is the marker track. */
+  margin-left: -1px;
+}
+
+.toc a {
+  display: block;
+  padding: var(--s1) var(--s3);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  transition: color 0.12s linear, border-color 0.12s linear;
+}
+
+.toc a:hover {
+  color: var(--fg);
+}
+
+/*
+ * The current section. A 2px ink bar on the track rather than a background or a bolder weight --
+ * the bar is structure, and it is the same statement a progress bar makes.
+ */
+.toc a[aria-current="location"] {
+  color: var(--fg);
+  border-left: 2px solid var(--fg);
+  margin-left: -1px;
+  padding-left: calc(var(--s3) - 1px);
+}
+
+/* A third-level heading, indented so the nesting is visible without a second marker. */
+.toc-nested a {
+  padding-left: var(--s5);
+}
+
+.toc-nested a[aria-current="location"] {
+  padding-left: calc(var(--s5) - 1px);
+}
+
+@media (max-width: 1100px) {
+  /* The rail is the first thing to go: the sidebar is navigation and this is orientation. */
+  .docs-page-with-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .docs-rail {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Callouts                                                            */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A callout is a band with a heavy left edge -- the same construction as a blockquote, at three times
+ * the weight, which is what separates "a note" from "a quotation" at a glance.
+ *
+ * Set off from the prose by margins above and below rather than by a background, because the design
+ * has no backgrounds other than paper.
+ */
+.callout {
+  margin: var(--s5) 0;
+  padding: var(--s3) var(--s4);
+  border-left: 3px solid var(--line-ink);
+  background: var(--bg-sunken);
+}
+
+.callout-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg);
+  margin-bottom: var(--s2);
+}
+
+.callout-body > * + * {
+  margin-top: var(--s3);
+}
+
+.callout-body p,
+.callout-body li {
+  color: var(--fg-muted);
+  font-size: 13.5px;
+}
+
+.callout-body strong {
+  color: var(--fg);
+}
+
+/* A tip is the same shape, one step lighter: it is advice, not a fact. */
+.callout-tip {
+  border-left-color: var(--fg-faint);
+}
+
+/* A warning is ink, because it is the same kind of thing as a note but louder. */
+.callout-warning {
+  border-left-color: var(--fg);
+  border-left-width: 4px;
+}
+
+/*
+ * The only red on the site. Reserved for one meaning: this loses data or breaks a world. If a second
+ * thing ever needs red, this rule is the thing to reconsider rather than extend.
+ */
+.callout-caution {
+  border-left-color: var(--danger);
+  border-left-width: 4px;
+}
+
+.callout-caution .callout-label {
+  color: var(--danger);
+}
+
+/* ------------------------------------------------------------------ */
+/* Code                                                                */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The wrapper exists for the copy button. `position: relative` on it and `absolute` on the button is
+ * the whole mechanism -- no layout shift when the label changes from "copy" to "copied".
+ */
+.code {
+  position: relative;
+  margin: var(--s4) 0;
+}
+
+.prose .code pre {
+  margin: 0;
+  /* Room for the button, so a long line never runs underneath it. */
+  padding-right: 72px;
+}
+
+/*
+ * The copy button: a small uppercase mono label in the block's top-right, on paper rather than on a
+ * tint, with a hairline. It inverts on hover like everything else clickable on the site.
+ */
+.code-copy {
+  position: absolute;
+  top: var(--s2);
+  right: var(--s2);
+  padding: 3px 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: color 0.12s linear, background-color 0.12s linear, border-color 0.12s linear;
+}
+
+.code-copy:hover {
+  color: var(--bg);
+  background: var(--fg);
+  border-color: var(--fg);
+}
+
+/* Focus reachable by keyboard -- the button is inside a scrollable region otherwise. */
+.code-copy:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tabs                                                                */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A strip of cells above a body. The cells share the block's outer hairline, and each draws the
+ * border on its own right, so no two lines meet at 2px.
+ */
+.tabs {
+  margin: var(--s5) 0;
+  border: 1px solid var(--line);
+}
+
+.tabs-list {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-sunken);
+}
+
+.tabs-tab {
+  padding: var(--s2) var(--s4);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  background: none;
+  border: 0;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  transition: color 0.12s linear, background-color 0.12s linear;
+}
+
+.tabs-tab:hover {
+  color: var(--fg);
+}
+
+/*
+ * The selected tab. Paper against the sunken strip, plus an ink rule along the bottom edge that
+ * covers the strip's own border -- the same 2px-bar idea as the contents rail, laid horizontally.
+ */
+.tabs-tab-active {
+  color: var(--fg);
+  background: var(--bg);
+  box-shadow: inset 0 -2px 0 var(--fg);
+}
+
+.tabs-panel {
+  padding: var(--s4);
+}
+
+.tabs-panel > *:first-child {
+  margin-top: 0;
+}
+
+.tabs-panel > *:last-child {
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Steps                                                               */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Numbered bands, hairline separated. The number is generated by a counter rather than written, so
+ * inserting a step does not mean renumbering the ones after it.
+ */
+.steps {
+  counter-reset: step;
+  margin: var(--s5) 0;
+  border-top: 1px solid var(--line);
+}
+
+.step {
+  counter-increment: step;
+  border-bottom: 1px solid var(--line);
+  padding: var(--s4) 0 var(--s4) var(--s6);
+  position: relative;
+}
+
+.step::before {
+  content: counter(step, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: calc(var(--s4) + 2px);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+  letter-spacing: 0.06em;
+}
+
+.step-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+
+.step-body {
+  margin-top: var(--s3);
+}
+
+.step-body > * + * {
+  margin-top: var(--s3);
+}
+
+/* A step's own code block should not add a second margin on top of the step's. */
+.step-body .code {
+  margin: var(--s3) 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Details                                                             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Collapsed detail. `<details>` is native, needs no JavaScript, and is the only element here that
+ * hides content on purpose -- so it gets a disclosure marker and a hairline, and nothing else. The
+ * browser's own triangle is replaced with a mono glyph in the left margin, matching the step numbers.
+ */
+.prose details {
+  margin: var(--s4) 0;
+  border: 1px solid var(--line);
+  padding: var(--s3) var(--s4);
+  background: var(--bg-sunken);
+}
+
+.prose details > summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--fg);
+  list-style: none;
+}
+
+.prose details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.prose details > summary::before {
+  content: "+ ";
+  color: var(--fg-faint);
+}
+
+.prose details[open] > summary::before {
+  content: "− ";
+}
+
+.prose details > *:not(summary) {
+  margin-top: var(--s3);
+}
+
+/* ------------------------------------------------------------------ */
+/* Headings with anchors                                               */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The anchor is invisible until the heading is hovered or the anchor itself is focused. A visible `#`
+ * on every heading turns a page into a list of hashes; a keyboard-reachable one costs nothing and is
+ * the difference between a section being linkable and not.
+ */
+.heading {
+  position: relative;
+}
+
+.heading-anchor {
+  margin-left: var(--s2);
+  color: var(--fg-faint);
+  border-bottom: 0;
+  opacity: 0;
+  transition: opacity 0.12s linear, color 0.12s linear;
+}
+
+.heading:hover .heading-anchor {
+  opacity: 1;
+}
+
+.heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.heading-anchor:hover {
+  color: var(--fg);
+}
+
+/* ------------------------------------------------------------------ */
+/* The foot of a page                                                  */
+/* ------------------------------------------------------------------ */
+
+.docs-footer {
+  margin-top: var(--s8);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+}
+
+.docs-source {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s4);
+  flex-wrap: wrap;
+}
+
+.docs-source-links {
+  display: flex;
+  gap: var(--s4);
+  flex-wrap: wrap;
+}
+
+.docs-source-links a {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  border-bottom: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  transition: color 0.12s linear;
+}
+
+.docs-source-links a:hover {
+  color: var(--fg);
+}
+
+/* Rows, not cards: prev on the left, next on the right, separated by the same hairline. */
+.docs-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: var(--s4);
+  border-top: 1px solid var(--line);
+}
+
+.docs-nav > * {
+  padding: var(--s3) 0;
+}
+
+.docs-nav-next {
+  text-align: right;
+  border-left: 1px solid var(--line);
+  padding-left: var(--s4);
+}
+
+.docs-nav a {
+  display: block;
+  border-bottom: 0;
+}
+
+.docs-nav-title {
+  display: block;
+  margin-top: var(--s1);
+  font-size: 14px;
+  color: var(--fg-muted);
+  transition: color 0.12s linear;
+}
+
+.docs-nav a:hover .docs-nav-title {
+  color: var(--fg);
+}
+
+/* ------------------------------------------------------------------ */
+/* The contents list on /docs/                                         */
+/* ------------------------------------------------------------------ */
+
+/*
+ * One band per mod: name and page count on a line, the summary beneath it, then the pages. Rows in a
+ * grid rather than cards, because the whole site is rows in a grid.
+ */
+.contents {
+  margin: var(--s5) 0;
+  border-top: 1px solid var(--line);
+}
+
+.contents-group {
+  border-bottom: 1px solid var(--line);
+  padding: var(--s4) 0;
+}
+
+.contents-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.contents-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--fg);
+}
+
+.contents-summary {
+  margin-top: var(--s1);
+  font-size: 13px;
+  color: var(--fg-muted);
+  max-width: 60ch;
+}
+
+.contents-pages {
+  list-style: none;
+  margin-top: var(--s3);
+  padding: 0;
+}
+
+.contents-pages li + li {
+  margin-top: 1px;
+}
+
+.contents-pages a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 13.5px;
+  color: var(--fg-muted);
+  border-bottom: 0;
+  transition: color 0.12s linear;
+}
+
+.contents-pages a:hover {
+  color: var(--fg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Prose corrections                                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * An empty table header row.
+ *
+ * `| | |` followed by `| Minecraft | 1.21.1 |` is how a two-column key/value table has to be written
+ * in markdown -- GFM requires a header -- and it renders two sunken bold cells with nothing in them.
+ * Collapsing them removes the row entirely while keeping the columns, which is what the author meant.
+ */
+.prose thead th:empty {
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+}
+
+/*
+ * Markdown tables are inside the prose measure, but a table with five columns of paths needs the
+ * room. This lets one scroll sideways rather than forcing the whole page wide.
+ */
+.prose table {
+  display: block;
+  overflow-x: auto;
+  white-space: normal;
+}
+
+.prose table thead,
+.prose table tbody {
+  display: table;
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .docs-nav {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .docs-nav-next {
+    border-left: 0;
+    text-align: left;
+  }
+  .tabs-list {
+    overflow-x: auto;
+  }
+  .step {
+    padding-left: var(--s5);
+  }
+}

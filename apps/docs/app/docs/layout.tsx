@@ -1,0 +1,60 @@
+import type { ReactNode } from 'react';
+
+import '../docs.css';
+import { source } from '@/lib/source';
+import manifest from '@/manifest.json';
+
+/**
+ * The documentation shell: a fixed navigation rail on the left, everything else inside it.
+ *
+ * **Two columns here, three on a page.** This layout owns the section nav and nothing else; the page
+ * inside decides whether it also wants a contents rail. Putting the third column here would give every
+ * page a rail whether it had contents or not.
+ *
+ * The sections come from the manifest rather than from the folder tree, so a mod's name and its order
+ * are read from the one place they are written down. A mod with no synced pages does not appear — the
+ * filter is on what actually built, not on what was intended.
+ *
+ * There is no home link and no "Docs" heading in the rail. The masthead already carries both: the
+ * wordmark goes to the site root and the Docs cell goes to the index. Repeating them here was two
+ * links back to places the reader had just come from.
+ */
+export default function DocsLayout({ children }: { children: ReactNode }) {
+  const pages = source.getPages();
+
+  const sections = manifest.suite
+    .filter((mod) => pages.some((page) => page.slugs[0] === mod.id))
+    .map((mod) => ({
+      id: mod.id,
+      name: mod.name,
+      pages: pages
+        .filter((page) => page.slugs[0] === mod.id)
+        .sort((a, b) => a.slugs.length - b.slugs.length || a.url.localeCompare(b.url)),
+    }));
+
+  return (
+    <div className="docs">
+      <aside className="sidebar">
+        {sections.map((section) => (
+          <div className="sidebar-section" key={section.id}>
+            <span className="label">{section.name}</span>
+            <ul>
+              {section.pages.map((page) => (
+                <li key={page.url}>
+                  {/* The section's own front page is called "Overview" in the rail rather than by its
+                      page title. It sits under a label that already names the mod, so "Tasked" above
+                      "Tasked documentation" says the same thing twice. The page's own heading is
+                      untouched -- that one is read on its own and needs the full name. */}
+                  <a href={page.url}>
+                    {page.slugs.length === 1 ? 'Overview' : (page.data.title ?? page.slugs.at(-1))}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </aside>
+      <div className="docs-body">{children}</div>
+    </div>
+  );
+}

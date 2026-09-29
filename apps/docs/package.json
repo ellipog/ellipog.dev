@@ -1,0 +1,22 @@
+{
+  "name": "@ellipog/docs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@types/mdx": "^2.0.14",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "fumadocs-core": "^16.15.17",
+    "fumadocs-mdx": "^15.4.5",
+    "next": "^16.3.7",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
+  }
+}

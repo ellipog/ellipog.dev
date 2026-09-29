@@ -1,0 +1,996 @@
+/*
+ * The design language, in one file.
+ *
+ * "Technical grid minimalism / exposed devtool aesthetic": the structure of the page IS the
+ * decoration. No cards, no shadows, no rounded corners -- every surface is a rectangle meeting the
+ * next one at a 1px line. If you want a shadow, the answer is a line. If you want a gradient, the
+ * answer is a grid.
+ *
+ * Four rules exist because the style fails without them:
+ *
+ * 1. THE HAIRLINE HAS A CONTRAST FLOOR. `--line` is #E4E4E7, not the near-invisible grey the style
+ *    invites. A hairline that reads as a "subtle border" on a retina display disappears on a 1080p
+ *    panel at 100% zoom, and a grid you cannot see is not a grid -- it is a page with nothing on it.
+ *
+ * 2. LINES ARE DRAWN ONCE, BY THE ELEMENT THAT OWNS THE EDGE. A grid of cells each drawing all four
+ *    borders produces 2px seams where they meet, which is the most common way this style is got
+ *    wrong. `.grid` draws top and left; each cell draws right and bottom. So every interior line is
+ *    exactly one pixel and belongs to exactly one element.
+ *
+ * 3. COLOUR IS EARNED. The palette is paper and ink, one green for liveness, and nothing else. Hover
+ *    inverts rather than tints -- an inversion is structure, a tint is decoration.
+ *
+ * 4. THE SCROLLBAR IS DRAWN, NOT INHERITED. It is the last piece of furniture on the page that is
+ *    not ours, and a grey bevelled trough with arrow buttons is a different design language. Leaving
+ *    it default would be the one place the aesthetic stops, so it is redrawn as a hairline track with
+ *    an ink fill -- the same construction as the grids and the stats band.
+ *
+ * Every rule in here is used by a component. An unused rule is deleted rather than kept "in case",
+ * which is why there is no `.card`, no `.btn` and no `.stat`: those belong to a different design.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Tokens                                                              */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /* Paper. Two values and a hover. */
+  --bg: #ffffff;
+  --bg-sunken: #fafafa;
+
+  /* Ink, in three weights of presence. */
+  --fg: #09090b;
+  --fg-muted: #52525b;
+  --fg-faint: #a1a1aa;
+
+  /* The hairline, and the one place a heavier line is allowed. */
+  --line: #e4e4e7;
+  --line-ink: #09090b;
+
+  /* The blueprint backdrop behind the hero. Faint enough to read as texture, present enough that
+     the eye finds the structure. Too faint and the whole conceit is lost. */
+  --grid-line: rgba(9, 9, 11, 0.06);
+
+  /* The one colour that is not paper or ink: a liveness marker. Used twice on the whole site. */
+  --live: #16a34a;
+
+  /* The inversion, for hover. Set as a pair so a component never has to know which theme it is in. */
+  --inv-bg: #09090b;
+  --inv-fg: #ffffff;
+  --inv-line: rgba(255, 255, 255, 0.22);
+  --inv-faint: rgba(255, 255, 255, 0.6);
+
+  /* No radius, stated rather than omitted so a component that adds one is visibly departing. */
+  --radius: 0;
+
+  /* The right-hand contents rail. Narrower than the left: page headings are shorter than mod names. */
+  --rail-right: 200px;
+
+  /* The one red on the site, and it means one thing: this loses data or breaks a world. */
+  --danger: #b91c1c;
+
+  /* System stacks deliberately: no build-time font fetch, so the build works offline and there is
+     nothing to fail on a machine without the CDN. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas,
+    "Liberation Mono", monospace;
+
+  /* A compact scale. Density is the point -- generous spacing reads as marketing, not as a tool. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+  --s9: 96px;
+
+  --measure: 68ch;
+  --page: 1200px;
+  --rail: 232px;
+}
+
+[data-theme="dark"] {
+  --bg: #09090b;
+  --bg-sunken: #0e0e11;
+
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --fg-faint: #52525b;
+
+  --line: #26262a;
+  --line-ink: #fafafa;
+
+  --danger: #ef4444;
+
+  --grid-line: rgba(250, 250, 250, 0.05);
+
+  --live: #22c55e;
+
+  --inv-bg: #fafafa;
+  --inv-fg: #09090b;
+  --inv-line: rgba(9, 9, 11, 0.22);
+  --inv-faint: rgba(9, 9, 11, 0.6);
+}
+
+/* ------------------------------------------------------------------ */
+/* Reset                                                               */
+/* ------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* The scrollbar                                                       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The scrollbar, drawn as a progress indicator rather than left as OS chrome.
+ *
+ * Two options here, and this is the one taken:
+ *
+ *   - Hide it. `scrollbar-width: none` and the chrome is gone entirely. But that also removes the
+ *     only affordance that says a long page continues past the fold, and on a site whose premise is
+ *     that every edge is visible, hiding the scroll position is arguing against itself.
+ *   - Redraw it. A hairline track with a solid ink fill, which is the same construction as the grids
+ *     and the stats band. The bar then says something true: how far through the document you are.
+ *
+ * On macOS and iOS, "show scrollbars: when scrolling" draws an overlay scrollbar and ignores every
+ * rule below. Nothing can be done about that and nothing needs to be: an overlay scrollbar is
+ * already minimal, and it fades out on its own.
+ */
+
+html {
+  /*
+   * Reserve the gutter whether or not this particular page scrolls.
+   *
+   * The shell is centred with a max width, so a scrollbar arriving when a page grows past the fold
+   * shifts everything sideways by half its width -- a visible jump when moving between a short page
+   * and a long one. Reserving the space always removes the jump, and the reserved strip is paper
+   * coloured, so it is invisible.
+   *
+   * Safe unguarded: this conflicts with nothing below. The colouring and width properties do, which
+   * is what the `@supports` immediately after is for.
+   */
+  scrollbar-gutter: stable;
+}
+
+/*
+ * The standard scrollbar properties, scoped to Gecko.
+ *
+ * `-moz-appearance` is the discriminator: Firefox answers true, every other engine false.
+ *
+ * The scoping is not tidiness, it is the fix, and getting it wrong cost most of an afternoon. Measured
+ * on Chromium 154 against a 160px box, where the reserve is the layout width the bar costs:
+ *
+ *   neither property set ................ 15px, the engine's untouched default
+ *   both set, no `::-webkit-scrollbar` .. 10px, Chromium's own bar
+ *   both set AND the WebKit rules ....... 10px, demonstrably identical
+ *   WebKit rules alone, nothing set ..... 11px, the design below
+ *
+ * That third row is the whole problem. Chromium 121+ understands `scrollbar-width` and
+ * `scrollbar-color`, and setting either makes it **discard every `::-webkit-scrollbar` rule** and draw
+ * its own bar instead. So having them on `html` put a stock grey scrollbar -- rounded, not inset, no
+ * hairline track, arrow buttons restored -- on a page built entirely from hairlines, and left all
+ * eight rules below as dead code. Which is exactly what it looked like, and why editing the WebKit
+ * rules changed nothing at all.
+ *
+ * `scrollbar-width: thin` is not optional alongside the colours, either: Gecko ignores
+ * `scrollbar-color` at the default width, so setting one without the other does nothing.
+ */
+@supports (-moz-appearance: none) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--fg-faint) transparent;
+  }
+}
+
+/* Every scrollbar on the page, and there is only ever the page's own. */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+  background: transparent;
+}
+
+/*
+ * No arrow buttons, ever.
+ *
+ * Windows can draw stepper arrows at the ends of a scrollbar. They are the most dated thing a
+ * scrollbar can have, and `display: none` together with a zero size is the only way to be sure.
+ */
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/*
+ * The unfilled track: one hairline down the left edge, so the whole extent of the document is visible
+ * as an empty bar behind the fill. That hairline is what makes this read as a progress indicator
+ * rather than as a plain slider, and it is the same 1px the rest of the design is built from.
+ */
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-left: 1px solid var(--line);
+}
+
+/*
+ * The fill.
+ *
+ * `background-clip: content-box` with a transparent border is how a scrollbar is inset -- there is no
+ * padding to reach for here -- and the 3px border keeps the bar off both the window edge and the
+ * track's own hairline. Square corners, like everything else on the page.
+ *
+ * Faint at rest, ink on hover. The bar is furniture and should not compete with the content until
+ * you reach for it.
+ */
+::-webkit-scrollbar-thumb {
+  background-color: var(--fg-faint);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--fg);
+}
+
+/* Where the two bars meet. Left alone this is the one opaque rectangle on the page. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Type primitives                                                     */
+/* ------------------------------------------------------------------ */
+
+/* Anything that is an identifier -- a mod id, a path, a version, a field name -- is monospace. This
+   is the one typographic rule the whole aesthetic rests on: prose is sans, machine names are not,
+   and the difference is visible at a glance without a colour or a chip. */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  font-feature-settings: "calt" 0;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.muted {
+  color: var(--fg-muted);
+}
+
+.faint {
+  color: var(--fg-faint);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+}
+
+/* ------------------------------------------------------------------ */
+/* Layout                                                              */
+/* ------------------------------------------------------------------ */
+
+.shell {
+  max-width: var(--page);
+  margin: 0 auto;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+.masthead {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+}
+
+.masthead > * {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  gap: var(--s2);
+  padding: 0 var(--s4);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-size: 15px;
+}
+
+/* The mark: a filled square. The whole identity is one geometric primitive, and it stays as the
+   fallback when no avatar was fetched. */
+.brand .dot {
+  width: 9px;
+  height: 9px;
+  background: var(--fg);
+  display: inline-block;
+  flex: none;
+}
+
+/*
+ * The avatar, beside the name it belongs to.
+ *
+ * Square, not round: the whole design is rectangles meeting at right angles and a circle would be the
+ * only curve on the page. 22px against a 56px masthead leaves the mark the same visual weight as the
+ * wordmark next to it, and `object-fit` keeps a non-square picture from stretching.
+ */
+.avatar {
+  width: 22px;
+  height: 22px;
+  display: block;
+  flex: none;
+  object-fit: cover;
+  background: var(--bg-sunken);
+}
+
+.masthead nav {
+  gap: 0;
+}
+
+/*
+ * One border, on one edge, for a link and a button alike.
+ *
+ * `border: 0` is not redundant with the `border-left` beneath it. A `<button>` carries a UA border on
+ * all four sides; an `<a>` carries none. Without the reset the theme toggle renders as a boxed control
+ * sitting in the middle of a row of plain cells, which is exactly what it did. The left edge is then
+ * supplied explicitly so the row's vertical rule stays continuous across the toggle.
+ */
+.masthead nav a,
+.masthead nav button {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--s4);
+  border: 0;
+  border-left: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  transition: background-color 0.12s linear, color 0.12s linear;
+  background: none;
+  cursor: pointer;
+}
+
+.masthead nav a:hover,
+.masthead nav button:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+/* A liveness marker: the only green on the site, and it means "this is where the code is". */
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live);
+  display: inline-block;
+  margin-right: 7px;
+  flex: none;
+}
+
+.band {
+  border-bottom: 1px solid var(--line);
+}
+
+.band-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------------ */
+/* Hero                                                                */
+/* ------------------------------------------------------------------ */
+
+.hero {
+  position: relative;
+  padding: var(--s9) var(--s4) var(--s8);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+/*
+ * The blueprint backdrop. This is the one place a gradient appears, and it is not a gradient --
+ * it is two repeating 1px lines, which is the aesthetic's own subject rendered as texture. Masked
+ * on an ellipse so it reads as a grid receding, not as a tiled background image.
+ *
+ * No solid plateau: `#000 20%, transparent 72%` was the first version, and 20% of a 944px radius is
+ * a 189px fully-opaque disc, which ends on an arc. The texture stopped at a visible curve about a
+ * third of the way across rather than dispersing. Fading from 0 gives the falloff it needs.
+ */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 90% at 12% 0%, #000 0%, transparent 68%);
+  mask-image: radial-gradient(ellipse 80% 90% at 12% 0%, #000 0%, transparent 68%);
+  pointer-events: none;
+}
+
+.hero > * {
+  position: relative;
+}
+
+.hero h1 {
+  font-size: clamp(30px, 4.6vw, 52px);
+  letter-spacing: -0.04em;
+  line-height: 1.06;
+  margin-top: var(--s4);
+  max-width: 20ch;
+  text-wrap: balance;
+}
+
+.hero .sub {
+  margin-top: var(--s5);
+  max-width: 52ch;
+  color: var(--fg-muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+/* ------------------------------------------------------------------ */
+/* The grid -- the one component the aesthetic is built around          */
+/* ------------------------------------------------------------------ */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.grid > * {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: var(--s4);
+  min-width: 0;
+  display: block;
+}
+
+.grid-filler {
+  padding: 0;
+}
+
+/* Hover inverts. An inversion says "this is a surface you can act on" without a tint, a shadow or a
+   lift -- all of which would break the flatness the whole style depends on. */
+a.grid-cell {
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.12s linear, color 0.12s linear;
+}
+
+a.grid-cell:hover {
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+}
+
+a.grid-cell:hover .summary,
+a.grid-cell:hover .meta {
+  color: var(--inv-faint);
+}
+
+a.grid-cell:hover .meta {
+  border-top-color: var(--inv-line);
+}
+
+a.grid-cell:hover .kind,
+a.grid-cell:hover .cell-index {
+  color: var(--inv-faint);
+}
+
+/* ------------------------------------------------------------------ */
+/* Cell                                                                */
+/* ------------------------------------------------------------------ */
+
+.pub-cell {
+  gap: var(--s2);
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cell header: a version or kind on the left, loaders on the right. */
+.cell-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+}
+
+.cell-index {
+  color: var(--fg-faint);
+}
+
+.kind {
+  color: var(--fg-faint);
+  text-transform: uppercase;
+}
+
+.pub-cell .name {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-top: var(--s1);
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.pub-cell .summary {
+  color: var(--fg-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  flex: 1;
+}
+
+.pub-cell:not(a) .name {
+  color: var(--fg-muted);
+}
+
+.pub-cell .meta {
+  display: flex;
+  gap: var(--s3);
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding-top: var(--s3);
+  margin-top: var(--s2);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-faint);
+  letter-spacing: 0.04em;
+}
+
+/* The download line in a released cell. Ink for the figure, faint for the word after it, so the eye
+   lands on the count rather than on "downloads". */
+.nums {
+  color: var(--fg);
+}
+
+.nums b {
+  font-weight: 600;
+}
+
+a.grid-cell:hover .nums {
+  color: var(--inv-fg);
+}
+
+/* The one big number on the page, set beside its label. */
+.hero-total {
+  margin-top: var(--s6);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  width: fit-content;
+}
+
+.hero-total b {
+  font-family: var(--font-mono);
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.hero-total span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+/* ------------------------------------------------------------------ */
+/* Elsewhere                                                           */
+/* ------------------------------------------------------------------ */
+
+.about {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.about > * {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: var(--s5) var(--s4);
+  min-width: 0;
+}
+
+.about p {
+  color: var(--fg-muted);
+  max-width: 52ch;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.about p + p {
+  margin-top: var(--s3);
+}
+
+/* Profile rows: label left, handle right, monospace, hairline separated. */
+.links {
+  display: flex;
+  flex-direction: column;
+}
+
+.links a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--line);
+  transition: color 0.12s linear;
+}
+
+.links a:first-child {
+  padding-top: 0;
+}
+
+.links a:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.links a:hover {
+  color: var(--fg);
+}
+
+.links .link-label {
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.links .link-handle {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-faint);
+}
+
+.links a:hover .link-handle {
+  color: var(--fg-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Prose -- rendered markdown                                          */
+/* ------------------------------------------------------------------ */
+
+.prose {
+  max-width: var(--measure);
+}
+
+.prose > * + * {
+  margin-top: var(--s3);
+}
+
+.prose h1 {
+  font-size: 24px;
+  letter-spacing: -0.03em;
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
+  margin-top: var(--s5);
+}
+
+.prose h2 {
+  font-size: 17px;
+  margin-top: var(--s6);
+  padding-bottom: var(--s1);
+  border-bottom: 1px solid var(--line);
+}
+
+.prose h3 {
+  font-size: 14px;
+  margin-top: var(--s5);
+}
+
+.prose p,
+.prose li {
+  color: var(--fg-muted);
+}
+
+.prose strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.prose a {
+  color: var(--fg);
+  border-bottom: 1px solid var(--line-ink);
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  padding: 1px 4px;
+}
+
+.prose pre {
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  padding: var(--s3);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: var(--s5);
+}
+
+.prose blockquote {
+  border-left: 2px solid var(--line-ink);
+  padding-left: var(--s3);
+  color: var(--fg-muted);
+}
+
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid var(--line);
+  padding: var(--s2) var(--s3);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  background: var(--bg-sunken);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Docs                                                                */
+/* ------------------------------------------------------------------ */
+
+.docs {
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  flex: 1;
+  align-items: stretch;
+}
+
+.sidebar {
+  border-right: 1px solid var(--line);
+  padding: var(--s5) 0;
+}
+
+.sidebar-section {
+  padding: var(--s2) var(--s4) var(--s4);
+}
+
+.sidebar-section ul {
+  list-style: none;
+  margin-top: var(--s2);
+}
+
+.sidebar-section li a {
+  display: block;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--fg-muted);
+  transition: color 0.1s linear;
+}
+
+.sidebar-section li a:hover {
+  color: var(--fg);
+}
+
+.docs-body {
+  padding: var(--s7) var(--s6);
+  min-width: 0;
+}
+
+.lede {
+  margin-top: var(--s2);
+  padding-bottom: var(--s4);
+  border-bottom: 1px solid var(--line);
+  max-width: var(--measure);
+}
+
+/*
+ * Next's dev-tools badge is switched off in next.config.mjs (`devIndicators: false`), not here.
+ *
+ * The tempting line is `nextjs-portal { display: none !important; }` -- the badge lives in a shadow
+ * root inside that element, so it does remove the badge. It also removes the error overlay, and a
+ * stylesheet cannot reach into a shadow root to hide one and keep the other. The config key turns off
+ * the badge alone, which is why it is the right tool despite being further away.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Footer                                                              */
+/* ------------------------------------------------------------------ */
+
+.footer {
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: var(--s4);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+  margin-top: auto;
+}
+
+.footer > * {
+  padding: var(--s4);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.footer nav {
+  padding: 0;
+  gap: 0;
+}
+
+.footer nav a {
+  padding: 0 var(--s4);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-left: 1px solid var(--line);
+  transition: background-color 0.12s linear, color 0.12s linear;
+}
+
+.footer nav a:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Narrow screens                                                      */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+  .about {
+    grid-template-columns: 1fr;
+  }
+  .hero {
+    padding: var(--s8) var(--s4) var(--s7);
+  }
+}
+
+@media (max-width: 700px) {
+  .shell {
+    border-left: 0;
+    border-right: 0;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .grid-filler {
+    display: none;
+  }
+  .masthead nav a,
+  .masthead nav button {
+    padding: 0 var(--s3);
+  }
+  .masthead .nav-secondary {
+    display: none;
+  }
+  .docs {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .docs-body {
+    padding: var(--s5) var(--s4);
+  }
+  .footer {
+    flex-direction: column;
+  }
+  .footer nav a {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding: var(--s3) var(--s4);
+  }
+}
