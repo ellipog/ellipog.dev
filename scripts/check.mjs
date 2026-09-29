@@ -147,6 +147,20 @@ if (existsSync(SHOWCASE)) {
   check('the rail lists nested headings', html.includes('toc-nested'));
   // Nothing is active until the reader scrolls, so a server-rendered marker would be a lie.
   check('no section is marked current before scrolling', !html.includes('aria-current="location"'));
+
+  /*
+   * Every contents link must point at a heading that exists on the page.
+   *
+   * The rail's hrefs are computed from the markdown source while the heading ids are assigned by
+   * Fumadocs' own remark plugin. Those are two implementations of the same slug rule, and if they
+   * ever disagree the rail looks perfect and does nothing. This is the check that would notice.
+   */
+  const links = [...html.matchAll(/class="toc"[\s\S]*?<\/nav>/g)]
+    .flatMap((block) => [...block[0].matchAll(/href="#([^"]+)"/g)])
+    .map((m) => m[1]);
+  const ids = new Set([...html.matchAll(/<h[23][^>]*id="([^"]+)"/g)].map((m) => m[1]));
+  const orphans = links.filter((link) => !ids.has(link));
+  check('every contents link has a heading', links.length > 0 && orphans.length === 0, `${links.length} link(s)` + (orphans.length ? `, orphans: ${orphans.join(', ')}` : ''));
 } else {
   console.log('  .   no design-preview page -- skipping the element assertions');
 }
@@ -171,10 +185,21 @@ if (taskedIndex) {
 const docsIndex = read(`${OUT}/docs/index.html`);
 if (docsIndex) {
   check('/docs/ renders the contents list', docsIndex.includes('class="contents"'));
-  check('/docs/ lists Tasked', docsIndex.includes('>Tasked<'));
-  check('/docs/ lists Armature', docsIndex.includes('>Armature<'));
-  // The list is generated from what synced, so a page that does not exist cannot be in it.
-  check('/docs/ does not list a page that is not there', !docsIndex.includes('design-preview'));
+
+  /*
+   * Scoped to the contents block, and matched loosely.
+   *
+   * The titles are checked inside the block rather than across the whole document, because "Tasked"
+   * appears in the masthead, the sidebar and the prose -- an unscoped `includes` would pass even if
+   * the contents list were empty. And the match is on the bare title rather than on `>Title<`, because
+   * React inserts a comment between a text node and the element beside it, so the rendered markup is
+   * `Tasked documentation<!-- --><span class="arrow">` and no such pattern exists.
+   */
+  const from = docsIndex.indexOf('class="contents"');
+  const contents = from === -1 ? '' : docsIndex.slice(from, docsIndex.indexOf('</article>', from));
+  for (const title of ['Tasked documentation', 'Design preview', 'Armature documentation']) {
+    check(`/docs/ lists "${title}"`, contents.includes(title));
+  }
 }
 
 console.log('\n== the README is not documentation ==');

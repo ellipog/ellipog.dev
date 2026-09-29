@@ -35,13 +35,21 @@ export function sectionOf(slugs: string[]): SuiteMod | undefined {
  * applies to a page has no `toc` field, so the table of contents is computed and then dropped before
  * anything can read it. The file is still on disk under `content/`, so this reads that and asks
  * Fumadocs to derive the contents from it -- the same code path that assigns the heading ids in the
- * first place, which is what guarantees the links match the headings.
+ * first place, which is what keeps the links and the headings in agreement.
  *
- * Returns an empty list rather than throwing when the file is missing: a page with no contents rail
- * is a smaller failure than a page that will not build.
+ * **A section's front page is `index.mdx`, not `<slug>.mdx`.** `/docs/tasked/` has slugs `['tasked']`,
+ * which naively resolves to `tasked.mdx` -- a file that does not exist. This cost a silent failure:
+ * every section landing page got an empty contents list and therefore no rail, while every ordinary
+ * page worked, so it looked like a styling rule rather than a path bug. The fallback is the same
+ * resolution Fumadocs does internally.
+ *
+ * Returns an empty list rather than throwing when nothing is found: a page with no contents rail is a
+ * smaller failure than a page that will not build.
  */
 export function tocOf(slugs: string[]): TOCItemType[] {
-  const file = join(process.cwd(), 'content', 'docs', ...slugs) + '.mdx';
+  const base = join(process.cwd(), 'content', 'docs', ...slugs);
+  const file = existsSync(`${base}.mdx`) ? `${base}.mdx` : join(base, 'index.mdx');
+
   let raw: string;
   try {
     if (!existsSync(file)) return [];

@@ -1,6 +1,7 @@
 import manifest from '@/manifest.json';
 import stats from '@/stats.json';
 import { Arrow } from '@/components/arrow';
+import { source } from '@/lib/source';
 
 type SuiteMod = {
   id: string;
@@ -30,6 +31,16 @@ type StatsFile = {
 
 const s = stats as StatsFile;
 const n = (v: number) => v.toLocaleString('en-US');
+
+/**
+ * Which mods actually have documentation.
+ *
+ * **Derived from what was synced, not from `status: "active"`.** A mod that is active but has no
+ * `docs/` folder produces no pages, and linking its catalog cell to `/docs/<id>/` would be a 404 --
+ * a link that looks like a destination and is not one. Reading the built pages makes the cell and the
+ * site agree by construction: if there is nothing to read, the cell is not a link.
+ */
+const documented = new Set(source.getPages().map((page) => page.slugs[0]));
 
 /**
  * One project's downloads across both platforms.
@@ -69,7 +80,7 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
       <p className="summary">{mod.summary}</p>
       <div className="meta">
         <span className="faint">{mod.status === 'active' ? 'in development' : 'planned'}</span>
-        {mod.status === 'active' ? (
+        {documented.has(mod.id) ? (
           <span className="faint">
             docs <Arrow />
           </span>
@@ -78,7 +89,7 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
     </>
   );
 
-  return mod.status === 'active' ? (
+  return documented.has(mod.id) ? (
     <a className="grid-cell pub-cell" href={`/docs/${mod.id}/`}>
       {body}
     </a>
