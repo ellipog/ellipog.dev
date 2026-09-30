@@ -400,6 +400,10 @@ main {
  * a dark one. `[data-theme='dark']` picks between them — the attribute the toggle sets, so there is no
  * JavaScript and no flash.
  *
+ * **It is used in two places, and that is deliberate**: the masthead, and the colophon at the foot of the
+ * page. Both are the studio's mark doing the studio's job, so both draw from this one pair rather than
+ * from a copy — which is the same argument that made the tab icon name these files too.
+ *
  * **The names describe the GROUND, and the studio's describe the INK.** The sources are `logo-mark.png`
  * (dark ink) and `logo-mark-light.png` (light ink), where `-light` means the mark *is* light. Renamed
  * here because "the mark shown on a light ground" is what the rule below has to say, and it is the
@@ -439,6 +443,31 @@ main {
 /* The other half of the pair above. `background-image` alone, so the shorthand's other properties stand. */
 [data-theme="dark"] .site-mark {
   background-image: url("/site/mark-on-dark.png");
+}
+
+/*
+ * THE MARK FOLLOWS THE GROUND IT IS STANDING ON, AND THE COLOPHON IS THE ONE PLACE THAT MOVES.
+ *
+ * Every other user of this class sits still: the masthead does not hover. The colophon's row is a link,
+ * and a link inverts on hover here — `--inv-bg` under `--inv-fg` — so the ground beneath the mark flips
+ * for the duration. A raster cannot follow that on its own: the ink is in the pixels, so the *file* has
+ * to change, which is exactly what `--icon-ground` does for the vector marks that have knockouts. This is
+ * the same move by a different mechanism.
+ *
+ * **Two rules rather than one, because the inversion goes in opposite directions in the two themes.** On
+ * a light page the hovered ground is near-black, so the mark must go light; on a dark page it is
+ * near-white, so it must go dark. A single rule would be right in one theme and wrong in the other, and
+ * wrong here means invisible rather than merely off — the ink and the ground would be the same colour.
+ *
+ * The second selector is more specific than the first and than `[data-theme='dark'] .site-mark`, which is
+ * what makes it win in the theme it is for. `check.mjs` asserts both halves, so a swap cannot pass.
+ */
+.colophon-link:hover .site-mark {
+  background-image: url("/site/mark-on-dark.png");
+}
+
+[data-theme="dark"] .colophon-link:hover .site-mark {
+  background-image: url("/site/mark-on-light.png");
 }
 
 .masthead nav {
@@ -1326,6 +1355,87 @@ a.grid-cell:hover .nums {
     width: 100%;
     padding-top: var(--s2);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* The colophon                                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The studio's signature: who presents this site, at the very foot of every page.
+ *
+ * **It is the last row, and it is deliberately below the sponsor band.** The band was given its own row
+ * so it would not read as part of the site's colophon, and it used to be the last thing on the page
+ * because nothing followed it. Now the page ends the way most printed work does — with the imprint —
+ * rather than on a paid row. Both facts stay true: the band is still its own band, and it is no longer
+ * the last word on the page.
+ *
+ * **One row, hairline-separated, and nothing else.** The structure is the one the "Elsewhere" rows
+ * already use — a name at the left, a handle pushed to the right — because it is the same kind of fact:
+ * a label, and where it points. No head strip, unlike the band above it, which needs one to carry the
+ * "Sponsored" label it is required to disclose.
+ *
+ * **`.footer` is still retired and this class is not it.** What was wrong with the old footer was its
+ * contents: it repeated the masthead's own links, which is why it read as furniture. `check.mjs` asserts
+ * the platform domains appear nowhere in this row, so the thing that was removed cannot come back under a
+ * new name.
+ */
+.colophon {
+  border-top: 1px solid var(--line);
+}
+
+/*
+ * A clickable surface, so it inverts on hover — the same rule the rest of the site follows, and the
+ * reason the mark inside it needs the pair of rules near `.site-mark`. Without those it would be a mark
+ * the same colour as the ground it had just flipped to.
+ */
+.colophon-link {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4);
+  transition: background-color 0.12s linear, color 0.12s linear;
+}
+
+.colophon-link:hover {
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+}
+
+/*
+ * The sentence, and the name in the prose face against the micro-label — the same construction as the
+ * band head's `Sponsored` + host, so the two rows at the foot of the page read as the same kind of thing
+ * even though one is paid and one is the site's own voice.
+ *
+ * `align-items: baseline` because the two halves are 11px and 14px, and centring them would sit the small
+ * caps off the line the eye is reading along.
+ */
+.colophon-label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* `margin-left: auto` rather than `justify-content: space-between`, so the gap stays put if the sentence
+   ever wraps — the domain stays at the end rather than the two halves spreading apart. */
+.colophon-domain {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--fg-faint);
+}
+
+/* The two faded halves of the inverted row, exactly as the band's offer and CTA do it. */
+.colophon-link:hover .label,
+.colophon-link:hover .colophon-domain {
+  color: var(--inv-faint);
 }
 
 /* ------------------------------------------------------------------ */

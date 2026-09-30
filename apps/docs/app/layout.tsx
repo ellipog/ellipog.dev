@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import './global.css';
+import { Colophon } from '@/components/colophon';
 import { SponsorBanner } from '@/components/sponsor';
 import { ThemeToggle } from '@/components/theme-toggle';
 import manifest from '@/manifest.json';
@@ -95,12 +96,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
           {children}
 
-          {/* Its own band, and now the last row on every page. There used to be a footer beneath it --
-              the domain, then the outbound links and Docs, which the masthead's own nav already carries
-              on every page and the catalog's "Elsewhere" band carries with a handle each. A row that
-              repeats a row is furniture, and a paid band's only job here is to not read as part of a
-              list the site keeps about itself. */}
+          {/* The host, and the studio's signature beneath it.
+
+              The band was given its own row so it would not read as part of the site's colophon, and it
+              used to be the last thing on the page because there was nothing else after it. The colophon
+              changes that for the better: the site now ends in its own voice rather than on a paid row,
+              and the band is no more part of the signature than it was part of the footer. Neither of
+              those is a row that repeats a row — which is the test the old footer failed. */}
           <SponsorBanner />
+          <Colophon />
         </div>
       </body>
     </html>

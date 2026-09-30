@@ -22,6 +22,12 @@
     "logoWidth": 123,
     "logoHeight": 41
   },
+  "/*studio": "Who presents this site, and the one thing the colophon row at the foot of every page says. It is here rather than in the component for the same reason the sponsor is: the wording is a site fact, so changing it is one edit and the page cannot drift from it. `label` is quoted verbatim; `url` is the link AND the domain shown beside it, derived rather than typed twice, so the two cannot disagree.",
+  "studio": {
+    "name": "aaen studios",
+    "label": "Presented by",
+    "url": "https://aaenz.no"
+  },
   "author": {
     "handle": "Ellipog",
     "bio": "I build Minecraft mods. A couple are in development now; the rest are already out.",

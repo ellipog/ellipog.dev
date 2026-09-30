@@ -178,6 +178,79 @@ function show(needle) {
   return at === -1 ? `"${needle}" absent` : allCss.slice(at, at + 120);
 }
 
+/*
+ * ASKING WHAT A SELECTOR RESOLVES TO, RATHER THAN WHAT THE SOURCE FILE LOOKS LIKE.
+ *
+ * This exists because a minifier is free to *merge* two rules that declare the same thing into one
+ * selector list, and lightningcss does exactly that. Two rules that both set `background-image` to the
+ * same file came out as:
+ *
+ *     [data-theme=dark] .site-mark,.colophon-link:hover .site-mark{background-image:url(...)}
+ *
+ * which is semantically identical and broke the assertion written before it, because that assertion
+ * wanted `]` immediately followed by `.site-mark{` and found a comma. **The check was wrong, not the
+ * CSS** — and the failure read as `"[data-theme=dark] .site-mark{" absent`, which is the kind of message
+ * that sends you looking at the stylesheet for a problem that is in the test.
+ *
+ * So these assertions ask the question that actually matters — "when this selector matches, what has been
+ * declared for it?" — and stay indifferent to how the rule was written. That is the same principle as
+ * everything else in this file: assert the artifact's meaning, never its formatting.
+ */
+
+/** `[data-theme="dark"]` and `[data-theme=dark]` are the same selector; quotes and spacing are not meaning. */
+const normaliseSelector = (selector) => selector.replace(/["']/g, '').replace(/\s+/g, ' ').trim();
+
+/**
+ * A stylesheet's top-level rules, as `[selectors, declarations]`.
+ *
+ * Brace counting rather than a flat `SELECTORS{DECLARATIONS}` pattern, because a flat pattern cannot tell
+ * a rule from the inside of an `@media` block — it reads a conditional rule as though it applied
+ * everywhere and reports success for something that only holds on a narrow screen. Tracking depth means
+ * only rules that apply unconditionally are returned, which is what the assertions built on this mean.
+ *
+ * An at-rule's body containing braces is therefore not itself a match for any selector, and the rules
+ * inside it are deliberately not returned. A mark whose base rule had been moved inside a media query
+ * would fail these checks, and it should: the mark would then be missing at every other width.
+ */
+function topLevelRules(css) {
+  const rules = [];
+  let depth = 0;
+  let selectorStart = 0;
+  let bodyStart = -1;
+
+  for (let i = 0; i < css.length; i++) {
+    const char = css[i];
+    if (char === '{') {
+      if (depth === 0) bodyStart = i + 1;
+      depth += 1;
+    } else if (char === '}') {
+      depth -= 1;
+      if (depth === 0 && bodyStart !== -1) {
+        rules.push([css.slice(selectorStart, bodyStart - 1), css.slice(bodyStart, i)]);
+        bodyStart = -1;
+      }
+      if (depth === 0) selectorStart = i + 1;
+    }
+  }
+
+  return rules;
+}
+
+/**
+ * Everything declared for one selector, however the minifier chose to write it.
+ *
+ * The selector list is split on commas, so a merged rule answers for each of its selectors — while a
+ * *descendant* like `.colophon-link:hover .site-mark` is one selector and cannot be mistaken for
+ * `.site-mark`. That distinction is the whole reason this is a split rather than a substring search.
+ */
+function declarationsFor(css, selector) {
+  const wanted = normaliseSelector(selector);
+  return topLevelRules(css)
+    .filter(([selectors]) => selectors.split(',').some((one) => normaliseSelector(one) === wanted))
+    .map(([, declarations]) => declarations)
+    .join(' ');
+}
+
 check('a stylesheet exists', css.length > 0, `${cssFiles.length} file(s)`);
 check('::-webkit-scrollbar sized', /::-webkit-scrollbar\{[^}]*width:11px/.test(css));
 check('::-webkit-scrollbar-button suppressed', /::-webkit-scrollbar-button\{[^}]*display:none/.test(css));
@@ -833,18 +906,115 @@ if (sponsor) {
    * nobody has looked at.
    */
   const sponsorAt = home.indexOf('class="sponsor"');
+  const colophonAt = home.indexOf('class="colophon"');
   check(
-    'the footer is gone',
+    'the redundant footer is still gone',
     !home.includes('class="footer"'),
-    home.includes('class="footer"') ? 'class="footer" is still in the markup' : 'no colophon row',
+    home.includes('class="footer"') ? 'class="footer" is back in the markup' : 'no repeating colophon row',
   );
   check(
-    'the band is the last thing on the page',
-    sponsorAt !== -1 && sponsorAt > home.indexOf('</main>') && !/<(nav|footer)\b/.test(home.slice(sponsorAt)),
-    sponsorAt === -1 ? 'no sponsor band found' : 'nothing below it',
+    'the band sits above the colophon, rather than being the last row itself',
+    sponsorAt !== -1 && colophonAt !== -1 && sponsorAt < colophonAt,
+    sponsorAt === -1 ? 'no sponsor band found' : colophonAt === -1 ? 'no colophon found' : 'band first',
   );
 } else {
   console.log('  .   no sponsor in the manifest -- skipping the sponsor assertions');
+}
+
+console.log('\n== the colophon, and why it is not the footer coming back ==');
+/*
+ * A ROW THAT REPEATS A ROW IS FURNITURE. THAT IS THE WHOLE TEST, AND IT IS ASSERTED DIRECTLY.
+ *
+ * The footer removed from this site said `ellipog.dev` and then repeated the two platform links and
+ * `Docs` — all of which the masthead's own nav already carries on every page, and two of which the
+ * catalog's "Elsewhere" band carries with a handle each. This row says something nothing else says: who
+ * publishes the site. So the assertion that keeps them apart is not "a footer exists" or "it does not" —
+ * it is that **the platform domains appear nowhere inside this row.** That is the specific thing that was
+ * wrong, and it is the specific thing a future edit would put back if it treated this as a footer to fill
+ * up.
+ *
+ * The rest is the usual shape for a link in a band: the wording matches the manifest so the page cannot
+ * drift from the data, the destination is the manifest's URL, and it opens away from the site.
+ */
+const studio = manifest.studio;
+
+if (studio) {
+  /*
+   * The visible row, not the raw file.
+   *
+   * Next serialises its whole render tree into a `<script>` at the end of `<body>`, so everything after
+   * the colophon in the *raw* bytes is a JSON copy of the page — including the masthead's own Modrinth and
+   * CurseForge hrefs. Slicing from the raw file would therefore fail the "does not repeat those links"
+   * assertion below on the strength of a string that exists only in the payload and never renders, which
+   * is the exact failure `withoutScripts` was written for.
+   */
+  const visible = withoutScripts(home ?? '');
+  const at = visible.indexOf('class="colophon"');
+  const colophon = at === -1 ? '' : visible.slice(at);
+  const docsWithColophon = read(`${OUT}/docs/tasked/index.html`) ?? '';
+
+  check('the colophon renders', at !== -1);
+  check('it says who presents the site', home.includes(studio.name), studio.name);
+  check('its wording matches the manifest', home.includes(studio.label), studio.label);
+  check('it links to the studio', home.includes(studio.url), studio.url);
+  check(
+    'the link opens away from the site',
+    /class="colophon-link"[^>]*target="_blank"/.test(home) &&
+      /class="colophon-link"[^>]*rel="noreferrer noopener"/.test(home),
+    'target=_blank and rel=noreferrer noopener',
+  );
+
+  /*
+   * THE ROW SHOWS THE DOMAIN AS WELL AS LINKING TO IT, so the host must appear exactly twice in it: once in
+   * the `href`, once as the visible text. A third copy is the thing being guarded against — a label typed
+   * beside the link instead of derived from it, which is two strings that can disagree and no way to tell
+   * from the page which one is right.
+   *
+   * A count rather than a substring, because a substring passes just as happily when the domain is written
+   * in both places. And a count rather than a `src` inspection, because what matters is the built HTML.
+   */
+  const host = studio.url.replace(/^https?:\/\//, '');
+  const hostHits = (colophon.match(new RegExp(host.replace(/[.]/g, '\\.'), 'g')) ?? []).length;
+  check('the domain is shown once, not typed twice', hostHits === 2, `${hostHits} occurrence(s): href + text`);
+
+  check(
+    'it does not repeat the links the removed footer repeated',
+    !/modrinth\.com|curseforge\.com/i.test(colophon),
+    'no platform links in the row',
+  );
+
+  /*
+   * The mark, and the one thing about it that is easy to get wrong.
+   *
+   * It is the same element the masthead uses, so it follows the theme with no second rule — and the row
+   * inverts on hover, which means the *file* has to change for the duration. A raster cannot follow an
+   * inverting ground by itself, and getting it wrong is invisible rather than merely off: the ink and the
+   * ground become the same colour. Both halves are asserted because a single rule would be right in one
+   * theme and wrong in the other.
+   */
+  check(
+    'the colophon carries the studio mark',
+    /class="colophon"[\s\S]{0,220}<span class="site-mark"/.test(visible),
+    'the same .site-mark as the masthead',
+  );
+  const hoverRule = declarationsFor(allCss, '.colophon-link:hover .site-mark');
+  const darkHoverRule = declarationsFor(allCss, '[data-theme="dark"] .colophon-link:hover .site-mark');
+
+  check(
+    'the mark goes light on the inverted ground, which is dark',
+    hoverRule.includes('mark-on-dark'),
+    hoverRule || 'no rule',
+  );
+  check(
+    'and back to dark ink in the dark theme, where the inversion is the other way round',
+    darkHoverRule.includes('mark-on-light'),
+    darkHoverRule || 'no rule',
+  );
+
+  // In the root layout, so every page carries it -- the same thing proved for the band above.
+  check('the colophon is on the docs pages too', docsWithColophon.includes('class="colophon"'));
+} else {
+  console.log('  .   no studio in the manifest -- skipping the colophon assertions');
 }
 
 console.log('\n== the left rail scrolls alone, and silently ==');
@@ -1157,33 +1327,25 @@ check('no page asks for it any more', !(home ?? '').includes('favicon.svg'), 'no
  * else in this repository, and a reader will want to know that it was decided rather than overlooked.
  */
 check(
-  'the mark is one styled span, not a pair of <img>s',
-  (withoutScripts(home ?? '').match(/<span class="site-mark"/g) ?? []).length === 1,
-  'a background image, switched by CSS',
+  'the mark is a styled span in both places, not <img>s',
+  (withoutScripts(home ?? '').match(/<span class="site-mark"/g) ?? []).length === 2,
+  'the masthead and the colophon',
 );
 check('no mark is loaded as an <img>', !/<img[^>]*site\//.test(home ?? ''));
 check(
   'both rules are in the built CSS',
   /site\/mark-on-light\.png/.test(allCss) && /site\/mark-on-dark\.png/.test(allCss),
 );
-check(
-  'the un-overridden rule is the one for a light ground',
-  /\.site-mark\{[^}]*mark-on-light/.test(allCss),
-  show('.site-mark{'),
-);
-check(
-  'the dark rule overrides it, rather than the other way round',
-  /\[data-theme=["']?dark["']?\]\s*\.site-mark\{[^}]*mark-on-dark/.test(allCss),
-  // The needle the *minifier* writes, not the one the source has: it strips the quotes off the attribute
-  // value, so a literal `[data-theme="dark"]` is absent from the built CSS and `show` would report "absent"
-  // for this rule whether it was there or not.
-  show('[data-theme=dark] .site-mark{'),
-);
+const baseRule = declarationsFor(allCss, '.site-mark');
+const darkRule = declarationsFor(allCss, '[data-theme="dark"] .site-mark');
+
+check('the un-overridden rule is the one for a light ground', baseRule.includes('mark-on-light'), baseRule || 'no rule');
+check('the dark rule overrides it, rather than the other way round', darkRule.includes('mark-on-dark'), darkRule || 'no rule');
 // Both dimensions, so the box is reserved before the image loads and nothing shifts under the name.
 check(
   'the mark box is reserved',
-  /\.site-mark\{[^}]*width:28px[^}]*height:28px/.test(allCss),
-  show('.site-mark{'),
+  /width:28px/.test(baseRule) && /height:28px/.test(baseRule),
+  baseRule || 'no rule',
 );
 
 /*

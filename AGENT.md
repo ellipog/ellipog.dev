@@ -55,7 +55,7 @@ and no fallback.
 | `apps/docs/content/` | gitignored | Generated. Wiped and rebuilt every build. |
 | `apps/docs/manifest.json` | gitignored | Copied from the root by `sync.mjs`. |
 | `apps/docs/stats.json` | gitignored | Download counts from both platform APIs, by `stats.mjs`. |
-| `apps/docs/public/site/*.png` | **committed** | The site's two marks, one per theme — **the tab icon and the masthead mark both draw from this pair**. Copied by hand from the studio repository; see below. |
+| `apps/docs/public/site/*.png` | **committed** | The site's two marks, one per theme — **the tab icon, the masthead mark and the colophon all draw from this pair**. Copied by hand from the studio repository; see below. |
 | `apps/docs/.source/`, `.next/`, `out/` | gitignored | Build output. |
 | `.cache/` | gitignored | Reserved for git checkouts of mod repositories. See the gap below. |
 
@@ -486,8 +486,13 @@ own facts, and there is no longer a list for it to sit in.
 **One consequence, stated rather than discovered later:** below 700px the masthead hides `.nav-secondary`,
 so the two platform links lived in that footer on a phone. They are now in the catalog's "Elsewhere" band,
 which is on the home page and not on a docs page — a docs page at that width carries its own per-mod
-`Source` and `Issues` row instead, which is the more relevant pair. See `check.mjs`, which asserts the band
-is the last thing on the page and that no `class="footer"` remains.
+`Source` and `Issues` row instead, which is the more relevant pair.
+
+**The band used to be the last thing on the page, and it no longer is.** The colophon below it — who
+presents the site — was added afterwards, and that is an improvement rather than a complication: the page
+now ends in the site's own voice instead of on a paid row, and the band is no more part of that signature
+than it was part of the footer. `check.mjs` asserts the band sits *above* the colophon, which is the
+relationship that matters, rather than that it is last.
 
 **The mark is inlined, and monochrome, and it used to be neither.**
 
@@ -602,10 +607,11 @@ that no icon reached the page as an `<img>`.
 
 ---
 
-## The site's own mark, and the two jobs it does
+## The site's own mark, and the three jobs it does
 
-The site's mark comes from `aaenz/public/assets/` — two PNGs, one per theme, and **both jobs on the site
-draw from the same pair**: the mark beside the wordmark, and the tab icon.
+The site's mark comes from `aaenz/public/assets/` — two PNGs, one per theme, and **three places on the site
+draw from the same pair**: the mark beside the wordmark, the colophon at the foot of every page, and the
+tab icon.
 
 | File here | Ink | Luminance | Is the mark for |
 |---|---|---|---|
@@ -707,8 +713,9 @@ What `check.mjs` proves is everything short of that:
 
 - both files are committed, and the build copied each through **unchanged** — the only thing standing
   between "the two repositories agree" and "they agreed the day this was written"
-- the masthead's two rules are in the built CSS, and the tab names both files with a `media` query each, in
-  the order that leaves the visible one as the fallback for a consumer that ignores `media`
+- the masthead's two rules are in the built CSS, the colophon's hover pair is too, and the tab names both
+  files with a `media` query each, in the order that leaves the visible one as the fallback for a consumer
+  that ignores `media`
 - nothing is left at `/favicon.svg`, which a browser asks for by itself — a leftover there would win the
   tab in some browsers and lose it in others, depending on the reader
 - the geometry: both marks are one size, draw the same shape in the same place, and neither carries a plate
@@ -729,7 +736,52 @@ never "the glyph is these bytes".
 
 ---
 
-## Where the docs come from: a pin, not a folder
+## The colophon, and why it is not the footer coming back
+
+The last row on every page: the studio's mark, `PRESENTED BY aaen studios`, and the domain at the far end,
+all one link to `aaenz.no`. It lives in `manifest.json` under `studio` — `label`, `name` and `url`, with
+the domain shown on the page **derived from the URL** so the two cannot disagree — and
+`components/colophon.tsx` renders it.
+
+**It is below the sponsor band, which is a change in the band's role rather than in the colophon's.** The
+band was placed so it would not read as part of the site's own colophon, and it used to be the last thing
+on the page because nothing followed it. Now the site signs off in its own voice and the band is second
+from the bottom. Neither fact is weakened: the band is still its own band, and a paid row is no longer the
+last word on any page. `check.mjs` asserts the band sits *above* the colophon.
+
+**THE TEST FOR A ROW LIKE THIS IS ONE SENTENCE: does it say anything the page does not already say
+somewhere else?** The footer removed from this site failed that — it repeated the masthead's own links,
+which is why it read as furniture. This row passes it, and the assertion enforces the test directly rather
+than by inspecting shape: **the platform domains must appear nowhere inside it.** That is the specific
+thing that was wrong with the footer, and the specific thing a future edit would put back if it treated
+this as a footer to fill up. The class is `.colophon` and never `.footer`, so the old name cannot quietly
+return either.
+
+**A `<footer>` element, while `.footer` stays retired.** The element is the right one — it is the page's
+footer and it forms the `contentinfo` landmark, so a screen reader can jump to it — and an `aria-label`
+names that landmark. What was wrong with the old row was its contents, not its semantics.
+
+### The mark in it follows the ground, and that needs two rules
+
+It renders the same `<span class="site-mark">` as the masthead, so it needs no rule of its own for the
+theme: `[data-theme='dark']` already switches the file. **The hover is where it gets interesting.** The row
+is a link, and a link inverts here rather than tinting — so the ground beneath the mark flips for the
+duration, and a raster cannot follow that on its own because its ink is in the pixels.
+
+That is the same problem `--icon-ground` solves for the vector marks, which have knockouts the page has to
+know the colour of. This is the same move by a different mechanism: the *file* changes.
+
+**Two rules rather than one, because the inversion goes in opposite directions in each theme.** On a light
+page the hovered ground is near-black, so the mark goes light; on a dark page it is near-white, so the mark
+goes dark. A single rule would be correct in one theme and wrong in the other — and wrong here means
+*invisible*, because the ink and the ground would be the same colour. Both halves are asserted, and the
+second selector is deliberately more specific than `[data-theme='dark'] .site-mark` so it wins where it
+should.
+
+**One thing this is not:** the mark in the masthead does not have this problem, because the masthead does
+not hover. If the brand link ever gains a hover inversion, it needs the same pair.
+
+
 
 Every active mod in `manifest.json` carries a `pin` — one commit SHA. `sync.mjs` reads the mod's docs
 from a `.cache/<mod>` checkout of that exact commit when the repository is not present beside this one,

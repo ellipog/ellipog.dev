@@ -39,7 +39,7 @@ will not work as written; see `AGENT.md`.
 ## Layout
 
     ellipog.dev/
-    ├── manifest.json          the author, the sponsor, the suite (with a pin each), releases
+    ├── manifest.json          the author, the studio, the sponsor, the suite (with a pin each), releases
     ├── glossary.json          terms defined once, referenced from any mod's docs
     ├── .github/workflows/     refresh-stats.yml, update-pins.yml
     ├── design/
@@ -64,6 +64,7 @@ will not work as written; see `AGENT.md`.
             ├── components/
             │   ├── mdx/       the elements a docs page can use
             │   ├── toc.tsx    the contents rail
+            │   ├── colophon.tsx  who presents the site, at the foot of every page
             │   ├── shuffled-number.tsx  the one animation on the site
             │   └── …
             ├── lib/           the Fumadocs source, and the docs helpers
