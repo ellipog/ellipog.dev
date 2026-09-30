@@ -55,8 +55,7 @@ and no fallback.
 | `apps/docs/content/` | gitignored | Generated. Wiped and rebuilt every build. |
 | `apps/docs/manifest.json` | gitignored | Copied from the root by `sync.mjs`. |
 | `apps/docs/stats.json` | gitignored | Download counts from both platform APIs, by `stats.mjs`. |
-| `apps/docs/public/favicon.svg` | **committed** | The tab icon. Copied by hand from the studio repository — see below. |
-| `apps/docs/public/site/*.png` | **committed** | The two masthead marks, one per theme. Copied by hand, for the same reason. |
+| `apps/docs/public/site/*.png` | **committed** | The site's two marks, one per theme — **the tab icon and the masthead mark both draw from this pair**. Copied by hand from the studio repository; see below. |
 | `apps/docs/.source/`, `.next/`, `out/` | gitignored | Build output. |
 | `.cache/` | gitignored | Reserved for git checkouts of mod repositories. See the gap below. |
 
@@ -603,9 +602,10 @@ that no icon reached the page as an `<img>`.
 
 ---
 
-## The site's own mark, and the two files it is made of
+## The site's own mark, and the two jobs it does
 
-The masthead's mark comes from `aaenz/public/assets/` — two PNGs, one per theme:
+The site's mark comes from `aaenz/public/assets/` — two PNGs, one per theme, and **both jobs on the site
+draw from the same pair**: the mark beside the wordmark, and the tab icon.
 
 | File here | Ink | Luminance | Is the mark for |
 |---|---|---|---|
@@ -647,8 +647,8 @@ had and the weight the wordmark beside it is cut to. Sizing the box to 22px woul
 
 **Neither file has a plate, and neither was given one by a transform.** They are exported on a transparent
 ground — all four corners fully transparent, which `check.mjs` asserts rather than assumes. That is worth
-noting because it is the one thing the two *SVG* marks here need handling for: the favicon and the host's
-logo are both drawn on a full-bleed tile, and there is a transform whose job is to strip exactly that. A
+noting because it is the one thing the *other* SVGs here need handling for: the host's logo and every one of
+the mod marks are drawn on a full-bleed tile, and there is a transform whose job is to strip exactly that. A
 file re-exported with its background baked in puts a rectangle of a second paper colour in the masthead,
 which reads as the page behind being slightly the wrong colour rather than as a mistake.
 
@@ -663,11 +663,40 @@ moves the file — but the arrangement was wrong for three other reasons, and ea
 | No dark variant | It was the only mark on the page that did not adapt, because a photograph cannot. |
 | It could *go missing* | A failed fetch produced a **different masthead**, silently, on that build only. Every other mark here is a committed file that cannot fail to download. |
 
-### These three copies have no guard, and they cannot have one
+### The tab icon is the same pair, and it got lighter
 
-`apps/docs/public/favicon.svg` and both files under `apps/docs/public/site/` are the same files as
-`aaenz/public/favicon.svg` and `aaenz/public/assets/logo-mark*.png`, byte for byte — **not** redrawn in the
-same spirit. Change one and change the other.
+`layout.tsx` names both files under `icons.icon`, each with a `media` query — `(prefers-color-scheme: light)`
+for the dark-ink file, `(prefers-color-scheme: dark)` for the light-ink one. **A favicon cannot read the
+`data-theme` attribute the masthead switches on**, so a media query is the only lever a `<link>` has. It is
+resolved before first paint, from the same OS preference the theme toggle falls back to.
+
+**It does not follow the toggle.** A reader who has overridden their OS preference gets a tab matching their
+OS and a page matching the toggle, and the two disagree. There is no fix — a `<link>` cannot be styled — so
+it is a small permanent inconsistency, stated here rather than left to be found as a bug.
+
+**The light-ground file is listed last, deliberately.** A consumer that ignores `media` — anything before
+Safari 15, and some crawlers — takes the last icon it can use, so the dark-ink file becomes the accidental
+default. The failure mode is a mark on the wrong ground rather than no mark at all, which is the one to
+prefer.
+
+**What that replaced, measured.** The file it replaces was `public/favicon.svg`: the *same drawing* — an eye
+over an A-frame — hand-built as an ellipse and two legs, with 2.4px strokes on a 64px viewBox and a
+`#f3f1ec` plate behind them. The studio's mark carries a median stroke of 21px on 879px. As a fraction of
+the box that is **3.75% against 2.39%**, so at a 16px tab the line goes from 0.6px to 0.38px — **about 1.6×
+finer, and sub-pixel** — with mean ink coverage of 6.7% either way.
+
+So on a 1x display the tab reads as a light grey glyph rather than a solid tile. At 32px — a 2x display,
+which is most of them — the drawing resolves cleanly. The shape was checked by rendering the alpha channel
+to ASCII at both sizes rather than by eye, because no screenshot in this session can produce a 16px favicon
+to look at. **The trade is one drawing for the tab and the masthead instead of two, at the cost of a thinner
+line in the tab.** The plate is no loss: every other mark on this site is drawn on whatever it stands on,
+so a plated favicon was the one that did not match.
+
+### These two copies have no guard, and they cannot have one
+
+`apps/docs/public/site/mark-on-light.png` and `mark-on-dark.png` are the same files as
+`aaenz/public/assets/logo-mark.png` and `logo-mark-light.png`, byte for byte — **not** redrawn in the same
+spirit. Change one and change the other.
 
 **They are the one arrangement on this site with no assertion behind them.** `aaenz` is a separate
 repository this build has no route into: there is nothing to regenerate them from and nothing to compare
@@ -676,9 +705,12 @@ this repository. These cannot.
 
 What `check.mjs` proves is everything short of that:
 
-- each file is committed, and the build copied it through **unchanged** — the only thing standing between
-  "the two repositories agree" and "they agreed the day this was written"
-- the tab icon is referenced by the pages, and the masthead's two rules are in the built CSS
+- both files are committed, and the build copied each through **unchanged** — the only thing standing
+  between "the two repositories agree" and "they agreed the day this was written"
+- the masthead's two rules are in the built CSS, and the tab names both files with a `media` query each, in
+  the order that leaves the visible one as the fallback for a consumer that ignores `media`
+- nothing is left at `/favicon.svg`, which a browser asks for by itself — a leftover there would win the
+  tab in some browsers and lose it in others, depending on the reader
 - the geometry: both marks are one size, draw the same shape in the same place, and neither carries a plate
 - **which ink each mark is drawn in**, which is the swap described above
 

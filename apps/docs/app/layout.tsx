@@ -11,31 +11,42 @@ export const metadata: Metadata = {
   description: 'Minecraft mods for Fabric and NeoForge — a UI library and a questing engine in development, plus earlier work.',
 
   /*
-   * The tab icon, and it is deliberately **not** one of the mod marks.
+   * The tab icon — the site's own identity, and deliberately **not** one of the mod marks.
    *
-   * A favicon is the *site's* identity, not any one mod's. The marks in `components/mod-icon.tsx` belong
-   * to the mods and appear beside their names, where a reader can tell which is which; a tab showing
-   * Armature's glyph while the reader is on Tasked's page would be saying something untrue.
+   * The marks in `components/mod-icon.tsx` belong to the mods and appear beside their names, where a
+   * reader can tell which is which; a tab showing Armature's glyph while the reader is on Tasked's page
+   * would be saying something untrue.
    *
-   * It is the same file as the studio site's, copied byte for byte from `aaenz/public/favicon.svg` — the
-   * same document at `apps/docs/public/favicon.svg`, not redrawn in the same spirit. **That copy is the
-   * one arrangement here with no guard, and it cannot be asserted away:** `aaenz` is a separate
-   * repository this build has no route into, so there is nothing to regenerate the file from and nothing
-   * to compare it against when both exist. What `check.mjs` can prove is that it is committed, that it
-   * ships, that the pages ask for it, and that the build copied it through unchanged — the last of which
-   * is the only thing standing between "the two sites agree" and "they agreed the day this was written".
-   * Change one and change the other.
+   * **It is the same pair of files the masthead draws from**, in `public/site/`, copied by hand from
+   * `aaenz/public/assets/`. There used to be a third file — `public/favicon.svg`, the same drawing
+   * hand-built with heavier strokes and a paper plate — and it is gone, because one mark with two jobs is
+   * one thing to keep in step instead of two.
    *
-   * `public/` rather than the `app/icon.svg` convention, because that is the arrangement `aaenz` already
-   * uses. The same file in the same place in both repositories is the one that can be diffed by eye, and
-   * the convention would additionally hash the URL, which is a worse thing to compare.
+   * **Two `media` queries rather than one file, because a favicon cannot use CSS.** The masthead's mark
+   * switches on `[data-theme='dark']`, which a `<link>` has no way to read; a media query is the only
+   * lever there is. It is resolved before first paint, from the same OS preference the theme toggle falls
+   * back to, so the tab gets the legible ink without a byte of script.
    *
-   * **The masthead's mark is a different pair of files from the same folder** — `public/site/`, copied by
-   * hand from `aaenz/public/assets/`. A tab icon wants a paper plate and a drawing simplified for 16px;
-   * the mark beside a wordmark wants neither. So this file is the tab's and those two are the masthead's,
-   * and all three are copies from the studio repository that no assertion here can reach back into.
+   * **It does not follow the toggle**, and it cannot: a reader who has overridden their OS preference gets
+   * a tab matching their OS and a page matching the toggle. A `<link>` cannot be styled, so there is no
+   * fix — the inconsistency is small and permanent, and AGENT.md records it rather than leaving it to be
+   * found.
+   *
+   * **The light-ground file is listed last, deliberately.** A consumer that ignores `media` — anything
+   * before Safari 15, and some crawlers — takes the last icon it can use, so the dark-ink file becomes the
+   * accidental default. The failure mode is a mark on the wrong ground rather than no mark at all, which
+   * is the one to prefer.
+   *
+   * What this costs is a thinner line: the file it replaces drew 2.4px strokes on a 64px viewBox, where
+   * this one's median stroke is 21px on 879px — 3.75% of the box against 2.39%. AGENT.md has the
+   * measurement, and the reason it was judged worth making.
    */
-  icons: { icon: '/favicon.svg' },
+  icons: {
+    icon: [
+      { url: '/site/mark-on-dark.png', type: 'image/png', media: '(prefers-color-scheme: dark)' },
+      { url: '/site/mark-on-light.png', type: 'image/png', media: '(prefers-color-scheme: light)' },
+    ],
+  },
 };
 
 /**

@@ -29,9 +29,9 @@
  * A READER, NOT A TRANSFORM
  *
  * Nothing here writes an image. The files are used exactly as the studio exports them, which is what
- * keeps the copies under `public/` diffable against that repository by eye — the same argument the
- * favicon copy rests on. So the crop that the 90px inset invites (see `.site-mark`) is deliberately not
- * taken: it would buy a tidier box size at the price of a file that is no longer the studio's.
+ * keeps the copies under `public/` diffable against that repository by eye — the same argument the rest of
+ * the studio's files here rest on. So the crop that the 90px inset invites (see `.site-mark`) is
+ * deliberately not taken: it would buy a tidier box size at the price of a file that is no longer theirs.
  *
  * WHAT IT SUPPORTS, AND WHAT IT REFUSES
  *

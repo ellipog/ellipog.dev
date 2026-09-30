@@ -193,9 +193,10 @@ function sum(map) {
  * with no dark variant, and it was the only one that could *go missing* — a failed fetch meant a
  * different masthead, silently, on that build only.
  *
- * The masthead mark is now derived from `public/favicon.svg` by `bun run site-mark`, and that file is
- * committed. A committed file cannot fail to download, so the failure mode is gone rather than handled,
- * and `MODRINTH_USER` below is back to doing exactly one job: naming the author in the Modrinth search.
+ * The mark is now two committed PNGs under `public/site/`, copied by hand from the studio repository and
+ * serving both the masthead and the tab icon. A committed file cannot fail to download, so the failure mode
+ * is gone rather than handled, and `MODRINTH_USER` below is back to doing exactly one job: naming the author
+ * in the Modrinth search.
  */
 
 async function main() {

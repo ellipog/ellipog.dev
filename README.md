@@ -68,7 +68,7 @@ will not work as written; see `AGENT.md`.
             │   └── …
             ├── lib/           the Fumadocs source, and the docs helpers
             ├── content/       GENERATED — gitignored
-            ├── public/        the favicon, the mod marks, the host's logo, the site mark
+            ├── public/        the site mark (tab + masthead), the mod marks, the host's logo
             └── out/           the static build
 
 ---

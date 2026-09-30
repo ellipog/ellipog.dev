@@ -990,34 +990,25 @@ for (const item of manifest.selected) {
 }
 check('totals sum', stats.totals.all === stats.totals.modrinth + stats.totals.curseforge);
 
-console.log('\n== the tab icon, and the two files the masthead mark is made of ==');
+console.log('\n== the site mark, and the two jobs it does ==');
 /*
  * THE IDENTITY HERE IS COPIED FROM ANOTHER REPOSITORY THIS BUILD CANNOT REACH.
  *
- * `favicon.svg` and the two marks under `site/` are the same files as `aaenz/public/favicon.svg` and
- * `aaenz/public/assets/logo-mark*.png`, byte for byte, and `aaenz` is a **separate checkout with no route
- * into it from here**. There is nothing to regenerate them from and nothing to compare them against, so
- * these copies are the one arrangement on this site with no guard behind them — and no assertion can
- * invent one. Change a file there and change it here.
+ * The two PNGs under `apps/docs/public/site/` are the same files as `aaenz/public/assets/logo-mark.png`
+ * and `logo-mark-light.png`, byte for byte, and `aaenz` is a **separate checkout with no route into it
+ * from here**. There is nothing to regenerate them from and nothing to compare them against, so these
+ * copies are the one arrangement on this site with no guard behind them — and no assertion can invent one.
+ * Change a file there and change it here.
  *
- * What CAN be asserted is everything short of that: that they are committed, that the build copied each
- * one through **unchanged** — the only thing standing between "the two repositories agree" and "they
- * agreed the day this was written" — that the pages reference them, and everything about the drawing that
- * is invisible when it is wrong. See the note below on the ink.
+ * **Both jobs on the site draw from this one pair**: the mark beside the wordmark, and the tab icon. There
+ * used to be a third file for the tab — `public/favicon.svg`, the same drawing at a heavier weight with a
+ * paper plate — and the assertions below are partly what keep it from coming back.
+ *
+ * What CAN be asserted is everything short of the copy itself: that both files are committed, that the
+ * build copied each through **unchanged** — the only thing standing between "the two repositories agree"
+ * and "they agreed the day this was written" — that both rules and both `<link>`s reference them, and
+ * everything about the drawing that is invisible when it is wrong. See the note below on the ink.
  */
-check('the favicon is committed', existsSync('apps/docs/public/favicon.svg'), 'apps/docs/public/favicon.svg');
-check('the favicon ships', existsSync(`${OUT}/favicon.svg`));
-check(
-  'the pages ask for it',
-  Boolean(home) && home.includes('rel="icon"') && home.includes('/favicon.svg'),
-  'a rel="icon" link pointing at /favicon.svg',
-);
-check(
-  'the build did not alter it',
-  existsSync('apps/docs/public/favicon.svg') &&
-    existsSync(`${OUT}/favicon.svg`) &&
-    readFileSync('apps/docs/public/favicon.svg', 'utf8') === readFileSync(`${OUT}/favicon.svg`, 'utf8'),
-);
 
 /*
  * THE MARK IS TWO HAND-SUPPLIED PNGs, AND THE THREE THINGS THAT MATTER ABOUT THEM ARE ALL INVISIBLE
@@ -1025,7 +1016,8 @@ check(
  *
  * `mark-on-light.png` is the studio's mark in dark ink, shown on a light ground; `mark-on-dark.png` is
  * the same drawing in light ink for the dark theme. `.site-mark` in `global.css` picks between them with
- * `[data-theme='dark']`, so one file is fetched per visitor and no JavaScript is involved.
+ * `[data-theme='dark']`, so one file is fetched per visitor and no JavaScript is involved — and the tab
+ * names both with a `media` query each, because a `<link>` cannot read that attribute.
  *
  *   - **A swap.** Dark ink on the dark ground is a mark the same colour as the page behind it. It does
  *     not read as broken; it reads as *absent*, and the natural response is to add a fallback for a mark
@@ -1101,6 +1093,55 @@ if (lightMark && darkMark) {
       readFileSync(MARK_ON_DARK).equals(readFileSync(`${OUT}/site/mark-on-dark.png`)),
   );
 }
+
+/*
+ * THE SAME PAIR AS THE TAB ICON, WHICH IS THE SECOND JOB — and the one place a `<link>` cannot do what the
+ * CSS does.
+ *
+ * A favicon has no CSS, so it cannot read the `data-theme` attribute the masthead switches on. `layout.tsx`
+ * therefore declares both files with a `media` query each: resolved before first paint, from the same OS
+ * preference the theme toggle falls back to. It does **not** follow the toggle — a reader who overrode
+ * their OS preference gets a tab matching their OS and a page matching the toggle, and there is no fix,
+ * because a `<link>` cannot be styled. Recorded in AGENT.md so it is not discovered as a bug.
+ *
+ * **Order matters, and is asserted.** A consumer that ignores `media` — anything before Safari 15, and
+ * some crawlers — takes the last icon it can use, so the light-ground file has to be last: the failure is
+ * then a mark on the darker ground rather than no mark at all.
+ */
+const iconTags = [...(home ?? '').matchAll(/<link rel="icon"[^>]*>/g)].map((m) => m[0].replace(/\s+/g, ''));
+const iconTagFor = (file) => iconTags.find((tag) => tag.includes(file)) ?? null;
+
+check('the tab names two icons, one per theme', iconTags.length === 2, `${iconTags.length} <link rel="icon">`);
+check(
+  'a light theme asks for the dark-ink mark',
+  Boolean(iconTagFor('mark-on-light.png')?.includes('media="(prefers-color-scheme:light)"')),
+  iconTagFor('mark-on-light.png') ?? 'no link names it',
+);
+check(
+  'a dark theme asks for the light-ink mark',
+  Boolean(iconTagFor('mark-on-dark.png')?.includes('media="(prefers-color-scheme:dark)"')),
+  iconTagFor('mark-on-dark.png') ?? 'no link names it',
+);
+check(
+  'the light-ground mark is listed last, for anything that ignores media',
+  iconTags[iconTags.length - 1]?.includes('mark-on-light.png') ?? false,
+  iconTags.map((t) => t.match(/href="([^"]+)"/)?.[1] ?? '?').join(', ') || 'none',
+);
+
+/*
+ * The plated SVG this replaced, and this is worth an assertion rather than a deletion.
+ *
+ * A file at `public/favicon.svg` would be served at the path a browser asks for **by itself**, which is not
+ * a path this page names. So a leftover would quietly win the tab in some browsers and lose it in others,
+ * depending on whether the reader's browser reaches for /favicon.ico first — the worst kind of thing to
+ * leave behind, because which one you see depends on you.
+ */
+check(
+  'the plated favicon that this replaced is gone',
+  !existsSync('apps/docs/public/favicon.svg') && !existsSync(`${OUT}/favicon.svg`),
+  'nothing at /favicon.svg',
+);
+check('no page asks for it any more', !(home ?? '').includes('favicon.svg'), 'no /favicon.svg reference');
 
 /*
  * The markup, and the one deliberate departure in it.

@@ -30,11 +30,11 @@ apps/docs/glossary.json
 
 # NOT ignored, deliberately, and there are two different reasons in this folder.
 #
-# apps/docs/public/favicon.svg is the tab icon and apps/docs/public/site/ holds the masthead's two marks,
-# one per theme. All three are copied BY HAND from the studio repository — aaenz/public/favicon.svg and
-# aaenz/public/assets/logo-mark*.png — because no build step can fetch them and no transform could
-# reproduce them: the files ARE the drawing. check.mjs asserts their geometry, their ink, and that the
-# build copied each one through unchanged, which is everything short of reaching that other repository.
+# apps/docs/public/site/ holds the site's two marks — one per theme, and the source for BOTH the tab icon
+# and the mark beside the wordmark. They are copied BY HAND from aaenz/public/assets/logo-mark*.png,
+# because no build step can fetch them and no transform could reproduce them: the files ARE the drawing.
+# check.mjs asserts their geometry, their ink, that both the CSS rules and the <link>s name them, and that
+# the build copied each one through unchanged — everything short of reaching that other repository.
 #
 # apps/docs/public/icons/ and apps/docs/public/brand/ ARE generated — by `bun run icons` from
 # design/icons-source/ and `bun run brand` from design/brand-source/ — and committed anyway, because the
