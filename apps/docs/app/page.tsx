@@ -1,8 +1,11 @@
+import type { Metadata } from 'next';
+
 import manifest from '@/manifest.json';
 import stats from '@/stats.json';
 import { Arrow } from '@/components/arrow';
 import { ModIcon } from '@/components/mod-icon';
 import { ShuffledNumber } from '@/components/shuffled-number';
+import { SITE, social } from '@/lib/metadata';
 import { source } from '@/lib/source';
 
 type SuiteMod = {
@@ -40,6 +43,44 @@ type StatsFile = {
 
 const s = stats as StatsFile;
 const n = (v: number) => v.toLocaleString('en-US');
+
+/** The author's code host. One spelling, because the Elsewhere band and the structured data both link it. */
+const GITHUB = 'https://github.com/ellipog';
+
+/**
+ * The home page's canonical URL and its share card.
+ *
+ * The tab title is left to the layout's default — this page is the site, so it needs no `%s`. What
+ * it does need is the head's other half: without a canonical, `/` and any future `/index.html` are
+ * two URLs for one page, and without this the home card would be the only page with no card.
+ */
+export const metadata: Metadata = social({
+  title: SITE.title,
+  description: SITE.description,
+  path: '/',
+});
+
+/**
+ * Who and what this site is, for a crawler that reads schema.org.
+ *
+ * Two nodes and no more. Deliberately **not** a `SoftwareApplication` per mod: a rich result for
+ * software is built from ratings or an offer, and inventing either would be marking up claims
+ * nobody made — the same judgement the sponsor's badge makes about not saying "verified".
+ *
+ * `sameAs` is derived from the manifest's author links plus the GitHub profile the Elsewhere band
+ * already links, so it cannot point at a profile this page does not show.
+ */
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    { '@type': 'WebSite', name: SITE.title, url: SITE.url },
+    {
+      '@type': 'Person',
+      name: manifest.author.handle,
+      sameAs: [...manifest.author.links.map((link) => link.url), GITHUB],
+    },
+  ],
+};
 
 /**
  * Which mods actually have documentation.
@@ -221,6 +262,11 @@ export default function Home() {
 
   return (
     <main>
+      {/* The one script on this page that is data rather than markup. `check.mjs` parses it back
+          out of the built HTML and asserts it still says WebSite and Person — a `JSON.parse` is the
+          only way to catch a stray character, and a malformed block is invisible in a browser. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
+
       <section className="hero">
         <p className="eyebrow">fabric + neoforge · minecraft</p>
         <h1>Minecraft mods.</h1>
@@ -310,7 +356,7 @@ export default function Home() {
                 <span className="link-handle">{link.handle}</span>
               </a>
             ))}
-            <a href="https://github.com/ellipog" target="_blank" rel="noreferrer noopener">
+            <a href={GITHUB} target="_blank" rel="noreferrer noopener">
               <span className="link-label">
                 GitHub <Arrow />
               </span>

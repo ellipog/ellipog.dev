@@ -45,7 +45,9 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="docs">
-      <aside className="sidebar">
+      {/* Labelled so the section list is distinguishable from the masthead's nav when a screen
+          reader lists the page's landmarks; both are navigation, and only one of them is the site. */}
+      <aside className="sidebar" aria-label="Documentation sections">
         {sections.map((section) => (
           <div className="sidebar-section" key={section.id}>
             {/* The mark on the section label. 16px, because the label itself is 11px uppercase — an icon
@@ -83,7 +85,11 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           </div>
         ) : null}
       </aside>
-      <div className="docs-body">{children}</div>
+      {/* `<main>`, so the prose is a landmark rather than an anonymous box — `<div>` here meant a
+          reader could jump to the site's nav but not past it. The class stays, and the grid around
+          it is `.docs`'s, so nothing about the layout moves; `global.css`'s `main { flex: 1 }` is
+          inert on a grid item. */}
+      <main className="docs-body">{children}</main>
     </div>
   );
 }

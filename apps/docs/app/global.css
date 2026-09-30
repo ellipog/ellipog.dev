@@ -1648,3 +1648,34 @@ main {
     padding: 0 var(--docs-gutter) var(--s5);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Motion, for readers who asked for less of it                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Every transition on this site is CSS — the 0.12s of colour on a hover, on a link, on the theme
+ * switch — and none of them read `prefers-reduced-motion` until this rule.
+ *
+ * The two animated components (`ShuffledNumber`, and the contents rail's scroll) already honour the
+ * preference in JavaScript, because their motion is script and a media query cannot reach it. This
+ * is the other half: the half that is stylesheet, which is most of it.
+ *
+ * `0.01ms` rather than `transition: none`, and `!important` rather than a selector list. Zero can
+ * skip a `transitionend` event entirely; the shorter duration keeps the event and removes the wait,
+ * and nothing here is relying on it either way. The list of selectors that transition would be the
+ * alternative to `!important`, and it is a list that goes stale the first time somebody adds a
+ * hover state without reading this far.
+ *
+ * There is no CSS `animation` on the site today. `animation-duration` is here so the first one that
+ * arrives is covered by this rule rather than being a bug report from a reader who asked for less
+ * motion and watched something move anyway.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -6,6 +6,7 @@ import { DocsFooter } from '@/components/docs-footer';
 import { TableOfContents } from '@/components/toc';
 import { mdxComponents } from '@/components/mdx';
 import { maturityOf, neighboursOf, prerequisitesOf, sectionOf, tocOf } from '@/lib/docs';
+import { SITE, social } from '@/lib/metadata';
 import { source } from '@/lib/source';
 
 type Props = { params: Promise<{ slug?: string[] }> };
@@ -103,10 +104,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = page.data.title ?? resolved.at(-1) ?? 'Documentation';
   const mod = sectionOf(resolved);
+  const qualified = !mod || title.toLowerCase().includes(mod.name.toLowerCase()) ? title : `${mod.name} — ${title}`;
 
-  if (!mod || title.toLowerCase().includes(mod.name.toLowerCase())) return { title };
-
-  return { title: `${mod.name} — ${title}` };
+  /*
+   * The rest of the head — canonical URL, description, the social card — from `social()`, so the
+   * docs pages cannot end up with different site facts from the home page. `page.url` is the
+   * page's own address, which is the one thing here that must not be reconstructed by hand.
+   *
+   * The description is the page's frontmatter line — the same sentence the page renders as its
+   * lede — so a search result and the page it points at say the same thing. A page with none falls
+   * back to the site's own description rather than to an empty `og:description`, which is a card
+   * with a title and nothing else.
+   */
+  return {
+    title: qualified,
+    ...social({
+      title: qualified,
+      description: page.data.description ?? SITE.description,
+      path: page.url,
+    }),
+  };
 }
 
 /**

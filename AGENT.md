@@ -836,7 +836,8 @@ reader with a dozen tabs open is looking for the *site* before the page, and a t
 characters still says which site it is.
 
 **The template was dead code until this was wired up, and that is the part worth remembering.** The root
-layout has carried `title: { template: '%s · ellipog' }` from the start, and **no page ever set a title** —
+layout has carried a `title.template` from the start — `ellipog.dev | %s`, built from `SITE.title` since
+the metadata work below — and **no page ever set a title** —
 no `metadata.title` export and no `generateMetadata` anywhere in the app. So `%s` was never substituted and
 every page rendered the bare default: the home page, the docs index, both mods' pages, the glossary, and the
 404.
@@ -868,6 +869,83 @@ needs to be spelled out. Change one and think about the other.
 alongside the metadata outlet's, so `out/404.html` ships **two** `<title>` elements. Browsers use the first,
 which is the site's, so the tab reads correctly. Fixing it means replacing the not-found page, which is a
 bigger change than a title is worth.
+
+---
+
+## The head beyond the title
+
+Four things share one job — telling a machine what this site is — and all of them read their facts from
+`apps/docs/lib/metadata.ts`, which reads the domain from `manifest.json`. That is the point rather than
+a detail: the canonical links, `robots.txt`, `sitemap.xml` and the share card each need the answer to
+"where does this site live", and four independently typed answers is four chances to be the one that
+did not move.
+
+### Canonical, and the trailing slash
+
+Every page emits `<link rel="canonical">` for its own URL, built by `absoluteUrl()` — which appends the
+trailing slash that `trailingSlash: true` gives the export. `/docs/tasked` and `/docs/tasked/` are two
+URLs to a static host, and the canonical is what says which one is the page.
+
+### `robots.txt` and `sitemap.xml`
+
+Both are generated at build time, both carry `dynamic = 'force-static'` because the export has no server
+to run them. `robots.txt` allows everything and names the sitemap: there is nothing here that is not
+meant to be found, and the one page a crawler should skip — the 404 — already says `noindex` of its own.
+
+The sitemap is derived from `source.getPages()`, the same loader the docs route builds from, so it
+cannot list a page that was not built or miss one that was. `check.mjs` walks `out/` and asserts the two
+sets are equal, which is what makes that a property rather than an intention.
+
+**No `lastModified`, no `priority`, no `changeFrequency`.** The build knows the day it ran and nothing
+finer, and stamping every page with it would tell a crawler that all six pages changed this morning,
+every morning. The other two fields are ignored by the engines that read the file.
+
+### The share card
+
+`/og.png` is a route (`app/og.png/route.tsx`) that renders a 1200×630 PNG with `next/og` at build time:
+the site's own mark, the wordmark, `SITE.description`. It appears in link previews and nowhere on the
+site — nothing about it changes how a page looks.
+
+**Three things about it were learned the hard way, and all three are the same lesson.**
+
+1. **A file convention was tried first and failed quietly.** `app/opengraph-image.tsx` attached the
+   image to the home page only. Every page under `/docs` sets its own `openGraph` (title, url), and
+   Next **replaces** `openGraph` rather than merging it — so the injected image was dropped on five of
+   the six pages, every one of which still looked correct. The card is named in `social()` now, the one
+   helper every page asks, and `check.mjs` asserts `og:image` on every emitted page rather than on the
+   home page alone.
+2. **The convention's output had no file extension** (`out/opengraph-image`), which leaves its content
+   type to the host's guess. `/og.png` is served as an image because of its name.
+3. **The colours are read out of `global.css` at build time**, not typed into the route — a hex here
+   would be a second place a colour lives, and this site's colours live in the stylesheet's tokens. A
+   missing token **throws**, because a card quietly painted `undefined` is a failure that ships.
+
+**Its fonts are `next/og`'s own, and that is a knowing compromise.** The site uses system font stacks
+deliberately — no build-time font fetch, so the build works offline — and there is no font file in the
+repository to hand Satori. Committing one for the card alone would be a dependency the site's own
+typography does not have.
+
+### What the home page says it is
+
+One `application/ld+json` block, two nodes: `WebSite`, and `Person` whose `sameAs` is the manifest's own
+author links plus the GitHub profile the page already shows. Deliberately **not** a `SoftwareApplication`
+per mod — a rich result for software is built from ratings or an offer, and inventing either would be
+marking up claims nobody made, the same judgement the sponsor's badge makes about not saying "verified".
+
+### Accessibility, the invisible half
+
+`<main class="docs-body">`, an `aria-label` on each of the two navigation regions, an `aria-label` that
+names the new tab on the masthead's two external links (the only external links with no `↗` to say so),
+and a `prefers-reduced-motion` rule that neutralises the CSS transitions. **None of it changes a pixel
+for a reader who has not asked for anything** — the last one only affects a reader who has set the
+preference, which is what it is for.
+
+**A skip-to-content link is deliberately absent.** It is the one accessibility feature that has to draw
+itself, which puts it outside the "nothing may change how the site looks" rule this set was chosen
+under. It is three lines the day that rule changes.
+
+**`www.ellipog.dev` does not resolve, and is not supposed to.** No DNS record and no redirect should be
+added: one address, one canonical. Recorded here so it is not "fixed" later.
 
 ---
 
@@ -972,6 +1050,17 @@ than a request, which is exactly what a static site needs.
 `main`) and add its URL as the repository secret `VERCEL_DEPLOY_HOOK`. `refresh-stats.yml` fails loudly
 when it is missing, on purpose — a schedule that stopped working silently is the failure this whole
 arrangement exists to prevent.
+
+**Both workflow files were unparseable for a day, and nothing said so.** Their headers were written as
+`/** ... */` blocks — natural in this repository, and **not a comment in YAML**. GitHub rejects a file it
+cannot parse, so neither workflow ever registered: the crons never fired, and every push produced two
+instant failed runs with no jobs in them. The tell is in the API — a workflow whose `name` comes back as
+its own file path is a file whose `name:` key never parsed — and the run pages say `Invalid workflow
+file`. The headers are `#` comments now, and each file carries a note saying why.
+
+**GitHub disables a scheduled workflow after 60 days of repository inactivity**, and this repository is
+worked in bursts. After a long quiet period, open the Actions tab and dispatch `Refresh stats` once by
+hand: a disabled schedule produces no failing run, so nothing else will tell you.
 
 **Why the pin bump is a pull request and the stats refresh is not.** Moving a pin changes *which
 documentation a visitor reads* — a page can gain a section, lose one, or change what it says — and that
@@ -1106,6 +1195,11 @@ content by forgetting a step, and no way to ship one that is structurally wrong 
 - the scrollbar rules are in the built CSS, with the standard properties still inside the Gecko guard
 - no probe or scratch file has leaked into the repository
 - every `selected` project in the manifest resolves to a real platform entry, and the totals add up
+- the crawler files ship, the sitemap is **exactly** the pages the build emitted, and every page names
+  its own canonical
+- every page carries a card — `og:image` on all six, not only on the home page
+- the home page's structured data parses, and declares `WebSite` and `Person`
+- the landmark and the accessible labels are in the markup, and `prefers-reduced-motion` is in the CSS
 
 It reads `out/`, which is the artifact. It deliberately does not read the dev server — see gap 7 for
 why a running dev server is not a witness to anything.

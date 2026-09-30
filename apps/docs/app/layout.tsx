@@ -5,9 +5,20 @@ import './global.css';
 import { Colophon } from '@/components/colophon';
 import { SponsorBanner } from '@/components/sponsor';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { SITE } from '@/lib/metadata';
 import manifest from '@/manifest.json';
 
 export const metadata: Metadata = {
+  /*
+   * The base every absolute URL in the metadata is resolved against — the canonical links, the
+   * icons' hrefs, and the share card.
+   *
+   * Without it Next emits paths, and a path is not a URL to anything that reads a link from
+   * somewhere else. It comes through `SITE`, which reads the domain from the manifest, so
+   * `robots.txt`, `sitemap.xml` and the canonical links cannot disagree about where the site lives.
+   */
+  metadataBase: new URL(SITE.url),
+
   /*
    * The tab title: the site's name, then the page.
    *
@@ -25,8 +36,8 @@ export const metadata: Metadata = {
    * `app/docs/[[...slug]]/page.tsx` is now the one place that supplies it, and `check.mjs` asserts a docs
    * page differs from the home page — which is the specific thing that was false.
    */
-  title: { default: 'ellipog.dev', template: 'ellipog.dev | %s' },
-  description: 'Minecraft mods for Fabric and NeoForge — a UI library and a questing engine in development, plus earlier work.',
+  title: { default: SITE.title, template: `${SITE.title} | %s` },
+  description: SITE.description,
 
   /*
    * The tab icon — the site's own identity, and deliberately **not** one of the mod marks.
@@ -94,8 +105,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <span className="site-mark" aria-hidden="true" />
               ellipog
             </a>
-            <nav>
+            {/* Named, because a page can carry more than one navigation region and "Primary" is the
+                one thing a reader cannot work out from the links themselves. */}
+            <nav aria-label="Primary">
               <a href="/docs/">Docs</a>
+              {/* These two are the only external links on the site without the `↗` that says a link
+                  leaves and opens a tab, because the mark in the masthead is deliberately wordless —
+                  so the announcement is made to assistive tech instead of drawn. The accessible name
+                  contains the visible text, which is what label-in-name requires. */}
               {manifest.author.links.map((link) => (
                 <a
                   key={link.id}
@@ -103,6 +120,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   href={link.url}
                   target="_blank"
                   rel="noreferrer noopener"
+                  aria-label={`${link.label} (opens in a new tab)`}
                 >
                   {link.label}
                 </a>

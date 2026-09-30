@@ -1736,6 +1736,160 @@ check(
   Object.keys(vercel).join(', '),
 );
 
+console.log('\n== the crawler files, and the card a link shows ==');
+/*
+ * These arrived together and are asserted together, because they are one claim: the site can be
+ * found, and a link to it looks like the site.
+ *
+ * The domain is read from the manifest rather than typed into the assertions, for the same reason
+ * the files themselves read it — an assertion with the URL written into it keeps passing after the
+ * site moves, which is the one moment it would have been worth anything.
+ */
+const siteUrl = `https://${manifest.site.domain}`;
+const robots = read(`${OUT}/robots.txt`);
+const sitemap = read(`${OUT}/sitemap.xml`);
+
+check('robots.txt ships', Boolean(robots));
+check(
+  'robots.txt names the sitemap at its absolute address',
+  (robots ?? '').includes(`Sitemap: ${siteUrl}/sitemap.xml`),
+  `${siteUrl}/sitemap.xml`,
+);
+check(
+  'robots.txt leaves the site open',
+  /User-Agent: \*/.test(robots ?? '') && !/^Disallow: \/$/m.test(robots ?? ''),
+  'there is nothing here that is not meant to be found',
+);
+
+check('sitemap.xml ships', Boolean(sitemap));
+const locs = [...(sitemap ?? '').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+
+/**
+ * The pages the build actually emitted, walked from the artifact.
+ *
+ * This is what makes the sitemap a derived thing rather than an intended one: a page added to the
+ * site and forgotten in the sitemap fails here, and so does a sitemap entry for a page that was
+ * never built. `404` and `_not-found` are Next's own directories, not pages, and `_next` is assets.
+ */
+function pagesIn(dir, prefix = '') {
+  const found = existsSync(`${dir}/index.html`) ? [`/${prefix}`] : [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name === '_next' || entry.name === '404' || entry.name === '_not-found') continue;
+    found.push(...pagesIn(`${dir}/${entry.name}`, `${prefix}${entry.name}/`));
+  }
+  return found;
+}
+
+const builtPaths = pagesIn(OUT).sort();
+const declaredPaths = locs.map((url) => url.replace(siteUrl, '') || '/').sort();
+
+check(
+  'the sitemap is exactly the pages the build emitted',
+  declaredPaths.join(' ') === builtPaths.join(' '),
+  `sitemap: ${declaredPaths.join(' ')} | built: ${builtPaths.join(' ')}`,
+);
+check("every sitemap entry is on the site's own domain", locs.every((url) => url.startsWith(`${siteUrl}/`)));
+check('every sitemap entry carries the trailing slash the export serves', locs.every((url) => url.endsWith('/')));
+check('the sitemap lists nothing twice', new Set(locs).size === locs.length);
+
+/**
+ * A `<meta>` tag's content, found by the key inside it rather than by attribute order.
+ *
+ * Next writes `property` and `name` tags with the key first today; matching on position would make
+ * every assertion here fail the day that changes, which is a failure that says nothing about the
+ * site. The `"` quotes around the key stop `og:image` from being satisfied by `og:image:alt`.
+ */
+function metaTag(html, key) {
+  const tag = [...html.matchAll(/<meta\s[^>]*>/g)]
+    .map((m) => m[0])
+    .find((t) => t.includes(`"${key}"`));
+  return tag ? /content="([^"]*)"/.exec(tag)?.[1] ?? null : null;
+}
+
+/*
+ * The head, once per emitted page.
+ *
+ * Read from every page's own HTML rather than from the home page alone: the failure this catches is
+ * never "nobody set a canonical", it is "five pages have one and the sixth quietly does not" --
+ * which is what happens when the block lives in a page component instead of in the one helper
+ * every page asks.
+ */
+for (const path of builtPaths) {
+  const html = read(`${OUT}${path}index.html`);
+  if (!html) continue;
+
+  const url = `${siteUrl}${path}`;
+  const canonical = /<link rel="canonical" href="([^"]+)"/.exec(html)?.[1] ?? null;
+  const image = metaTag(html, 'og:image');
+  const imagePath = (image ?? '').split('?')[0].replace(siteUrl, '');
+
+  check(`${path} names its own canonical`, canonical === url, canonical ?? 'no <link rel="canonical">');
+  check(
+    `${path} has a card with a title and a description`,
+    Boolean(metaTag(html, 'og:title')) && Boolean(metaTag(html, 'og:description')),
+  );
+  check(`${path} locates itself on the web`, metaTag(html, 'og:url') === url, metaTag(html, 'og:url') ?? 'no og:url');
+  check(
+    `${path} names the site on its card`,
+    metaTag(html, 'og:site_name') === 'ellipog.dev' && metaTag(html, 'og:type') === 'website',
+    `${metaTag(html, 'og:site_name')} / ${metaTag(html, 'og:type')}`,
+  );
+  check(
+    `${path} asks for a large card`,
+    metaTag(html, 'twitter:card') === 'summary_large_image',
+    metaTag(html, 'twitter:card') ?? 'no twitter:card',
+  );
+  check(
+    `${path} points its card at a file that ships`,
+    Boolean(imagePath) && existsSync(`${OUT}${imagePath}`),
+    image ?? 'no og:image',
+  );
+}
+
+console.log('\n== what the home page says it is ==');
+let structured = null;
+try {
+  structured = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(home ?? '')?.[1] ?? 'null');
+} catch {
+  structured = null;
+}
+const structuredTypes = (structured?.['@graph'] ?? []).map((node) => node['@type']);
+check('the home page carries parseable structured data', structured !== null, 'a stray character is invisible in a browser');
+check(
+  'it declares the site and its author',
+  structuredTypes.includes('WebSite') && structuredTypes.includes('Person'),
+  structuredTypes.join(', ') || 'nothing',
+);
+const person = (structured?.['@graph'] ?? []).find((node) => node['@type'] === 'Person');
+check(
+  'it links the profiles the page shows',
+  (person?.sameAs ?? []).includes(manifest.author.links[0].url),
+  'a sameAs pointing anywhere else is a claim the page does not make',
+);
+
+console.log('\n== the invisible half of accessibility ==');
+/*
+ * Everything here is invisible by design — landmarks, labels, and a media query that only a reader
+ * who asked for less motion ever sees. Nothing asserted below changes a pixel for anyone else,
+ * which is the constraint this set was chosen under.
+ */
+check(
+  'a docs page has a main landmark',
+  (docsPage ?? '').includes('<main class="docs-body"'),
+  'without it the prose sits outside any landmark',
+);
+check('the section list is labelled', /<aside class="sidebar" aria-label="/.test(docsPage ?? ''));
+check('the masthead nav is labelled', /<nav aria-label="Primary"/.test(home ?? ''));
+for (const link of manifest.author.links) {
+  check(
+    `the ${link.label} link announces its new tab`,
+    (home ?? '').includes(`aria-label="${link.label} (opens in a new tab)"`),
+    'the masthead is the one place with no arrow to say it',
+  );
+}
+check('the reduced-motion rule ships', /prefers-reduced-motion:\s*reduce/.test(allCss), show('prefers-reduced-motion'));
+
 notes.push(`totals: modrinth ${stats.totals.modrinth}, curseforge ${stats.totals.curseforge}, all ${stats.totals.all}`);
 for (const n of stats.notes ?? []) notes.push(n);
 
