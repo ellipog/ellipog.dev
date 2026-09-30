@@ -174,6 +174,18 @@ bun run brand     :: regenerate the host's mark from design/brand-source/
 
 ---
 
+## The tab title
+
+`ellipog.dev` on the home page, and `ellipog.dev | Tasked documentation` on a docs page — the site first,
+then the page. A sub-page whose own title names no mod gets qualified with one: `ellipog.dev | Tasked —
+Design preview`.
+
+The template in `app/layout.tsx` was **dead code** until this was wired up: no page set a title, so every
+page on the site rendered the bare default. `app/docs/[[...slug]]/page.tsx` is now the only place that
+does, and `check.mjs` asserts a docs page differs from the home page.
+
+---
+
 ## The sponsor band
 
 Every page carries one affiliate arrangement at its foot — BisectHosting, with the code `mcstellar` for

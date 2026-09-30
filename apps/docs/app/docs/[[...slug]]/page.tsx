@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { DocsContents } from '@/components/docs-contents';
@@ -69,6 +70,43 @@ export default async function DocsPage({ params }: Props) {
       ) : null}
     </div>
   );
+}
+
+/**
+ * What goes after the site's name in the tab: `ellipog.dev | <this>`.
+ *
+ * **The root layout owns the half that never changes and this supplies the rest.** It is the only place
+ * on the site that sets a title, and before it existed nothing did — the layout's `title.template` had
+ * no `%s` to substitute anywhere, so every page rendered the bare `ellipog`, docs pages included. That is
+ * the bug this fixes, and it is worth knowing because a dead template looks identical to a working one
+ * from the outside: the fallback is a plausible title for every page at once.
+ *
+ * **A sub-page is qualified with its mod; a section front page is not.** `Design preview` on its own is a
+ * tab that could belong to any site, so it becomes `Tasked — Design preview`. `Tasked documentation`
+ * already names Tasked, so prefixing it would give `Tasked — Tasked documentation`.
+ *
+ * The test is whether the title *already contains* the mod's name, rather than whether the page is a
+ * section index. That way a section front page retitled `Overview` picks up its mod automatically instead
+ * of quietly losing it — the same trap `sectionOf` and `tocOf` each document once already in this app,
+ * where a rule that happens to hold for today's five files stops holding the first time one is renamed.
+ *
+ * `—` rather than a second `|`: the pipe already marks the boundary between the site and the page, so a
+ * repeat would read as another peer of the site's name rather than as a qualifier of the page's.
+ */
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const resolved = slug ?? [];
+  const page = source.getPage(resolved);
+
+  // No page means `notFound()` is about to run; the 404 carries the site's own title, not this one.
+  if (!page) return {};
+
+  const title = page.data.title ?? resolved.at(-1) ?? 'Documentation';
+  const mod = sectionOf(resolved);
+
+  if (!mod || title.toLowerCase().includes(mod.name.toLowerCase())) return { title };
+
+  return { title: `${mod.name} — ${title}` };
 }
 
 /**

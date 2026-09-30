@@ -8,7 +8,24 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import manifest from '@/manifest.json';
 
 export const metadata: Metadata = {
-  title: { default: 'ellipog', template: '%s · ellipog' },
+  /*
+   * The tab title: the site's name, then the page.
+   *
+   * `ellipog.dev` alone on the home page, and `ellipog.dev | Tasked documentation` on a docs page. The
+   * site comes first because a reader with a dozen tabs open is looking for the *site* before the page,
+   * and a tab truncated at twenty characters still says which site it is.
+   *
+   * **`%s` was never substituted until this was wired up, and that is worth knowing before touching it.**
+   * The template has been here all along, but no page in the app exported `metadata.title` and none
+   * defined a `generateMetadata` — so every page on the site rendered the bare default: the home page,
+   * the docs index, both mods' pages, the glossary, and the 404. A template with nothing to substitute is
+   * invisible in the built HTML, because the default it falls back to is a plausible title for every page
+   * at once.
+   *
+   * `app/docs/[[...slug]]/page.tsx` is now the one place that supplies it, and `check.mjs` asserts a docs
+   * page differs from the home page — which is the specific thing that was false.
+   */
+  title: { default: 'ellipog.dev', template: 'ellipog.dev | %s' },
   description: 'Minecraft mods for Fabric and NeoForge — a UI library and a questing engine in development, plus earlier work.',
 
   /*

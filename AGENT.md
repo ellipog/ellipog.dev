@@ -767,6 +767,48 @@ never "the glyph is these bytes".
 
 ---
 
+## The tab title
+
+`ellipog.dev` on the home page, and `ellipog.dev | <page>` everywhere else — the site first, because a
+reader with a dozen tabs open is looking for the *site* before the page, and a tab truncated at twenty
+characters still says which site it is.
+
+**The template was dead code until this was wired up, and that is the part worth remembering.** The root
+layout has carried `title: { template: '%s · ellipog' }` from the start, and **no page ever set a title** —
+no `metadata.title` export and no `generateMetadata` anywhere in the app. So `%s` was never substituted and
+every page rendered the bare default: the home page, the docs index, both mods' pages, the glossary, and the
+404.
+
+**A dead template is invisible from the built HTML**, because the default it falls back to is a plausible
+title for every page at once. Nothing about `out/index.html` or `out/docs/tasked/index.html` looked wrong.
+So `check.mjs` asserts the thing that was actually false — **that a docs page's title differs from the home
+page's** — rather than only that the home page says `ellipog.dev`, which was true before and after.
+
+`app/docs/[[...slug]]/page.tsx` is now the one place that supplies the `%s` the layout wraps.
+
+**A sub-page is qualified with its mod; a section front page is not.** `Design preview` on its own is a tab
+that could belong to any site, so it becomes `Tasked — Design preview`. `Tasked documentation` already
+names Tasked, so prefixing it would give `Tasked — Tasked documentation`.
+
+The test is whether the title **already contains** the mod's name, rather than whether the page is a
+section index. So a section front page retitled `Overview` picks up its mod automatically instead of
+quietly losing it — the same trap `sectionOf` and `tocOf` each document once already in this app, where a
+rule that holds for today's five files stops holding the first time one is renamed.
+
+`—` rather than a second `|`, because the pipe already marks the boundary between the site and the page, so
+a repeat would read as another peer of the site's name rather than as a qualifier of the page's.
+
+**The masthead wordmark is still `ellipog`, and that is deliberate** — it sits directly above the page's
+own subject matter in a space where the `.dev` is redundant, and the title is the one place the domain
+needs to be spelled out. Change one and think about the other.
+
+**One consequence of the 404, noted rather than fixed:** Next's own not-found injects a `<title>` of its own
+alongside the metadata outlet's, so `out/404.html` ships **two** `<title>` elements. Browsers use the first,
+which is the site's, so the tab reads correctly. Fixing it means replacing the not-found page, which is a
+bigger change than a title is worth.
+
+---
+
 ## The colophon, and why it is not the footer coming back
 
 The last row on every page: the studio's mark, `ENGINEERED & MAINTAINED BY Aaen Studios`, and the domain at

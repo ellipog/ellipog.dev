@@ -72,6 +72,20 @@ function read(path) {
 }
 
 /**
+ * The `<title>` element's text, from the markup and not from the RSC payload.
+ *
+ * `withoutScripts` first, for the reason it exists everywhere else in this file: Next serialises the
+ * metadata into a `<script>` as well, so a naive match on the raw file reads the same title twice in two
+ * different forms. The element is the copy the browser uses.
+ *
+ * Returns null rather than '' when there is no title at all, so a failure reads as "no `<title>`" instead
+ * of as an empty string that looks like a passing value.
+ */
+function titleOf(html) {
+  return /<title>([^<]*)<\/title>/.exec(withoutScripts(html ?? ''))?.[1] ?? null;
+}
+
+/**
  * Text as the HTML carries it.
  *
  * Needed because a value read from `manifest.json` is raw text and the same value in `apps/docs/out` is
@@ -776,6 +790,50 @@ if (docsPage) {
   // The section label carries its mod's mark, at 16px.
   check('docs sidebar sections carry their mark', /class="label sidebar-label"[\s\S]{0,300}mod-icon/.test(docsPage));
 }
+
+console.log('\n== the tab title ==');
+/*
+ * THE TEMPLATE WAS DEAD CODE, WHICH IS WHY THE SECOND ASSERTION BELOW IS THE IMPORTANT ONE.
+ *
+ * `app/layout.tsx` has carried `title: { template: '%s · ellipog' }` from the start, and no page ever
+ * filled the `%s` — there was no `metadata.title` export and no `generateMetadata` anywhere in the app. So
+ * every page on the site rendered the bare default: the home page, the docs index, both mods' pages, the
+ * glossary, and the 404.
+ *
+ * A dead template is invisible from the built HTML, because the default it falls back to is a plausible
+ * title for every page at once. So the assertion that matters is not "the home page says ellipog.dev" —
+ * it is **"a docs page differs from the home page"**, which is the specific thing that was false. The
+ * rest pin the format, since the format is the other half of what was asked for.
+ */
+const homeTitle = titleOf(home);
+const docsTitle = titleOf(read(`${OUT}/docs/tasked/index.html`));
+const subPageTitle = titleOf(read(`${OUT}/docs/tasked/design-preview/index.html`));
+const docsIndexTitle = titleOf(read(`${OUT}/docs/index.html`));
+const glossaryTitle = titleOf(read(`${OUT}/docs/glossary/index.html`));
+
+check('the home page carries the site name', homeTitle === 'ellipog.dev', homeTitle ?? 'no <title>');
+check(
+  'a docs page is not just the site name',
+  Boolean(docsTitle) && docsTitle !== homeTitle,
+  docsTitle ?? 'no <title>',
+);
+check('the site comes first, then the page', docsTitle === 'ellipog.dev | Tasked documentation', docsTitle ?? '');
+check('the docs index names itself', docsIndexTitle === 'ellipog.dev | Documentation', docsIndexTitle ?? '');
+// A page belonging to no mod still gets the pipe -- it is on /docs/, so it is still a docs page.
+check('a reference page still gets the pipe', glossaryTitle === 'ellipog.dev | Glossary', glossaryTitle ?? '');
+
+/*
+ * A sub-page is qualified with its mod because its own title names nothing: `Design preview` alone is a
+ * tab that could belong to any site. A section front page is not, because it is already titled `Tasked
+ * documentation` and qualifying it again would read as `Tasked — Tasked documentation`. Both halves are
+ * asserted, since either one passing alone is consistent with the rule being wrong in one direction.
+ */
+check(
+  'a sub-page names the mod it belongs to',
+  subPageTitle === 'ellipog.dev | Tasked — Design preview',
+  subPageTitle ?? 'no <title>',
+);
+check('a section front page is not qualified twice', !/Tasked — Tasked/.test(docsTitle ?? ''), 'no repeated mod name');
 
 console.log('\n== the sponsor band ==');
 /*
