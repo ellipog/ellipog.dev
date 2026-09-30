@@ -25,6 +25,29 @@ type SuiteMod = {
 export const mods = manifest.suite as SuiteMod[];
 
 /**
+ * Loader ids as their own names spell them.
+ *
+ * **Not derived, and the screenshot is why.** Capitalising the id gives `Neoforge`, which is wrong —
+ * the loader is `NeoForge`, with a capital F, and the same is true of `NeoForge` in a mod's own
+ * `modLoader` field. The id is an identifier and belongs lowercase in the manifest, where it is
+ * compared and not read; the display name is a separate fact and has to be written down.
+ *
+ * A lookup means an unknown loader id shows through as itself rather than as a wrong capitalisation,
+ * which is the right failure: `Quilt` would appear as `quilt` and be obvious, where `Neoforge` looked
+ * like a typo somebody had made on purpose.
+ */
+const LOADER_NAMES: Record<string, string> = {
+  fabric: 'Fabric',
+  neoforge: 'NeoForge',
+  forge: 'Forge',
+  quilt: 'Quilt',
+};
+
+function loaderName(id: string): string {
+  return LOADER_NAMES[id.toLowerCase()] ?? id;
+}
+
+/**
  * The one-line facts a page needs before it is read.
  *
  * Nobody should read a page for a version they are not running, and today almost every page needs that
@@ -35,7 +58,7 @@ export function prerequisitesOf(mod: SuiteMod | undefined): string | null {
   if (!mod) return null;
   const parts = [
     mod.minecraft ? `Minecraft ${mod.minecraft}` : null,
-    mod.loaders?.length ? mod.loaders.map((l) => l.charAt(0).toUpperCase() + l.slice(1)).join(' + ') : null,
+    mod.loaders?.length ? mod.loaders.map(loaderName).join(' + ') : null,
     mod.version ? `${mod.name} ${mod.version}` : null,
   ].filter(Boolean) as string[];
   return parts.length > 0 ? parts.join(' · ') : null;

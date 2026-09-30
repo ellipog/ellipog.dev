@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "description": "ellipog.dev — Minecraft mods for Fabric and NeoForge",
   "packageManager": "bun@1.3.14",
+  "/*engines": "`24.x`, not `>=22`. Vercel warns on an open range because it would silently move the build to a new Node major the day one is released — which is a build that changes without a commit. Node runs Next and the scripts; Bun is the package manager and is pinned separately above.",
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "workspaces": [
     "apps/*"

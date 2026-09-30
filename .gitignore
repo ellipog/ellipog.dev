@@ -26,6 +26,7 @@ apps/docs/content/
 
 # Copied out of the root by sync.mjs, because Next cannot import from outside its own directory.
 apps/docs/manifest.json
+apps/docs/glossary.json
 
 # Fetched from Modrinth and CurseForge by scripts/stats.mjs on every build. Generated, so not
 # committed -- a committed copy is a download count that was true on the day somebody built.

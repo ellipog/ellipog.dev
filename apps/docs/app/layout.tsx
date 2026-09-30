@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import './global.css';
 import { Arrow } from '@/components/arrow';
+import { SponsorBanner } from '@/components/sponsor';
 import { ThemeToggle } from '@/components/theme-toggle';
 import manifest from '@/manifest.json';
 import stats from '@/stats.json';
@@ -61,6 +62,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </header>
 
           {children}
+
+          {/* Above the footer rather than inside it: the footer is the site's own colophon, and a paid
+              arrangement does not belong in the middle of it. As its own band it reads as one more
+              hairline-separated row, which is what everything else on this page is. */}
+          <SponsorBanner />
 
           <footer className="footer">
             <span>

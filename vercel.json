@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "/*": [
+    "Vercel needs three things this repository does not get right by guessing, and each has a reason.",
+    "",
+    "BUILD COMMAND. `bun run build` at the root, which is the same command used locally and in CI: sync from the pinned commits, fetch the platform numbers, build the static site, then assert the result. It is deliberately identical everywhere — a deploy that ran a different sequence from a local build is a deploy nobody has tested.",
+    "",
+    "OUTPUT DIRECTORY. `apps/docs/out`, because this is a static export (`output: 'export'` in next.config.mjs). Vercel's Next.js preset looks in `.next`, which is the intermediate build directory, not the exported site — so without this the deploy would have nothing to serve. `framework: null` stops Vercel applying that preset at all: there is no server, no serverless function and no ISR here, just files.",
+    "",
+    "INSTALL COMMAND. `bun install --frozen-lockfile`, so CI uses the committed `bun.lock` and fails loudly if it has drifted from package.json. An install that silently resolves different versions is a build that cannot be reproduced."
+  ],
+
+  "framework": null,
+  "installCommand": "bun install --frozen-lockfile",
+  "buildCommand": "bun run build",
+  "outputDirectory": "apps/docs/out"
+}

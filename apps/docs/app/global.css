@@ -1065,6 +1065,188 @@ a.grid-cell:hover .nums {
  */
 
 /* ------------------------------------------------------------------ */
+/* The sponsor band                                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The host, one hairline-separated band above the footer.
+ *
+ * **Why its own band rather than a line in the footer.** The footer is the site's colophon — the
+ * domain, the licence, links to where else the work lives. A paid arrangement dropped into that list
+ * would be posing as one of those, which is the thing the "Sponsored" label exists to avoid. As a band
+ * it is plainly a separate row with a separate purpose, and it inherits the grid the whole page is made
+ * of: a label strip, then content.
+ */
+.sponsor {
+  border-top: 1px solid var(--line);
+}
+
+.sponsor-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+
+.sponsor-host {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-faint);
+}
+
+/*
+ * One row: the logo, what the offer is, where it goes.
+ *
+ * `flex-wrap` so the CTA drops to a second line on a narrow screen rather than squeezing the copy, and
+ * `align-items: center` because the logo is an image with its own baseline and would otherwise sit high.
+ */
+.sponsor-link {
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+  padding: var(--s4);
+  transition: background-color 0.12s linear, color 0.12s linear;
+}
+
+/*
+ * Hover inverts the whole row, like every other clickable surface here. An inversion is structure; a
+ * tint or a lift-off shadow would be decoration, and this design has neither.
+ */
+.sponsor-link:hover {
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+}
+
+.sponsor-logo {
+  display: block;
+  flex: none;
+
+  /*
+   * Height fixed, width left to the aspect ratio from the `width`/`height` attributes. 41px is a little
+   * under three times the label above it — large enough that the logo reads as a logo, small enough that
+   * the band does not become the tallest thing on the page.
+   */
+  height: 41px;
+  width: auto;
+}
+
+/*
+ * WHICH LOGO SHOWS, IN FOUR STATES.
+ *
+ * The logo is not a single-colour glyph — it is a lockup with its own light and dark variants — so it
+ * cannot simply inherit the text colour, and it has to change when the ground behind it does. There are
+ * two grounds (paper and ink) and each can be inverted by hover, which is four combinations. Writing all
+ * four out is less clever than the alternatives and considerably easier to check.
+ */
+.sponsor-logo-dark {
+  display: none;
+}
+
+/* Dark theme: ink ground, so the light-on-dark logo. */
+[data-theme='dark'] .sponsor-logo-light {
+  display: none;
+}
+
+[data-theme='dark'] .sponsor-logo-dark {
+  display: block;
+}
+
+/* Hover on paper: the ground becomes ink, so the logo inverts with it. */
+.sponsor-link:hover .sponsor-logo-light {
+  display: none;
+}
+
+.sponsor-link:hover .sponsor-logo-dark {
+  display: block;
+}
+
+/* Hover in dark theme: the ground becomes paper, so it inverts back the other way. These two selectors
+   have to out-specify the pair above, which is why the theme comes first. */
+[data-theme='dark'] .sponsor-link:hover .sponsor-logo-light {
+  display: block;
+}
+
+[data-theme='dark'] .sponsor-link:hover .sponsor-logo-dark {
+  display: none;
+}
+
+.sponsor-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sponsor-tagline {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.sponsor-offer {
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+
+.sponsor-link:hover .sponsor-offer {
+  color: var(--inv-faint);
+}
+
+/*
+ * The discount code.
+ *
+ * Mono and boxed, because it is an identifier rather than prose — the same rule that sets a path or a
+ * mod id in monospace, and the reason it reads as something to copy rather than as part of the sentence.
+ * The border is a hairline like everything else, and it goes faint-on-ink under the hover inversion.
+ */
+.sponsor-code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-ink);
+  color: var(--fg);
+  background: var(--bg-sunken);
+}
+
+.sponsor-link:hover .sponsor-code {
+  color: var(--inv-fg);
+  background: transparent;
+  border-color: var(--inv-line);
+}
+
+/* The host, sans-serif in the copy and mono in the URL — the destination is an identifier, so it is not
+   set as a sentence. */
+.sponsor-cta {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--fg-faint);
+}
+
+.sponsor-link:hover .sponsor-cta {
+  color: var(--inv-faint);
+}
+
+@media (max-width: 700px) {
+  .sponsor-link {
+    gap: var(--s4);
+    flex-wrap: wrap;
+  }
+  /* The CTA goes under the copy rather than squeezing it. */
+  .sponsor-cta {
+    width: 100%;
+    padding-top: var(--s2);
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Footer                                                              */
 /* ------------------------------------------------------------------ */
 

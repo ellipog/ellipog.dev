@@ -12,6 +12,7 @@
  * running dev server can hold a compile from before a change.
  */
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
 const OUT = 'apps/docs/out';
@@ -29,6 +30,23 @@ const CHUNKS = `${OUT}/_next/static/chunks`;
  */
 const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
 const stats = JSON.parse(readFileSync('apps/docs/stats.json', 'utf8'));
+
+/*
+ * THE SHARED READS, ALL OF THEM, AT THE TOP.
+ *
+ * This file has now thrown `Cannot access 'X' before initialization` three times — `allCss`, then
+ * `manifest`, then `home` — and every time the cause was identical: a new section was added *above* an
+ * existing `const`. A `const` is not hoisted the way a `function` is, so anything shared between sections
+ * has to be declared before the first of them, and "before the first of them" changes every time
+ * somebody adds a section.
+ *
+ * Twice I wrote a comment explaining the trap and left the declaration where it was. That was the wrong
+ * fix both times: a comment telling a future reader to be careful is weaker than an arrangement where
+ * care is not needed. Every cross-section read now lives here, where no section can be added above it.
+ *
+ * `read` and `show` are function *declarations*, so they are hoisted and callable from this point.
+ */
+const home = read(`${OUT}/index.html`);
 
 const failures = [];
 const notes = [];
@@ -311,6 +329,16 @@ if (existsSync(SHOWCASE)) {
    */
   check('the prerequisites strip renders', html.includes('class="prereq'));
   check('prerequisites name the Minecraft version', html.includes('Minecraft 1.21.1'));
+
+  /*
+   * The loader names, spelled the way the loaders spell them.
+   *
+   * This shipped as `Neoforge` for as long as the strip has existed, because the name was derived by
+   * capitalising the id rather than looked up. Nothing failed — it was just wrong, on every page, in a
+   * proper noun. Asserting the correct spelling is the only thing that would have caught it.
+   */
+  check('loaders are spelled correctly', html.includes('NeoForge'), 'NeoForge');
+  check('no derived-capitalisation spelling survives', !html.includes('Neoforge'));
 }
 
 const glossaryPage = read(`${OUT}/docs/glossary/index.html`);
@@ -542,6 +570,79 @@ for (const mod of pinned) {
   console.log(`  .   ${mod.id.padEnd(10)} builds from ${mod.pin.slice(0, 7)}`);
 }
 
+console.log('\n== the sponsor band ==');
+/*
+ * An affiliate link, so most of these are about honesty rather than layout.
+ *
+ * Three separate things have to be true and each is easy to lose on its own: the link must declare
+ * itself sponsored (`rel="sponsored"`, the value search engines expect for exactly this), the page must
+ * SAY it is sponsored, and the offer must be the one that was actually agreed. A discount code that
+ * silently stops being quoted is a broken promise to the reader and an unpaid referral to the host.
+ */
+/*
+ * Plain JavaScript — `check.mjs`, not `.ts`.
+ *
+ * This was written with a type annotation (`manifest.sponsor as {...} | undefined`) and Bun refused it
+ * outright: `Expected ";" but found "as"`. The build failed instantly, which is the point of running
+ * `check` as the last step of `build` rather than by hand -- a syntax error in the test harness cannot
+ * reach a deployment. Every other script here is `.mjs` for the same reason: no build step, and nothing
+ * to compile before you can run the thing that tells you whether anything works.
+ */
+const sponsor = manifest.sponsor;
+
+if (sponsor) {
+  check('the sponsor band renders', home.includes('class="sponsor"'));
+  check('it is labelled as paid', home.includes('>Sponsored<'));
+  check('the affiliate link is the agreed one', home.includes(sponsor.url), sponsor.url);
+  check(
+    'the link declares itself sponsored',
+    /rel="sponsored noreferrer noopener"/.test(home),
+    'rel="sponsored noreferrer noopener"',
+  );
+  check('the discount code is quoted', home.includes(sponsor.code), sponsor.code);
+  check('the discount is stated', home.includes(sponsor.discount), sponsor.discount);
+  check('the link opens away from the site', /target="_blank"/.test(home));
+
+  check(
+    'both logo variants are in the repo',
+    existsSync('apps/docs/public/brand/bisecthosting-light.svg') &&
+      existsSync('apps/docs/public/brand/bisecthosting-dark.svg'),
+  );
+  check(
+    'both logo variants are in the build',
+    existsSync(`${OUT}/brand/bisecthosting-light.svg`) &&
+      existsSync(`${OUT}/brand/bisecthosting-dark.svg`),
+  );
+
+  /*
+   * The dimensions matter more than they look. The SVGs declare a `viewBox` and no width or height of
+   * their own, so without the attributes the box is nothing until the image loads -- and the whole band,
+   * the footer and everything below it shifts down the moment it arrives.
+   */
+  check(
+    'the logo box is reserved',
+    /class="sponsor-logo sponsor-logo-light"[^>]*width="\d+"[^>]*height="\d+"/.test(home),
+    'width and height on the light logo',
+  );
+
+  // Every page, not just the home page -- it is in the root layout, and this is what proves it.
+  check(
+    'the band is on the docs pages too',
+    Boolean(read(`${OUT}/docs/tasked/index.html`)?.includes('class="sponsor"')),
+  );
+
+  /*
+   * And it must not read as part of the site's own colophon. The footer is the domain, the licence and
+   * where else the work lives; a paid arrangement in that list would be posing as one of them, which is
+   * the exact thing the "Sponsored" label exists to prevent.
+   */
+  const sponsorAt = home.indexOf('class="sponsor"');
+  const footerAt = home.indexOf('class="footer"');
+  check('the band is separate from the colophon', sponsorAt !== -1 && (footerAt === -1 || sponsorAt < footerAt));
+} else {
+  console.log('  .   no sponsor in the manifest -- skipping the sponsor assertions');
+}
+
 console.log('\n== the left rail scrolls alone, and silently ==');
 /*
  * TWO PROPERTIES, ASSERTED SEPARATELY, because "scrolls independently" and "shows no scrollbar" are
@@ -598,6 +699,57 @@ const strays = [
 ];
 check('no probe files left', strays.length === 0, strays.join(', '));
 
+/*
+ * Every generated file must not be committable, or a build artifact ends up in the repository.
+ *
+ * `apps/docs/glossary.json` was the one that got missed: `sync.mjs` copies `glossary.json` in beside
+ * `manifest.json`, and the ignore list named the latter twice over while never mentioning the former. An
+ * untracked-but-unignored generated file is the worst of both -- it shows in `git status` forever and a
+ * `git add -A` commits it, which is exactly the second-home-for-a-document problem the whole arrangement
+ * exists to prevent.
+ *
+ * **`git status --porcelain`, not `git check-ignore`.** The first version asked `check-ignore`, and it
+ * reported `stats.json` as ignored while reporting `glossary.json` as not -- from two adjacent literal
+ * lines in the same file, with both patterns correct. Whatever the reason, that made it a proxy for the
+ * question rather than the question itself. `status --porcelain` is the answer: a `??` line means git
+ * would commit the file, which is the thing that actually matters. `--ignored=matching` so ignored paths
+ * are listed explicitly rather than omitted, which is what lets the three outcomes be told apart.
+ */
+const GENERATED = [
+  'apps/docs/manifest.json',
+  'apps/docs/glossary.json',
+  'apps/docs/stats.json',
+  'apps/docs/content',
+  '.cache',
+];
+
+for (const path of GENERATED) {
+  // Nothing to check if the build has not produced it yet.
+  if (!existsSync(path)) continue;
+
+  let lines = '';
+  try {
+    lines = execFileSync('git', ['status', '--porcelain', '--ignored=matching', '--', path], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    // Not a git checkout -- nothing to assert, and not a failure of the site.
+    lines = '';
+  }
+
+  const untracked = lines
+    .split('\n')
+    .filter((line) => line.startsWith('??'))
+    .map((line) => line.slice(3).trim());
+
+  check(
+    `${path} would not be committed`,
+    untracked.length === 0,
+    untracked.length === 0 ? '' : `git would commit ${untracked.join(', ')}`,
+  );
+}
+
 console.log('\n== the manifest and the numbers agree ==');
 // `manifest` and `stats` are read at the top of the file; see the note there.
 for (const item of manifest.selected) {
@@ -619,7 +771,7 @@ console.log('\n== the numbers survive without JavaScript ==');
  * hydration failure or a crawler all still see a correct number. These three assertions are the whole
  * of that guarantee.
  */
-const home = read(`${OUT}/index.html`);
+// `home` is read once at the top of the file, with the other shared reads.
 if (home) {
   const total = (stats.totals?.all ?? 0).toLocaleString('en-US');
   check('the hero total is in the static HTML', home.includes(total), total);

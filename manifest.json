@@ -5,6 +5,21 @@
     "description": "Manuals for the mods: how they work, how to configure them, and what the formats are."
   },
 
+  "/*sponsor": "One affiliate arrangement, in the manifest because that is where the site's facts live — a link and a discount code written into a component would be a second place to keep in step. `code` is quoted verbatim on the page, and `url` carries the referral path.",
+
+  "sponsor": {
+    "name": "BisectHosting",
+    "tagline": "Minecraft server hosting",
+    "url": "https://www.bisecthosting.com/mcstellar",
+    "code": "mcstellar",
+    "discount": "25% off",
+    "logoLight": "/brand/bisecthosting-light.svg",
+    "logoDark": "/brand/bisecthosting-dark.svg",
+    "/*logo": "Both SVGs declare only a viewBox, 243.7 by 81.21, and no width or height of their own -- so these are the numbers the layout reserves before the image arrives. They match the viewBox ratio, which is why the width is 123 and not a round number.",
+    "logoWidth": 123,
+    "logoHeight": 41
+  },
+
   "author": {
     "handle": "Ellipog",
     "bio": "I build Minecraft mods. A couple are in development now; the rest are already out.",

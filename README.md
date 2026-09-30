@@ -39,7 +39,7 @@ will not work as written; see `AGENT.md`.
 ## Layout
 
     ellipog.dev/
-    ├── manifest.json          the author, the suite (with a pin each), the released projects
+    ├── manifest.json          the author, the sponsor, the suite (with a pin each), releases
     ├── glossary.json          terms defined once, referenced from any mod's docs
     ├── .github/workflows/     refresh-stats.yml, update-pins.yml
     ├── scripts/
@@ -139,6 +139,18 @@ listing carries no download counts, so it would cost about nineteen requests per
 
 The one thing to know when deploying: **the docs come from the pinned commits in `manifest.json`**, not
 from the branches. If a page looks out of date, the pin needs moving — `bun run pins` says which.
+
+---
+
+## The sponsor band
+
+Every page carries one affiliate arrangement at its foot — BisectHosting, with the code `mcstellar` for
+25% off. It is **labelled "Sponsored"** and its link carries `rel="sponsored"`, because a paid link that
+does not declare itself is a link pretending to be a recommendation.
+
+The details live in `manifest.json` under `sponsor`; removing that object removes the band, and
+`check.mjs` skips its assertions. The two logos are in `apps/docs/public/brand/`, committed, because a
+logo is not a fact about the mods.
 
 ---
 

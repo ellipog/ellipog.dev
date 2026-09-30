@@ -455,6 +455,46 @@ the way to settle it is to load the catalog page and look at it.
 
 ---
 
+## The sponsor band
+
+One affiliate arrangement, at the foot of every page: BisectHosting, with the code `mcstellar` for 25%
+off. It lives in `manifest.json` like every other fact about the site, and `components/sponsor.tsx`
+renders it.
+
+**It says "Sponsored", and that is the only thing here that is not negotiable.** The label sits in the
+band's own head, in the same place a section's label goes, and the link carries
+`rel="sponsored noreferrer noopener"` — the value search engines expect for a paid link. An affiliate
+link that does not declare itself is a link pretending to be a recommendation, and a reader who finds out
+later is right to be annoyed. The discount code makes the arrangement obvious anyway, so saying it up
+front costs nothing.
+
+**Why its own band rather than a line in the footer.** The footer is the site's colophon: the domain, the
+licence, where else the work lives. A paid arrangement inside that list would be posing as one of those,
+which is exactly what the label exists to prevent. As a band it inherits the grid the whole page is made
+of — a label strip, then content — and reads as one more hairline-separated row.
+
+**Two logos, and CSS picks one.** The site's theme is a `data-theme` attribute rather than
+`prefers-color-scheme`, so a `<picture media="...">` cannot switch on it, and one keyed on the system
+preference would show the wrong logo to anybody who had overridden the theme. There are two grounds
+(paper and ink) and each can be inverted by hover, which is four states, written out longhand in
+`global.css`. Less clever than the alternatives and considerably easier to check.
+
+**`width` and `height` are set from the manifest, and they matter more than they look.** Both SVGs declare
+a `viewBox` of `243.7 × 81.21` and no dimensions of their own, so without the attributes the box is
+nothing until the image loads — and the band, the footer and everything below it shifts down the moment
+it arrives. The numbers live in the manifest rather than the component because they come from the files.
+
+**`alt=""` on both.** The link's own text names the host, so an alt describing the image would make a
+screen reader say the name twice. It is a decoration beside the word, which is what an empty alt means.
+
+**It is a `<section aria-label="Sponsored">`**, not a `<div>`, so it appears in a screen reader's landmark
+list and can be skipped deliberately — which a plain div would not allow.
+
+**Which files are the brand's:** `apps/docs/public/brand/bisecthosting-{light,dark}.svg`, copied in from
+`~/Pictures`. They are committed rather than generated, because a logo is not a fact about the mods.
+
+---
+
 ## Where the docs come from: a pin, not a folder
 
 Every active mod in `manifest.json` carries a `pin` — one commit SHA. `sync.mjs` reads the mod's docs
