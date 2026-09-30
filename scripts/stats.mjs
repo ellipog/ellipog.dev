@@ -34,23 +34,13 @@
  * writes what it has and the page renders without that platform's numbers rather than with stale ones.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = resolve(HERE, '..');
 const OUT = join(SITE, 'apps', 'docs', 'stats.json');
-
-/**
- * Where the avatar is written. Inside `public/`, so Next copies it to the root of the static export
- * and the page asks for `/avatar.webp` rather than reaching across to a CDN at runtime.
- *
- * Downloaded rather than hotlinked on purpose: a page that renders your face from someone else's
- * server is a page that shows a broken image the day that server moves the file, and the failure is
- * silent. Fetching it at build turns that into a build-time problem, which is one you can see.
- */
-const PUBLIC = join(SITE, 'apps', 'docs', 'public');
 
 const manifest = JSON.parse(readFileSync(join(SITE, 'manifest.json'), 'utf8'));
 
@@ -193,38 +183,24 @@ function sum(map) {
   return Object.values(map).reduce((n, p) => n + (p?.downloads ?? 0), 0);
 }
 
-/**
- * The creator's avatar, copied into `public/`.
+/*
+ * THERE WAS A fetchAvatar() HERE, AND ITS REMOVAL IS THE POINT OF THIS NOTE.
  *
- * The URL comes from Modrinth rather than being hardcoded, so changing the picture on the platform
- * changes it here at the next build with nothing to edit. The extension is taken from the URL and
- * falls back to `.png`, because Modrinth serves `.webp` today but has served `.png` before and the
- * filename should not be a guess about that.
+ * It downloaded the Modrinth profile picture at build time and wrote it into `public/`, on the
+ * reasoning that a page rendering your face from somebody else's server is a page that breaks the day
+ * that server moves the file. That reasoning was sound and the arrangement was still wrong for a
+ * different reason: a photograph of a person is not a site's identity, it was the only mark on the page
+ * with no dark variant, and it was the only one that could *go missing* — a failed fetch meant a
+ * different masthead, silently, on that build only.
  *
- * Returns the public path on success, or null. Null is not an error -- the layout falls back to the
- * square mark it used before, so a site with no avatar is still a site.
+ * The masthead mark is now derived from `public/favicon.svg` by `bun run site-mark`, and that file is
+ * committed. A committed file cannot fail to download, so the failure mode is gone rather than handled,
+ * and `MODRINTH_USER` below is back to doing exactly one job: naming the author in the Modrinth search.
  */
-async function fetchAvatar() {
-  const user = await getJson(`https://api.modrinth.com/v2/user/${MODRINTH_USER}`);
-  const url = user?.avatar_url;
-  if (!url) throw new Error('no avatar_url on the user record');
-
-  const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status} fetching the avatar`);
-
-  const match = /\.(png|webp|jpe?g|gif)$/i.exec(new URL(url).pathname);
-  const ext = (match?.[1] ?? 'png').toLowerCase().replace('jpeg', 'jpg');
-  const file = `avatar.${ext}`;
-
-  mkdirSync(PUBLIC, { recursive: true });
-  writeFileSync(join(PUBLIC, file), Buffer.from(await res.arrayBuffer()));
-  return { path: `/${file}`, source: url };
-}
 
 async function main() {
   const out = {
     fetched: new Date().toISOString().slice(0, 10),
-    avatar: null,
     modrinth: {},
     curseforge: {},
     totals: { modrinth: 0, curseforge: 0, all: 0 },
@@ -236,14 +212,6 @@ async function main() {
   } catch (err) {
     out.notes.push(`modrinth unavailable: ${err.message}`);
     console.warn(`stats: Modrinth unreachable (${err.message}).`);
-  }
-
-  try {
-    out.avatar = await fetchAvatar();
-  } catch (err) {
-    // Not fatal, and deliberately not an error the build fails on: the masthead has a fallback mark.
-    out.notes.push(`avatar unavailable: ${err.message}`);
-    console.warn(`stats: no avatar this build (${err.message}).`);
   }
 
   try {
@@ -281,7 +249,7 @@ async function main() {
   console.log(
     `stats: modrinth ${Object.keys(out.modrinth).length} projects / ${n(out.totals.modrinth)} · ` +
       `curseforge ${Object.keys(out.curseforge).length} / ${n(out.totals.curseforge)} · ` +
-      `total ${n(out.totals.all)}` + (out.avatar ? ` · avatar ${out.avatar.path}` : ' · no avatar'),
+      `total ${n(out.totals.all)}`,
   );
   for (const note of out.notes) console.log(`stats: note -- ${note}`);
 }

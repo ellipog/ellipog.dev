@@ -814,13 +814,33 @@ if (sponsor) {
   );
 
   /*
-   * And it must not read as part of the site's own colophon. The footer is the domain, the licence and
-   * where else the work lives; a paid arrangement in that list would be posing as one of them, which is
-   * the exact thing the "Sponsored" label exists to prevent.
+   * AND IT IS THE LAST ROW ON THE PAGE.
+   *
+   * It was given its own band so it would not read as part of the site's colophon — the footer's list of
+   * the domain and where else the work lives — because a paid arrangement in that list would be posing as
+   * one of them, which is the exact thing the "Sponsored" label exists to prevent. The old assertion was
+   * "above the footer".
+   *
+   * The footer has since gone: it repeated the masthead's own nav cell for cell, and the catalog's
+   * "Elsewhere" band carries the same two platform links with a handle each. So the assertion becomes
+   * "nothing below it", and the one thing the band must not do — sit in a list of the site's own facts —
+   * is now impossible rather than merely arranged against.
+   *
+   * Asserted on position rather than by eye. An extra row appended after this one would look
+   * unremarkable, and it would quietly turn a paid band into the second-to-last item on a page whose foot
+   * nobody has looked at.
    */
   const sponsorAt = home.indexOf('class="sponsor"');
-  const footerAt = home.indexOf('class="footer"');
-  check('the band is separate from the colophon', sponsorAt !== -1 && (footerAt === -1 || sponsorAt < footerAt));
+  check(
+    'the footer is gone',
+    !home.includes('class="footer"'),
+    home.includes('class="footer"') ? 'class="footer" is still in the markup' : 'no colophon row',
+  );
+  check(
+    'the band is the last thing on the page',
+    sponsorAt !== -1 && sponsorAt > home.indexOf('</main>') && !/<(nav|footer)\b/.test(home.slice(sponsorAt)),
+    sponsorAt === -1 ? 'no sponsor band found' : 'nothing below it',
+  );
 } else {
   console.log('  .   no sponsor in the manifest -- skipping the sponsor assertions');
 }
@@ -967,7 +987,90 @@ for (const item of manifest.selected) {
   );
 }
 check('totals sum', stats.totals.all === stats.totals.modrinth + stats.totals.curseforge);
-check('avatar downloaded', existsSync('apps/docs/public/avatar.webp') || existsSync('apps/docs/public/avatar.png'));
+
+console.log('\n== the tab icon, and the mark that comes from it ==');
+/*
+ * THE ONE FILE HERE THAT IS COPIED FROM ANOTHER REPOSITORY, AND THE ASSERTIONS IT CANNOT HAVE.
+ *
+ * `apps/docs/public/favicon.svg` is the same document as `aaenz/public/favicon.svg`, byte for byte, and
+ * `aaenz` is a **separate checkout this build has no route into**. So there is nothing to regenerate it
+ * from and nothing to compare it against — the copy is the one arrangement on this site with no guard,
+ * and no assertion can invent one. What can be asserted is everything short of that: it is committed,
+ * the build copied it through unchanged, and the pages ask for it.
+ *
+ * The masthead mark is the part that *is* guarded, and the reason it is generated rather than drawn:
+ * `bun run site-mark` derives it from that same favicon, so the two cannot drift at all. Change the
+ * source and re-run and both move together; redraw either by hand and these assertions are what say so.
+ *
+ * The plate check is the loud one. The favicon is drawn on a full-bleed `#f3f1ec` tile, which is right
+ * for a browser tab and wrong in the masthead, where it would be a small rectangle of a second paper
+ * colour on the page's own. It is removed by *size* — a rect covering the whole 64px viewBox.
+ */
+check('the favicon is committed', existsSync('apps/docs/public/favicon.svg'), 'apps/docs/public/favicon.svg');
+check('the favicon ships', existsSync(`${OUT}/favicon.svg`));
+check(
+  'the pages ask for it',
+  Boolean(home) && home.includes('rel="icon"') && home.includes('/favicon.svg'),
+  'a rel="icon" link pointing at /favicon.svg',
+);
+check(
+  'the build did not alter it',
+  existsSync('apps/docs/public/favicon.svg') &&
+    existsSync(`${OUT}/favicon.svg`) &&
+    readFileSync('apps/docs/public/favicon.svg', 'utf8') === readFileSync(`${OUT}/favicon.svg`, 'utf8'),
+);
+
+const SITE_MARK = 'apps/docs/public/site/ellipog.svg';
+check('the masthead mark is committed', existsSync(SITE_MARK), SITE_MARK);
+
+if (existsSync(SITE_MARK)) {
+  const svg = readFileSync(SITE_MARK, 'utf8');
+
+  // The same two the mod marks get, for the same reasons: a surviving hex is a colour in a monochrome
+  // design, and a plate that stayed behind is a background that is nearly the page's own.
+  const hexes = [...new Set(svg.match(/#[0-9a-f]{6}\b/gi) ?? [])];
+  check('the mark is monochrome', hexes.length === 0, hexes.length ? `leftover: ${hexes.join(' ')}` : '');
+  check('the mark takes its colour from the text', svg.includes('currentColor'), 'currentColor');
+  check('the paper plate was removed', !/<rect[^>]*width="64"/.test(svg));
+
+  /*
+   * And it has no knockouts, which is the one way it differs from every other mark on the site.
+   *
+   * The mod icons and the host's logo are filled shapes with holes where the ground shows through, so
+   * they point those holes at `--icon-ground` — a token the component sets because an inlined SVG cannot
+   * know what it is standing on. This mark is line work, `fill="none"` throughout, so there is nothing
+   * to knock out and a `--icon-ground` here would be a token read by nobody.
+   *
+   * Asserted rather than left as a remark, because "it happens to have no fills today" is exactly the
+   * kind of thing that stops being true without anyone deciding it should.
+   */
+  check('the mark has no knockouts', !svg.includes('var(--icon-ground)'), 'line work, fill="none"');
+
+  check('the mark ships', existsSync(`${OUT}/site/ellipog.svg`));
+  check('the mark is inlined, not an <img>', /<svg class="site-mark"/.test(home ?? ''), 'not an <img>');
+  check('no mark is loaded as an <img>', !/<img[^>]*site\//.test(home ?? ''));
+  // Both dimensions, so the box is reserved before the SVG is parsed and nothing shifts under the name.
+  check(
+    'the mark box is reserved',
+    /<svg class="site-mark"[^>]*width="22"[^>]*height="22"/.test(home ?? ''),
+    'width and height on the mark',
+  );
+}
+
+/*
+ * THE AVATAR IS RETIRED, AND ASSERTED RATHER THAN ASSUMED.
+ *
+ * It was a build-time download of the Modrinth profile picture: a photograph of a person standing in for
+ * the site, the only mark on the page with no dark variant, and the only one that could disappear when a
+ * fetch failed. A committed `favicon.svg` cannot go missing the way a fetched `avatar.webp` could, so the
+ * failure mode went with it — and this is what keeps it from drifting back in as a "fallback".
+ */
+check(
+  'the Modrinth avatar is retired',
+  !existsSync('apps/docs/public/avatar.webp') && !existsSync('apps/docs/public/avatar.png'),
+  'nothing left in apps/docs/public/',
+);
+check('nothing asks for the avatar any more', !/\/avatar\./.test(home ?? ''), 'no /avatar.* request');
 
 console.log('\n== the numbers survive without JavaScript ==');
 /*

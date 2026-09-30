@@ -47,11 +47,12 @@ will not work as written; see `AGENT.md`.
     │   └── brand-source/      the host's logo, same idea
     ├── scripts/
     │   ├── sync.mjs           checks out each pin, copies docs/ in, wipes the target first
-    │   ├── stats.mjs          fetches both platforms' download counts and the avatar
+    │   ├── stats.mjs          fetches both platforms' download counts
     │   ├── pins.mjs           moves the pins; dry unless --write
     │   ├── icons.mjs          turns the mod icon sources into monochrome glyphs
     │   ├── brand.mjs          the same for the host's logo
-    │   ├── lib/monochrome.mjs the transform both of those share
+    │   ├── site-mark.mjs      the same for the favicon, which becomes the masthead mark
+    │   ├── lib/monochrome.mjs the transform all three of those share
     │   └── check.mjs          asserts the built site is what it should be
     ├── AGENT.md               conventions, the element set, and the known gaps
     └── apps/
@@ -67,7 +68,7 @@ will not work as written; see `AGENT.md`.
             │   └── …
             ├── lib/           the Fumadocs source, and the docs helpers
             ├── content/       GENERATED — gitignored
-            ├── public/        GENERATED avatar — gitignored
+            ├── public/        the favicon, the mod marks, the host's logo
             └── out/           the static build
 
 ---

@@ -51,9 +51,6 @@
      the eye finds the structure. Too faint and the whole conceit is lost. */
   --grid-line: rgba(9, 9, 11, 0.06);
 
-  /* The one colour that is not paper or ink: a liveness marker. Used twice on the whole site. */
-  --live: #16a34a;
-
   /* The inversion, for hover. Set as a pair so a component never has to know which theme it is in. */
   --inv-bg: #09090b;
   --inv-fg: #ffffff;
@@ -114,8 +111,6 @@
   --danger: #ef4444;
 
   --grid-line: rgba(250, 250, 250, 0.05);
-
-  --live: #22c55e;
 
   --inv-bg: #fafafa;
   --inv-fg: #09090b;
@@ -397,30 +392,25 @@ main {
   font-size: 15px;
 }
 
-/* The mark: a filled square. The whole identity is one geometric primitive, and it stays as the
-   fallback when no avatar was fetched. */
-.brand .dot {
-  width: 9px;
-  height: 9px;
-  background: var(--fg);
-  display: inline-block;
-  flex: none;
-}
-
 /*
- * The avatar, beside the name it belongs to.
+ * The site's mark, beside the name it belongs to.
  *
- * Square, not round: the whole design is rectangles meeting at right angles and a circle would be the
- * only curve on the page. 22px against a 56px masthead leaves the mark the same visual weight as the
- * wordmark next to it, and `object-fit` keeps a non-square picture from stretching.
+ * **The tab icon, drawn from the same file.** `SiteMark` inlines what `scripts/site-mark.mjs` derived
+ * from `public/favicon.svg`, so the thing in the tab and the thing in the masthead are one drawing
+ * rather than two that have to be kept in step.
+ *
+ * 22px against a 56px masthead, which is the weight the old avatar had. Nothing else is needed: the
+ * glyph's ink is `currentColor`, so it is ink on paper and paper on ink with nothing switched, and it
+ * is line work with `fill="none"` rather than a filled shape, so there is no knockout and no
+ * `--icon-ground` to set here.
+ *
+ * This replaced a 9px filled square, and before that the Modrinth profile picture — a downloaded
+ * photograph with no dark variant, which was the only mark on the page that could go missing.
  */
-.avatar {
-  width: 22px;
-  height: 22px;
-  display: block;
+.site-mark {
   flex: none;
-  object-fit: cover;
-  background: var(--bg-sunken);
+  display: block;
+  color: inherit;
 }
 
 .masthead nav {
@@ -456,17 +446,6 @@ main {
 .masthead nav button:hover {
   background: var(--fg);
   color: var(--bg);
-}
-
-/* A liveness marker: the only green on the site, and it means "this is where the code is". */
-.live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--live);
-  display: inline-block;
-  margin-right: 7px;
-  flex: none;
 }
 
 .band {
@@ -1126,13 +1105,14 @@ a.grid-cell:hover .nums {
 /* ------------------------------------------------------------------ */
 
 /*
- * The host, one hairline-separated band above the footer.
+ * The host, and now the last row on every page.
  *
- * **Why its own band rather than a line in the footer.** The footer is the site's colophon — the
- * domain, the licence, links to where else the work lives. A paid arrangement dropped into that list
- * would be posing as one of those, which is the thing the "Sponsored" label exists to avoid. As a band
- * it is plainly a separate row with a separate purpose, and it inherits the grid the whole page is made
- * of: a label strip, then content.
+ * **It was given its own band so it would not read as part of the site's colophon.** That colophon was
+ * the footer — the domain, then links to where else the work lives — and a paid arrangement dropped
+ * into that list would have been posing as one of those, which is the thing the "Sponsored" label
+ * exists to avoid. The footer has since gone as redundant, and the band stays a band regardless: it is
+ * plainly a separate row with a separate purpose, and it inherits the grid the whole page is made of —
+ * a label strip, then content.
  */
 .sponsor {
   border-top: 1px solid var(--line);
@@ -1321,48 +1301,6 @@ a.grid-cell:hover .nums {
 }
 
 /* ------------------------------------------------------------------ */
-/* Footer                                                              */
-/* ------------------------------------------------------------------ */
-
-.footer {
-  border-top: 1px solid var(--line);
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: var(--s4);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-faint);
-  margin-top: auto;
-}
-
-.footer>* {
-  padding: var(--s4);
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-}
-
-.footer nav {
-  padding: 0;
-  gap: 0;
-}
-
-.footer nav a {
-  padding: 0 var(--s4);
-  height: 100%;
-  display: flex;
-  align-items: center;
-  border-left: 1px solid var(--line);
-  transition: background-color 0.12s linear, color 0.12s linear;
-}
-
-.footer nav a:hover {
-  background: var(--fg);
-  color: var(--bg);
-}
-
-/* ------------------------------------------------------------------ */
 /* Narrow screens                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -1417,15 +1355,5 @@ a.grid-cell:hover .nums {
 
   .docs-body {
     padding: 0 var(--docs-gutter) var(--s5);
-  }
-
-  .footer {
-    flex-direction: column;
-  }
-
-  .footer nav a {
-    border-left: 0;
-    border-top: 1px solid var(--line);
-    padding: var(--s3) var(--s4);
   }
 }
