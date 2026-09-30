@@ -495,6 +495,47 @@ list and can be skipped deliberately — which a plain div would not allow.
 
 ---
 
+## The mod marks
+
+Each mod has an icon. Five have one; **Kindred does not**, and that is handled rather than hidden.
+
+**Where they come from.** The design sources are committed at `design/icons-source/<mod>.svg` — brand
+assets, clearly not build output and clearly the input to something. Committing them matters: a
+transform whose input lives in somebody's pictures folder is not a transform, it is a one-way door, and
+the day an icon needs changing there would be nothing to change it from.
+
+**The transform is `bun run icons`**, and it does three things, each of which was a decision:
+
+| Decision | Why |
+|---|---|
+| **The background plate is removed**, not recoloured | A full-bleed rect in a glyph is the plate the mark sat on. Recolouring leaves an invisible element behind, and on a design whose premise is that every edge is visible, shipping an element that does nothing is the wrong instinct. Identified by *size*, so a white rect that is part of the mark survives |
+| **Tones become `currentColor` at ranked opacity** | "Black and white" could mean two values, and that would lose the second tone giving each mark its depth. A grey is black at 45%, so opacity keeps the glyph strictly monochrome while preserving structure — and it inherits: ink at 45% on paper, paper at 45% on ink. Opacity comes from **rank**, not a luminance formula, because rank is predictable across files |
+| **White becomes `var(--icon-ground)`** | Remaining white is a knockout or a highlight across a solid shape — in both cases it means "whatever is behind me shows through". `transparent` would be wrong the moment a white shape overlaps a coloured one, which several do |
+
+Plus two cleanups: **vestigial glows deleted** (every source carries one shape at `opacity 0.04–0.08`, a
+flat-design shadow that contributes nothing at any size) and **accents floored at 0.45**, because the
+contact sheet showed the original `0.3` accents vanishing as the glyph shrank.
+
+**`--icon-ground`, not `--bg`, and that is not pedantry.** The catalog's cells invert on hover: their
+ground becomes `--inv-bg` while `--bg` carries on meaning the page behind everything. A glyph in a
+hovered cell would knock its holes out in paper on an ink ground — a colour that is not behind it. The
+token is set by `.mod-icon` and overridden where the ground inverts.
+
+**Inlined, not an `<img>`, and this is the load-bearing part.** An SVG in an `<img>` is a separate
+document with **no access to the page's CSS**, so neither `currentColor` nor `var(--icon-ground)` would
+resolve — the icons would be black on a dark page and their knockout detail would vanish. It would look
+perfectly fine in light mode, which is exactly why it needs an assertion rather than an eye.
+
+**Kindred renders a dashed placeholder**, the same size as the real marks. A row with nothing shifts
+left and reads as a mod that is somehow different from its neighbours; a slot reads as one waiting to be
+filled. The same instinct as a Modrinth link that is typed but not yet live: show the gap, do not hide it.
+
+**Two files that must not drift:** `design/icons-source/` and `apps/docs/public/icons/`.
+`check.mjs` asserts every generated glyph has a committed source, that none contains a hex colour, and
+that no icon reached the page as an `<img>`.
+
+---
+
 ## Where the docs come from: a pin, not a folder
 
 Every active mod in `manifest.json` carries a `pin` — one commit SHA. `sync.mjs` reads the mod's docs

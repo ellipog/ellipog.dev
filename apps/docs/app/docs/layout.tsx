@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import '../docs.css';
+import { ModIcon } from '@/components/mod-icon';
 import { standalonePages } from '@/lib/docs';
 import { source } from '@/lib/source';
 import manifest from '@/manifest.json';
@@ -47,7 +48,12 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
       <aside className="sidebar">
         {sections.map((section) => (
           <div className="sidebar-section" key={section.id}>
-            <span className="label">{section.name}</span>
+            {/* The mark on the section label. 16px, because the label itself is 11px uppercase — an icon
+                any larger than that would out-weigh the word it belongs to. */}
+            <span className="label sidebar-label">
+              <ModIcon id={section.id} size="sm" />
+              {section.name}
+            </span>
             <ul>
               {section.pages.map((page) => (
                 <li key={page.url}>

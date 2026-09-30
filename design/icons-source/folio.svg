@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Flat, solid background with zero radius and zero shadows -->
+  <rect width="256" height="256" fill="#FFFFFF" />
+  <g stroke-linecap="round" stroke-linejoin="round">
+                <rect x="68" y="46" width="120" height="164" rx="14" fill="none" stroke="#059669" stroke-width="13" />
+                <!-- Rivet Grommet -->
+                <circle cx="92" cy="74" r="8" fill="#059669" />
+                <circle cx="92" cy="74" r="3" fill="#FFFFFF" />
+                <!-- Index Notch Tabs -->
+                <path d="M188 88 L170 88 L170 114 L188 114" fill="#059669" />
+                <path d="M188 132 L170 132 L170 158 L188 158" fill="#10B981" />
+                <line x1="104" y1="128" x2="148" y2="128" stroke="#059669" stroke-width="10" />
+                <line x1="104" y1="156" x2="136" y2="156" stroke="#059669" stroke-width="10" />
+              </g>
+</svg>

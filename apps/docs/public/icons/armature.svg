@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" aria-hidden="true">
+  <g stroke-linecap="round" stroke-linejoin="round">
+
+  <path d="M128 42 L206 86 L206 174 L128 218 L50 174 L50 86 Z" fill="none" stroke="currentColor" stroke-width="14" />
+  <path d="M128 42 L128 130 L206 174" fill="none" stroke="currentColor" stroke-width="14" />
+  <path d="M128 130 L50 174" fill="none" stroke="currentColor" stroke-width="14" />
+  <polygon points="128,94 158,111 158,145 128,162 98,145 98,111" fill="currentColor" />
+  <polygon points="128,94 158,111 128,128 98,111" fill="currentColor" opacity="0.6" />
+  <circle cx="128" cy="128" r="5" fill="currentColor" opacity="0.45" />
+  <circle cx="128" cy="42" r="5.5" fill="var(--icon-ground)" stroke="currentColor" stroke-width="4.5" />
+  <circle cx="206" cy="86" r="5.5" fill="var(--icon-ground)" stroke="currentColor" stroke-width="4.5" />
+  <circle cx="206" cy="174" r="5.5" fill="var(--icon-ground)" stroke="currentColor" stroke-width="4.5" />
+  <circle cx="128" cy="218" r="5.5" fill="var(--icon-ground)" stroke="currentColor" stroke-width="4.5" />
+  <circle cx="50" cy="174" r="5.5" fill="var(--icon-ground)" stroke="currentColor" stroke-width="4.5" />
+  <circle cx="50" cy="86" r="5.5" fill="var(--icon-ground)" stroke="currentColor" stroke-width="4.5" />
+  </g>
+</svg>

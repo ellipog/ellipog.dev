@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" aria-hidden="true">
+  <g stroke-linecap="round" stroke-linejoin="round">
+
+  <circle cx="68" cy="68" r="10" fill="currentColor" />
+  <circle cx="188" cy="188" r="10" fill="currentColor" />
+  <circle cx="188" cy="68" r="6.5" fill="currentColor" opacity="0.6" />
+  <circle cx="68" cy="188" r="6.5" fill="currentColor" opacity="0.6" />
+  <path d="M128 36 C128 92 108 128 36 128 C108 128 128 164 128 220 C128 164 148 128 220 128 C148 128 128 92 128 36 Z" fill="currentColor" />
+  <path d="M128 86 C128 114 116 128 92 128 C116 128 128 142 128 170 C128 142 140 128 164 128 C140 128 128 114 128 86 Z" fill="currentColor" opacity="0.45" />
+  <circle cx="128" cy="128" r="5.5" fill="var(--icon-ground)" />
+  </g>
+</svg>

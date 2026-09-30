@@ -42,10 +42,13 @@ will not work as written; see `AGENT.md`.
     ├── manifest.json          the author, the sponsor, the suite (with a pin each), releases
     ├── glossary.json          terms defined once, referenced from any mod's docs
     ├── .github/workflows/     refresh-stats.yml, update-pins.yml
+    ├── design/
+    │   └── icons-source/      the five brand SVGs the mod marks are generated from
     ├── scripts/
     │   ├── sync.mjs           checks out each pin, copies docs/ in, wipes the target first
     │   ├── stats.mjs          fetches both platforms' download counts and the avatar
     │   ├── pins.mjs           moves the pins; dry unless --write
+    │   ├── icons.mjs          turns the sources into monochrome glyphs
     │   └── check.mjs          asserts the built site is what it should be
     ├── AGENT.md               conventions, the element set, and the known gaps
     └── apps/
@@ -139,6 +142,25 @@ listing carries no download counts, so it would cost about nineteen requests per
 
 The one thing to know when deploying: **the docs come from the pinned commits in `manifest.json`**, not
 from the branches. If a page looks out of date, the pin needs moving — `bun run pins` says which.
+
+---
+
+## The mod marks
+
+Each mod has an icon beside its name on the catalog and on its docs section in the sidebar. Five do;
+Kindred renders a dashed placeholder, which is the honest treatment for a slot waiting to be filled.
+
+They are **monochrome and inherit the text colour** — ink on paper, paper on ink — so one file works in
+both themes. The sources live in `design/icons-source/` and the generated glyphs in
+`apps/docs/public/icons/`; both are committed, and `bun run icons` regenerates one from the other.
+
+They are **inlined into the page rather than loaded as images**, and that is required rather than
+preferred: an SVG in an `<img>` cannot see the page's CSS, so `currentColor` and the knockouts' ground
+variable would both fail to resolve. See `AGENT.md` → *The mod marks*.
+
+```cmd
+bun run icons     :: regenerate the glyphs from design/icons-source/
+```
 
 ---
 

@@ -47,6 +47,7 @@ const stats = JSON.parse(readFileSync('apps/docs/stats.json', 'utf8'));
  * `read` and `show` are function *declarations*, so they are hoisted and callable from this point.
  */
 const home = read(`${OUT}/index.html`);
+const docsPage = read(`${OUT}/docs/tasked/index.html`);
 
 const failures = [];
 const notes = [];
@@ -66,6 +67,26 @@ function sidebar(html) {
 
 function read(path) {
   return existsSync(path) ? readFileSync(path, 'utf8') : null;
+}
+
+/**
+ * The page with its `<script>` payloads stripped.
+ *
+ * **Next serialises its entire render tree into a `<script>` tag**, so every class name and every string
+ * on a page appears twice: once as markup, once as JSON. Counting occurrences without removing that first
+ * gives roughly double the truth, and — worse — an assertion can pass on the strength of a string that
+ * exists only in the payload and never renders.
+ *
+ * This has now bitten twice. `no unresolved [[...]]` failed on every page ever built because a JSON array
+ * of arrays contains `[[]]`... contains `[[`, so a plain `includes` was true everywhere. And the mod-mark
+ * placeholder count read 2 for a single placeholder.
+ *
+ * A function *declaration*, not a `const`, so it is hoisted and callable from any section regardless of
+ * where it is written — the ordering trap that produced three `Cannot access 'X' before initialization`
+ * failures earlier in this file.
+ */
+function withoutScripts(html) {
+  return html.replace(/<script[\s\S]*?<\/script>/g, '');
 }
 
 function headings(html) {
@@ -286,7 +307,7 @@ console.log('\n== cross-mod links and the glossary ==');
  * failed on both files here for exactly that reason, while the rendered page contained no `[[` at all.
  * The question is about visible content, so the check is too.
  */
-const withoutScripts = (html) => html.replace(/<script[\s\S]*?<\/script>/g, '');
+// `withoutScripts` is declared at the top of the file, as a hoisted function declaration.
 for (const path of [`${OUT}/docs/tasked/index.html`, `${OUT}/docs/tasked/design-preview/index.html`]) {
   const html = read(path);
   if (!html) continue;
@@ -570,6 +591,101 @@ for (const mod of pinned) {
   console.log(`  .   ${mod.id.padEnd(10)} builds from ${mod.pin.slice(0, 7)}`);
 }
 
+console.log('\n== the mod marks ==');
+/*
+ * The icons are generated files that are also committed, which is the one arrangement here where two
+ * things could drift: the sources in `design/icons-source/` and the glyphs in `apps/docs/public/icons/`.
+ * `bun run icons` regenerates one from the other, and these assertions are what say whether they agree.
+ *
+ * The colour check is the important one. A hex left in a generated glyph means the transform missed a
+ * shape, and the result is a **coloured icon in a monochrome design** — the loudest possible failure,
+ * and one that would only be noticed by looking. Every tone is meant to be `currentColor` at some
+ * opacity, and every knockout `var(--icon-ground)`.
+ */
+const ICON_DIR = 'apps/docs/public/icons';
+const iconFiles = existsSync(ICON_DIR) ? readdirSync(ICON_DIR).filter((f) => f.endsWith('.svg')) : [];
+
+check('there are icons to check', iconFiles.length > 0, `${iconFiles.length} file(s)`);
+
+for (const file of iconFiles) {
+  const id = file.replace(/\.svg$/, '');
+  const svg = readFileSync(`${ICON_DIR}/${file}`, 'utf8');
+
+  const hexes = [...new Set(svg.match(/#[0-9a-f]{6}\b/gi) ?? [])];
+  check(`${id}: monochrome`, hexes.length === 0, hexes.length ? `leftover: ${hexes.join(' ')}` : '');
+  check(`${id}: takes its colour from the text`, svg.includes('currentColor'), 'currentColor');
+  // The plate is a full-bleed rect; 256 is the viewBox, so its survival is unambiguous.
+  check(`${id}: no background plate`, !/<rect[^>]*width="256"/.test(svg));
+  // The knockouts must point at the token, not at `--bg` — see the note in `scripts/icons.mjs` about why.
+  check(`${id}: knockouts use the ground token`, svg.includes('var(--icon-ground)'), 'var(--icon-ground)');
+  check(`${id}: copy is in the build`, existsSync(`${OUT}/icons/${file}`));
+}
+
+// A generated glyph whose source is missing cannot be regenerated, which makes the transform a fiction.
+const srcDir = 'design/icons-source';
+const sources = existsSync(srcDir) ? readdirSync(srcDir).filter((f) => f.endsWith('.svg')) : [];
+check('every generated icon has a committed source', sources.length === iconFiles.length, `${sources.length} source(s) / ${iconFiles.length} generated`);
+
+if (home) {
+  /*
+   * **Inlined, not an `<img>`, and this is the assertion that protects it.**
+   *
+   * The glyphs use two CSS variables: `currentColor` and `var(--icon-ground)`. An SVG in an `<img>` is a
+   * separate document with no access to the page's CSS, so neither would resolve — the icons would be
+   * black on a dark page and their knockout detail would vanish. It would look fine in light mode, which
+   * is exactly why it needs a test rather than an eye.
+   */
+  check('icons are inlined as <svg>', /<svg class="mod-icon/.test(home), 'not an <img>');
+  check('no icon is loaded as an <img>', !/<img[^>]*icons\//.test(home));
+  check('the ground token reaches the page', home.includes('var(--icon-ground)'));
+
+  /*
+   * Kindred has no icon, so it renders a placeholder — and the placeholder is the point.
+   *
+   * A row with nothing shifts left and reads as a mod that is somehow different; a dashed slot reads as
+   * one waiting to be filled. The count is asserted so the placeholder cannot be quietly dropped.
+   */
+  /*
+   * Counted from the markup with the render-tree payload stripped, and compared against the manifest
+   * rather than against a number.
+   *
+   * Counted naively this read **2 for one placeholder** — Next serialises the render tree into a
+   * `<script>`, so the class name appeared twice. That would have passed even if the placeholder vanished
+   * from the markup entirely and survived only in the JSON.
+   *
+   * Deriving the expected count from the files on disk means adding an icon, or a mod, keeps this honest
+   * without anybody remembering to update a literal.
+   */
+  const noIcon = manifest.suite.filter((m) => !existsSync(`${ICON_DIR}/${m.id}.svg`)).length;
+  const placeholders = (withoutScripts(home).match(/mod-icon-empty/g) ?? []).length;
+  check(
+    'a mod with no icon shows a placeholder',
+    placeholders === noIcon,
+    `${placeholders} rendered / ${noIcon} expected`,
+  );
+
+  /*
+   * The hover override, which is the whole reason the token exists.
+   *
+   * A catalog cell inverts on hover — its ground becomes `--inv-bg` — so the glyph's knockouts have to
+   * point at that instead, or they keep revealing `--bg` and show a colour that is not behind them.
+   *
+   * Asserted rather than looked at because it only appears in a state these tools cannot reach:
+   * `browser_hover` is not implemented in this session, so the inverted cell is not something a
+   * screenshot can capture.
+   */
+  check(
+    'the ground follows an inverted cell',
+    /grid-cell:hover \.mod-icon\{[^}]*--icon-ground:var\(--inv-bg\)/.test(allCss),
+    show('grid-cell:hover .mod-icon{'),
+  );
+}
+
+if (docsPage) {
+  // The section label carries its mod's mark, at 16px.
+  check('docs sidebar sections carry their mark', /class="label sidebar-label"[\s\S]{0,300}mod-icon/.test(docsPage));
+}
+
 console.log('\n== the sponsor band ==');
 /*
  * An affiliate link, so most of these are about honesty rather than layout.
@@ -692,12 +808,35 @@ const strays = [
   ...readdirSync('scripts').filter((f) => /^_/.test(f)),
   ...readdirSync('apps/docs/public').filter((f) => /^_/.test(f)),
   ...(existsSync('.') ? readdirSync('.').filter((f) => /\.html$/.test(f)) : []),
-  // Probe pages are written into `public/` while developing and copied into `out/` by the build, so
-  // both places are checked. One left behind is a page a visitor could reach.
-  ...readdirSync('apps/docs/public').filter((f) => /probe/i.test(f)),
-  ...(existsSync(OUT) ? readdirSync(OUT).filter((f) => /probe/i.test(f)) : []),
+
+  /*
+   * **ANY HTML IN `public/` IS SCRATCH.** Not just files matching "probe".
+   *
+   * This is the rule that was missing. `public/` is copied wholesale into the build, so an HTML file
+   * there is a **live page on the deployed site** — and the previous filter only caught names matching
+   * `/probe/i` or starting with an underscore. `knockout-test.html` matched neither, so it sat in
+   * `public/` looking like a scratch file and would have shipped at `/knockout-test.html`.
+   *
+   * The durable rule needs no naming convention to hold: **the site's pages are generated by Next into
+   * `out/`, so nothing authored in `public/` should be a page at all.** A file named anything, left
+   * there by anybody, is a stray by definition. That is why this checks the extension rather than a
+   * pattern — a convention is something a future filename can fail to follow, and an extension is not.
+   */
+  ...readdirSync('apps/docs/public').filter((f) => /\.html?$/i.test(f)),
+
+  // The same files after the build copied them through, minus the two Next generates at the root.
+  ...(existsSync(OUT)
+    ? readdirSync(OUT, { withFileTypes: true })
+        .filter((e) => e.isFile() && /\.html?$/i.test(e.name) && !['index.html', '404.html'].includes(e.name))
+        .map((e) => `out/${e.name}`)
+    : []),
 ];
-check('no probe files left', strays.length === 0, strays.join(', '));
+
+check(
+  'no scratch files left where they would ship',
+  strays.length === 0,
+  strays.length === 0 ? '' : `${strays.join(', ')} -- public/ is copied into the build, so these deploy`,
+);
 
 /*
  * Every generated file must not be committable, or a build artifact ends up in the repository.

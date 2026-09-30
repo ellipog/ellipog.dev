@@ -384,7 +384,7 @@ main {
   background: var(--bg);
 }
 
-.masthead > * {
+.masthead>* {
   display: flex;
   align-items: center;
 }
@@ -514,7 +514,7 @@ main {
   pointer-events: none;
 }
 
-.hero > * {
+.hero>* {
   position: relative;
 }
 
@@ -546,7 +546,7 @@ main {
   border-left: 1px solid var(--line);
 }
 
-.grid > * {
+.grid>* {
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   padding: var(--s4);
@@ -622,7 +622,63 @@ a.grid-cell:hover .cell-index {
   letter-spacing: -0.02em;
   margin-top: var(--s1);
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* ------------------------------------------------------------------ */
+/* The mod marks                                                       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A mod's icon, inlined into the page rather than loaded as an image.
+ *
+ * Two things it needs, and both come from tokens rather than from the file:
+ *
+ *   - `color` is what the glyph's `currentColor` resolves to, so it follows the text wherever it sits —
+ *     including the catalog's hover inversion, where the text turns to paper.
+ *   - `--icon-ground` is the **knockout** colour: the bits of the glyph that show the backdrop through.
+ *     It has to be re-declared wherever the ground inverts, which is exactly what happens on a catalog
+ *     cell. Pointing the knockouts at `--bg` instead looked right and was wrong — on a hovered cell it
+ *     revealed a colour that was not behind the glyph at all.
+ *
+ * This is the one place in the design where a component sets a custom property for its own children to
+ * read, and it is doing it because the SVG cannot know what it is standing on.
+ */
+.mod-icon {
+  --icon-ground: var(--bg);
+  flex: none;
+  display: block;
+  color: inherit;
+}
+
+/*
+ * A cell that inverts on hover moves its ground, so the knockouts move with it.
+ *
+ * Only the catalog cells. The sponsor band inverts too, but it carries `<img>` logos rather than an
+ * inlined glyph — and an `<img>` could not read this property anyway, which is the whole reason the mod
+ * icons are inlined. A selector for it would never match, and an unused rule is worse than no rule.
+ */
+a.grid-cell:hover .mod-icon {
+  --icon-ground: var(--inv-bg);
+}
+
+/*
+ * No icon yet: a dashed slot the same size as the real marks.
+ *
+ * Deliberately visible. A row that simply has no icon shifts left and reads as a mod that is somehow
+ * different from its neighbours; an empty dashed square reads as a slot waiting to be filled, which is
+ * what it is. The same instinct as a typed-but-not-yet-live link: show the gap rather than hide it.
+ */
+.mod-icon-empty {
+  border: 1px dashed var(--fg-faint);
+  opacity: 0.6;
+}
+
+/* The section label in the docs rail, with its mark. */
+.sidebar-label {
+  display: flex;
+  align-items: center;
   gap: var(--s2);
 }
 
@@ -738,7 +794,7 @@ a.grid-cell:hover .nums {
  * `> span` cannot reach inside the `<b>`, and the colour is set on `b` as well, so neither rule can
  * undo the other.
  */
-.hero-total > span {
+.hero-total>span {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -757,7 +813,7 @@ a.grid-cell:hover .nums {
   border-left: 1px solid var(--line);
 }
 
-.about > * {
+.about>* {
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   padding: var(--s5) var(--s4);
@@ -771,7 +827,7 @@ a.grid-cell:hover .nums {
   line-height: 1.65;
 }
 
-.about p + p {
+.about p+p {
   margin-top: var(--s3);
 }
 
@@ -830,7 +886,7 @@ a.grid-cell:hover .nums {
   max-width: var(--measure);
 }
 
-.prose > * + * {
+.prose>*+* {
   margin-top: var(--s3);
 }
 
@@ -977,6 +1033,7 @@ a.grid-cell:hover .nums {
  * taller than the viewport the wheel still scrolls it; what is lost is only the indicator.
  */
 .sidebar {
+  height: 100%;
   border-right: 1px solid var(--line);
   padding: var(--s5) 0;
 
@@ -1239,6 +1296,7 @@ a.grid-cell:hover .nums {
     gap: var(--s4);
     flex-wrap: wrap;
   }
+
   /* The CTA goes under the copy rather than squeezing it. */
   .sponsor-cta {
     width: 100%;
@@ -1262,7 +1320,7 @@ a.grid-cell:hover .nums {
   margin-top: auto;
 }
 
-.footer > * {
+.footer>* {
   padding: var(--s4);
   display: flex;
   align-items: center;
@@ -1296,6 +1354,7 @@ a.grid-cell:hover .nums {
   .about {
     grid-template-columns: 1fr;
   }
+
   .hero {
     padding: var(--s8) var(--s4) var(--s7);
   }
@@ -1306,24 +1365,30 @@ a.grid-cell:hover .nums {
     border-left: 0;
     border-right: 0;
   }
+
   .grid {
     grid-template-columns: 1fr;
   }
+
   .grid-filler {
     display: none;
   }
+
   .masthead nav a,
   .masthead nav button {
     padding: 0 var(--s3);
   }
+
   .masthead .nav-secondary {
     display: none;
   }
+
   .docs {
     grid-template-columns: 1fr;
     /* The prose keeps its own top offset on narrow screens too, so this must not add one. */
     --docs-gutter: var(--s4);
   }
+
   .sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--line);
@@ -1333,12 +1398,15 @@ a.grid-cell:hover .nums {
     overflow-y: visible;
     /* And with nothing to scroll there is no bar to suppress; the earlier rule is inert here. */
   }
+
   .docs-body {
     padding: 0 var(--docs-gutter) var(--s5);
   }
+
   .footer {
     flex-direction: column;
   }
+
   .footer nav a {
     border-left: 0;
     border-top: 1px solid var(--line);

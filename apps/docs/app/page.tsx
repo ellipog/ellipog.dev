@@ -1,6 +1,7 @@
 import manifest from '@/manifest.json';
 import stats from '@/stats.json';
 import { Arrow } from '@/components/arrow';
+import { ModIcon } from '@/components/mod-icon';
 import { ShuffledNumber } from '@/components/shuffled-number';
 import { source } from '@/lib/source';
 
@@ -77,7 +78,12 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
         <span className="cell-index">{mod.minecraft ?? ''}</span>
         <span className="kind">{(mod.loaders ?? []).join(' · ')}</span>
       </div>
-      <div className="name">{mod.name}</div>
+      {/* The mark sits with the name rather than in the cell's corner: it is part of how the thing is
+          identified, and the corner is where the version already is. */}
+      <div className="name">
+        <ModIcon id={mod.id} size="md" />
+        {mod.name}
+      </div>
       <p className="summary">{mod.summary}</p>
       <div className="meta">
         <span className="faint">{mod.status === 'active' ? 'in development' : 'planned'}</span>

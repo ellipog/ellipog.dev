@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Flat, solid background with zero radius and zero shadows -->
+  <rect width="256" height="256" fill="#FFFFFF" />
+  <g stroke-linecap="round" stroke-linejoin="round">
+                <rect x="46" y="46" width="164" height="164" rx="18" fill="#D97706" opacity="0.08" />
+                <rect x="46" y="46" width="164" height="164" rx="18" fill="none" stroke="#D97706" stroke-width="11" stroke-dasharray="16 12" />
+                <line x1="68" y1="68" x2="94" y2="94" stroke="#D97706" stroke-width="10" stroke-linecap="round" />
+                <line x1="188" y1="68" x2="162" y2="94" stroke="#D97706" stroke-width="10" stroke-linecap="round" />
+                <line x1="68" y1="188" x2="94" y2="162" stroke="#D97706" stroke-width="10" stroke-linecap="round" />
+                <line x1="188" y1="188" x2="162" y2="162" stroke="#D97706" stroke-width="10" stroke-linecap="round" />
+                <rect x="94" y="94" width="68" height="68" rx="12" fill="#D97706" />
+                <rect x="106" y="106" width="44" height="44" rx="8" fill="#F59E0B" />
+                <circle cx="128" cy="128" r="6" fill="#FFFFFF" />
+              </g>
+</svg>
