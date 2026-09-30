@@ -1,16 +1,19 @@
-/**
- * Keep the pinned commits current, and let a pin move be reviewed like any other change.
- *
- * WHY A PULL REQUEST RATHER THAN A DIRECT COMMIT
- *
- * The pins decide which version of each mod's docs a visitor reads. Moving one is therefore a content
- * change — a page can gain a section, lose one, or change what it says — and it should be visible as
- * such. Committing straight to `main` would deploy documentation changes nobody looked at, from a bot,
- * at 03:00. A pull request costs one click and makes the change reviewable.
- *
- * It also means this workflow cannot deploy anything on its own. It edits one file and opens a PR;
- * whether that lands is a decision.
- */
+# Keep the pinned commits current, and let a pin move be reviewed like any other change.
+#
+# WHY A PULL REQUEST RATHER THAN A DIRECT COMMIT
+#
+# The pins decide which version of each mod's docs a visitor reads. Moving one is therefore a content
+# change -- a page can gain a section, lose one, or change what it says -- and it should be visible as
+# such. Committing straight to `main` would deploy documentation changes nobody looked at, from a bot,
+# at 03:00. A pull request costs one click and makes the change reviewable.
+#
+# It also means this workflow cannot deploy anything on its own. It edits one file and opens a PR;
+# whether that lands is a decision.
+#
+# **This header was a `/** ... */` block until it was not, and the workflow never ran because of it.**
+# GitHub reads this file as YAML, where that is not a comment: the file was rejected as unparseable, so
+# the Monday cron below never registered and every push produced an instant failed run with no jobs in
+# it. `refresh-stats.yml` had the same header and the same fate. AGENT.md records the whole failure.
 
 name: Update pins
 
