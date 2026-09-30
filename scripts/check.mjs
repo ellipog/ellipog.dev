@@ -72,6 +72,22 @@ function read(path) {
 }
 
 /**
+ * Text as the HTML carries it.
+ *
+ * Needed because a value read from `manifest.json` is raw text and the same value in `apps/docs/out` is
+ * escaped markup — so `home.includes(manifest x)` is true for a plain sentence and false the moment that
+ * sentence contains `&`, `<` or `>`. React escapes `&` as `&amp;`, and `"Engineered & maintained by"` is a
+ * label anybody might reasonably write.
+ *
+ * The alternative is to keep assertions passing by keeping punctuation out of the copy, which gets the
+ * dependency backwards: the manifest is the source and the markup should be compared against it, not the
+ * other way round.
+ */
+function escapeHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
  * The page with its `<script>` payloads stripped.
  *
  * **Next serialises its entire render tree into a `<script>` tag**, so every class name and every string
@@ -767,7 +783,8 @@ console.log('\n== the sponsor band ==');
  *
  * Three separate things have to be true and each is easy to lose on its own: the link must declare
  * itself sponsored (`rel="sponsored"`, the value search engines expect for exactly this), the page must
- * SAY it is sponsored, and the offer must be the one that was actually agreed. A discount code that
+ * SAY it is sponsored — which it does in the row, not as a heading above the band — and the offer must be
+ * the one that was actually agreed. A discount code that
  * silently stops being quoted is a broken promise to the reader and an unpaid referral to the host.
  */
 /*
@@ -783,7 +800,19 @@ const sponsor = manifest.sponsor;
 
 if (sponsor) {
   check('the sponsor band renders', home.includes('class="sponsor"'));
-  check('it is labelled as paid', home.includes('>Sponsored<'));
+  /*
+ * THE DISCLOSURE MOVED, AND BOTH HALVES OF THAT ARE ASSERTED.
+ *
+ * It is in the offer row now, beside the code. It was an uppercase `SPONSORED` label in the band head,
+ * directly above the colophon's own `ENGINEERED & MAINTAINED BY` strip — and two stacked labels read as
+ * one heading over both rows, which put the studio's name under a paid heading. So the assertion is not
+ * just "the word is somewhere": it is present *where it applies*, absent as a heading above the row, and
+ * still declared for a screen reader, which never sees the layout that caused the misreading in the first
+ * place.
+ */
+check('it is disclosed in the row it describes', home.includes('class="sponsor-disclosure"'), 'affiliate link');
+check('nothing above the row reads as a heading over it', !/>Sponsored</.test(home));
+check('the region still names itself for a screen reader', /aria-label="Sponsored/.test(home), 'aria-label');
   check('the affiliate link is the agreed one', home.includes(sponsor.url), sponsor.url);
   check(
     'the link declares itself sponsored',
@@ -954,8 +983,14 @@ if (studio) {
   const docsWithColophon = read(`${OUT}/docs/tasked/index.html`) ?? '';
 
   check('the colophon renders', at !== -1);
-  check('it says who presents the site', home.includes(studio.name), studio.name);
-  check('its wording matches the manifest', home.includes(studio.label), studio.label);
+  check('it says who engineers and maintains the site', home.includes(studio.name), studio.name);
+  /*
+   * The wording is compared **escaped**, and that is not fussiness: `label` is text in the manifest and
+   * escaped text in the markup, so a literal substring compare passes on `Presented by` and fails the
+   * moment the sentence contains an `&` — which "Engineered & maintained by" does. The alternative would
+   * be to avoid `&` in the label, which would be letting the assertion dictate the copy.
+   */
+  check('its wording matches the manifest', home.includes(escapeHtml(studio.label)), studio.label);
   check('it links to the studio', home.includes(studio.url), studio.url);
   check(
     'the link opens away from the site',

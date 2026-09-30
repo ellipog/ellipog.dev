@@ -16,10 +16,15 @@ type Sponsor = {
  *
  * **Four things about this are deliberate, and three of them are not about design.**
  *
- * 1. **It says "Sponsored".** The label is in the band head, plainly, in the same place a section's label
- *    goes. An affiliate link that does not say so is a link pretending to be a recommendation, and a
- *    reader who finds out later is right to be annoyed. The discount code makes the arrangement obvious
- *    anyway — saying it up front costs nothing and is simply honest.
+ * 1. **It says it is a paid link — beside the offer, not above the band.** It used to be an uppercase
+ *    `SPONSORED` label in the band head, and that placement was the bug: it sat directly above the
+ *    colophon's own `ENGINEERED & MAINTAINED BY` strip, and two small uppercase labels stacked at the foot
+ *    of a page read as one heading over both rows — which put the studio's name under a paid heading. A
+ *    disclosure that misattributes itself is not much of a disclosure, so it moved into the row it
+ *    describes. The section still carries `aria-label="Sponsored: <host>"` and the link still carries
+ *    `rel="sponsored"`, so it is declared to a screen reader and to a crawler either way. What sits above
+ *    the row now is the host's own name and its `Partner` chip, which is a fact about them rather than a
+ *    heading over the page's foot.
  * 2. **`rel="sponsored"`** on the link. That is the correct value for a paid or affiliate link, and it is
  *    what search engines expect; `noreferrer noopener` come along for the same reason they do on every
  *    outbound link here.
@@ -27,9 +32,9 @@ type Sponsor = {
  *    `currentColor` and its knockouts from `var(--icon-ground)`, neither of which an `<img>` can see.
  *    `components/brand-mark.tsx` has the full reason; the short version is that an image would be black on
  *    a dark page with its hexagon filled in, and would look fine in light mode.
- * 4. **`alt=""` is not needed on the mark** because it is an `<svg aria-hidden>`. The host's name is in
- *    the band head as text, so a screen reader gets it once. It used to be `alt=""` on two `<img>`s for
- *    the same reason.
+ * 4. **`alt=""` is not needed on the mark** because it is an `<svg aria-hidden>`. The host is named as
+ *    text in two other places anyway — the band head and the CTA's domain — so a screen reader gets it
+ *    without the mark. It used to be `alt=""` on two `<img>`s for the same reason.
  *
  * The name appears twice — once in the head and once inside the mark's own wordmark — and that is
  * intended. The head is a label; the mark is the host's logo, which happens to contain its name.
@@ -44,9 +49,8 @@ export function SponsorBanner() {
   if (!s) return null;
 
   return (
-    <section className="sponsor" aria-label="Sponsored">
+    <section className="sponsor" aria-label={`Sponsored: ${s.name}`}>
       <div className="sponsor-head">
-        <span className="label">Sponsored</span>
         <span className="sponsor-host mono">
           {s.name}
           {/*
@@ -86,6 +90,11 @@ export function SponsorBanner() {
                 path or a mod id monospace everywhere else on this site. It also makes it obviously
                 copyable rather than part of the sentence. */}
             <code className="sponsor-code">{s.code}</code>
+            {/* The disclosure, in the row it describes. It was an uppercase `SPONSORED` label in the band
+                head, directly above the colophon's own `ENGINEERED & MAINTAINED BY` strip — and two
+                stacked labels read as one heading over both rows, which put the studio's name under a
+                paid heading. Here it is a property of this offer, which is what it actually is. */}
+            <span className="sponsor-disclosure">Affiliate link</span>
           </span>
         </span>
 

@@ -1166,19 +1166,21 @@ a.grid-cell:hover .nums {
  *
  * **It was given its own band so it would not read as part of the site's colophon.** That colophon was
  * the footer — the domain, then links to where else the work lives — and a paid arrangement dropped
- * into that list would have been posing as one of those, which is the thing the "Sponsored" label
- * exists to avoid. The footer has since gone as redundant, and the band stays a band regardless: it is
- * plainly a separate row with a separate purpose, and it inherits the grid the whole page is made of —
- * a label strip, then content.
+ * into that list would have been posing as one of those, which is the thing the disclosure exists to
+ * avoid. The footer has since gone as redundant, and the band stays a band regardless: it is plainly a
+ * separate row with a separate purpose, and it inherits the grid the whole page is made of — a label
+ * strip, then content. The disclosure itself now lives in the content row rather than in that strip; see
+ * `.sponsor-disclosure`.
  */
 .sponsor {
   border-top: 1px solid var(--line);
 }
 
+/* One child now. The `SPONSORED` label that used to sit opposite the host is gone — see
+   `.sponsor-disclosure` for where it went and why. */
 .sponsor-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--s3);
   padding: var(--s3) var(--s4);
   border-bottom: 1px solid var(--line);
@@ -1306,6 +1308,35 @@ a.grid-cell:hover .nums {
 }
 
 /*
+ * THE DISCLOSURE, WHERE IT APPLIES.
+ *
+ * It used to be an uppercase `SPONSORED` label in the band head — the same construction and the same
+ * place a section's label goes. That is the conventional spot, and it was still wrong here: the band head
+ * sits directly above the colophon's own `ENGINEERED & MAINTAINED BY` strip, and two small uppercase
+ * labels stacked at the foot of a page read as *one heading over both rows*. The studio's name ended up
+ * looking like part of the sponsorship.
+ *
+ * So it moved into the row it describes, at the same size and in the same faint mono as the band's other
+ * small print. It now reads as a footnote to *this offer* rather than as a heading — which is the whole
+ * difference, and it is not a downgrade in honesty: the offer and the code are right beside it, so the
+ * claim and the thing it is about are in one glance instead of two.
+ *
+ * `check.mjs` asserts it is present, that the section still names itself for a screen reader, and that no
+ * `>Sponsored<` element text is left above the row.
+ */
+.sponsor-disclosure {
+  margin-left: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--fg-faint);
+}
+
+.sponsor-link:hover .sponsor-disclosure {
+  color: var(--inv-faint);
+}
+
+/*
  * The discount code.
  *
  * Mono and boxed, because it is an identifier rather than prose — the same rule that sets a path or a
@@ -1372,8 +1403,9 @@ a.grid-cell:hover .nums {
  *
  * **One row, hairline-separated, and nothing else.** The structure is the one the "Elsewhere" rows
  * already use — a name at the left, a handle pushed to the right — because it is the same kind of fact:
- * a label, and where it points. No head strip, unlike the band above it, which needs one to carry the
- * "Sponsored" label it is required to disclose.
+ * a label, and where it points. No head strip, unlike the band above it, which has one to carry the
+ * host's name and its `Partner` chip — the disclosure itself is in the band's content row, deliberately,
+ * so nothing uppercase sits directly above this strip.
  *
  * **`.footer` is still retired and this class is not it.** What was wrong with the old footer was its
  * contents: it repeated the masthead's own links, which is why it read as furniture. `check.mjs` asserts

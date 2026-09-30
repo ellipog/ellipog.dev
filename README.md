@@ -177,8 +177,14 @@ bun run brand     :: regenerate the host's mark from design/brand-source/
 ## The sponsor band
 
 Every page carries one affiliate arrangement at its foot — BisectHosting, with the code `mcstellar` for
-25% off. It is **labelled "Sponsored"** and its link carries `rel="sponsored"`, because a paid link that
-does not declare itself is a link pretending to be a recommendation.
+25% off. It is **disclosed as an affiliate link in the row itself**, beside the offer, and its link carries
+`rel="sponsored"`, because a paid link that does not declare itself is a link pretending to be a
+recommendation. The section also carries `aria-label="Sponsored: BisectHosting"`.
+
+The note used to be an uppercase `SPONSORED` label in the band head. That head sits directly above the
+colophon's own `ENGINEERED & MAINTAINED BY` strip, so the two stacked labels read as one heading over both
+rows and made the studio look like part of the sponsorship — which is why it moved down into the row it
+describes.
 
 The details live in `manifest.json` under `sponsor`; removing that object removes the band, and
 `check.mjs` skips its assertions. The generated mark is in `apps/docs/public/brand/`, committed, from

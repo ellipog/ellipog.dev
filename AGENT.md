@@ -462,12 +462,24 @@ One affiliate arrangement, at the foot of every page: BisectHosting, with the co
 off. It lives in `manifest.json` like every other fact about the site, and `components/sponsor.tsx`
 renders it.
 
-**It says "Sponsored", and that is the only thing here that is not negotiable.** The label sits in the
-band's own head, in the same place a section's label goes, and the link carries
-`rel="sponsored noreferrer noopener"` — the value search engines expect for a paid link. An affiliate
-link that does not declare itself is a link pretending to be a recommendation, and a reader who finds out
-later is right to be annoyed. The discount code makes the arrangement obvious anyway, so saying it up
-front costs nothing.
+**It says it is a paid link, and that is the only thing here that is not negotiable — but *where* it says
+so turned out to matter, and that is worth recording.** There used to be an uppercase `SPONSORED` label in
+the band's own head, in the same place a section's label conventionally goes. The placement was still
+wrong: the band head sits directly above the colophon's `ENGINEERED & MAINTAINED BY` strip, and two small
+uppercase labels stacked at the foot of a page read as **one heading over both rows**. The studio's name
+ended up looking like part of the sponsorship. A disclosure that misattributes itself is not much of a
+disclosure.
+
+So it moved into the row it describes — `Affiliate link`, beside the offer and the code, at the same size
+and in the same faint mono as the band's other small print. It reads as a footnote to *this offer* rather
+than as a heading, and the claim sits one glance from the thing it is about instead of two.
+
+**Nothing about the declaration was dropped to achieve that**, which is the part to check if this is ever
+revisited: the link still carries `rel="sponsored noreferrer noopener"`, the value search engines expect
+for a paid link, and the section still carries `aria-label="Sponsored: <host>"` — so a screen reader gets
+a name for the region and a crawler gets the relationship, neither of which depends on the layout that
+caused the misreading. `check.mjs` asserts all three: the note is in the row, no `>Sponsored<` element
+text is left above it, and the landmark still names itself.
 
 **Why its own band rather than a line in the footer — and it is now the last row on every page.** It was
 given its own band because the footer was the site's colophon: the domain, the licence, where else the
@@ -557,7 +569,7 @@ would make a decoration behave like a destination — and it would navigate to t
 mark meaning "this is the host we use" should do. The assertion proves it by comparing positions in the
 markup rather than by trusting the component's structure.
 
-**It is a `<section aria-label="Sponsored">`**, not a `<div>`, so it appears in a screen reader's landmark
+**It is a `<section aria-label="Sponsored: <host>">`**, not a `<div>`, so it appears in a screen reader's landmark
 list and can be skipped deliberately — which a plain div would not allow.
 
 **Which files are the brand's:** the source is `design/brand-source/bisecthosting.svg` (the light variant,

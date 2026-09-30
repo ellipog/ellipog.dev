@@ -8,7 +8,7 @@ type Studio = {
 };
 
 /**
- * Who presents this site: the studio's signature, and the last row on every page.
+ * Who engineers and maintains this site: the studio's signature, and the last row on every page.
  *
  * **It is not the footer coming back, and the difference is the whole reason it can exist.** The footer
  * removed from this site said `ellipog.dev` and then repeated the two platform links and `Docs` — every
@@ -48,8 +48,8 @@ export function Colophon() {
 
         {/*
          * The wording is the site's usual construction for a labelled row: a micro-label in the same 11px
-         * uppercase mono as `Sponsored` and `Elsewhere`, then the name in the prose face. Both come from
-         * the manifest, so the sentence on the page and the sentence in the data cannot drift.
+         * uppercase mono as `Elsewhere`, then the name in the prose face. Both come from the manifest, so
+         * the sentence on the page and the sentence in the data cannot drift.
          */}
         <span className="colophon-label">
           <span className="label">{s.label}</span>
