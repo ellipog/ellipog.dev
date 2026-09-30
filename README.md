@@ -3,8 +3,12 @@
 Documentation and project catalog for the ellipog Minecraft mods.
 
 The site is static: a directory of HTML files with no server, no runtime and no database. Every
-documentation page is copied from the repository that owns the mod at build time, so nothing on the
-site can fall behind the code it describes. **Nothing is written here.**
+documentation page is copied from the `docs/` folder of the repository that owns the mod, so nothing
+on the site can fall behind the code it describes. **Nothing is written here.**
+
+A mod's `README.md` is deliberately *not* documentation and never reaches this site — it is a front
+door for somebody browsing the repository, while these pages are a manual for somebody who has already
+installed the mod. Both exist, and they are not the same document.
 
 ---
 
@@ -14,10 +18,16 @@ site can fall behind the code it describes. **Nothing is written here.**
 bun install
 bun run build      :: sync, fetch stats, build, then check — into apps/docs/out
 bun run dev        :: sync, then a dev server
+bun run pins       :: show which pinned commits have moved, and change nothing
 ```
 
 `bun run build` runs the sync first and the check last, so the two steps cannot come out of order and
 a structurally wrong site cannot ship silently.
+
+**Docs come from a pinned commit, not from a branch.** Each mod in `manifest.json` carries a `pin`, and a
+build reads the mod's docs from a `.cache/<mod>` checkout of that exact SHA — because on a build server
+there are no sibling folders to read. A folder beside this one is preferred when it exists, so a local
+server shows your own edits; `ELLIPOG_USE_PINS=1` forces the pin. `bun run pins --write` moves them.
 
 Uses **Bun** 1.3+. Node 22+ also works — Fumadocs needs it, and `.nvmrc` pins 24 — but note that the
 scripts use bun's `--filter` rather than npm's `--workspace`, because bun does not implement the
@@ -29,17 +39,27 @@ will not work as written; see `AGENT.md`.
 ## Layout
 
     ellipog.dev/
-    ├── manifest.json          the author, the suite, and the released projects shown on the page
+    ├── manifest.json          the author, the suite (with a pin each), the released projects
+    ├── glossary.json          terms defined once, referenced from any mod's docs
+    ├── .github/workflows/     refresh-stats.yml, update-pins.yml
     ├── scripts/
-    │   ├── sync.mjs           copies each mod's docs in, wiping the target first
+    │   ├── sync.mjs           checks out each pin, copies docs/ in, wipes the target first
     │   ├── stats.mjs          fetches both platforms' download counts and the avatar
+    │   ├── pins.mjs           moves the pins; dry unless --write
     │   └── check.mjs          asserts the built site is what it should be
-    ├── AGENT.md               conventions, and the known gaps
+    ├── AGENT.md               conventions, the element set, and the known gaps
     └── apps/
         └── docs/              the Next.js + Fumadocs site
-            ├── app/           routes, and global.css holding the whole design language
-            ├── components/    theme toggle, arrow
-            ├── lib/source.ts  the Fumadocs content source
+            ├── app/
+            │   ├── global.css the design language
+            │   ├── docs.css   the docs layer: rails, callouts, tabs, steps
+            │   └── docs/      the docs routes
+            ├── components/
+            │   ├── mdx/       the elements a docs page can use
+            │   ├── toc.tsx    the contents rail
+            │   ├── shuffled-number.tsx  the one animation on the site
+            │   └── …
+            ├── lib/           the Fumadocs source, and the docs helpers
             ├── content/       GENERATED — gitignored
             ├── public/        GENERATED avatar — gitignored
             └── out/           the static build
@@ -53,36 +73,52 @@ containers: no shadows, no gradients, no rounded corners, and dividers that run 
 sans, and anything that is an identifier — a mod id, a path, a version — is monospace. Light is the
 default; dark is one attribute away on `<html>`.
 
-Four rules in `apps/docs/app/global.css` exist because the style fails without them, and all four are
-commented where they live.
+The rules live in `apps/docs/app/global.css`, and the docs layer adds to them in
+`apps/docs/app/docs.css` without breaking any. All of them are commented where they live:
 
 1. **The hairline has a contrast floor.** `#E4E4E7`, not the near-invisible grey the style invites,
    which disappears on a 1080p panel at 100% zoom.
-2. **Lines are drawn once, by the container.** A grid of cells each drawing all four borders produces
-   2px seams where two meet.
-3. **Colour is earned.** Paper, ink, and one green that means "this is where the code is". Hover
-   inverts rather than tints, because an inversion is structure and a tint is decoration.
-4. **The scrollbar is drawn, not inherited.** Redrawn as a hairline track with an ink fill — a
-   progress indicator, not a grey bevelled trough with arrow buttons. Hidden was the other option and
-   was not taken: the scrollbar is the only thing saying a long page continues past the fold.
+2. **Lines are drawn once, by the element that owns the edge.** A grid of cells each drawing all four
+   borders produces 2px seams where two meet.
+3. **Colour is earned.** Paper, ink, one green that means "this is where the code is", and one red
+   reserved for "this loses data". Hover inverts rather than tints, because an inversion is structure
+   and a tint is decoration.
+4. **The scrollbar is drawn, not inherited.** A hairline track with an ink fill — a progress
+   indicator. The standard scrollbar properties are scoped to Gecko with `@supports`, because setting
+   them in Chromium makes it discard every `::-webkit-scrollbar` rule and draw its own bar instead.
+
+**There is exactly one animation**, and it is deliberately the only one: the download figures on the
+catalog page shuffle into place on load. The real value is in the static HTML, so it is correct before
+JavaScript runs and unchanged when JavaScript is off — see `AGENT.md` → *The one piece of motion*.
 
 ---
 
 ## How a page gets here
 
-1. `sync.mjs` reads `manifest.json` and wipes `apps/docs/content/`.
-2. For each mod with `status: "active"`, it finds the folder named by `localPath` beside this one,
-   takes its `README.md` as the landing page, and each `.md`/`.mdx` under its `docs/` folder as a
-   further page. Frontmatter is prepended from the manifest, so a mod's name is written down once.
+1. `sync.mjs` reads `manifest.json` and wipes `apps/docs/content/docs/`.
+2. For each mod with `status: "active"` and a `docs/` folder, it copies **every markdown file under
+   `docs/`, at any depth**. The folder structure becomes the URL structure: `docs/guides/tasks.md`
+   becomes `/docs/tasked/guides/tasks/`. Frontmatter is prepended and GFM alerts become callouts, so
+   the source stays plain markdown. **The README is not copied** — it is a front door for the
+   repository, and its reader is not this site's reader.
 3. `stats.mjs` fetches download counts from Modrinth and CurseForge and downloads the profile picture
    into `apps/docs/public/`. Both are best-effort: a build with no network still produces a site, and
-   a page with no numbers is better than a page with stale ones. An avatar that fails to fetch falls
-   back to the square mark beside the name.
-4. Fumadocs compiles the MDX, the catalog and sidebar read the manifest, and Next exports the lot to
-   `apps/docs/out/` as static HTML.
+   a page with no numbers is better than a page with stale ones.
+4. Fumadocs compiles the MDX, the sidebar and contents list read what was actually synced, and Next
+   exports the lot to `apps/docs/out/` as static HTML.
+5. `check.mjs` asserts the result: one title per page, the rails present, the elements rendering, and
+   every link in a contents rail pointing at a heading that exists.
 
-A mod whose folder is absent is skipped with a line saying so — four of the six are planned and have
-no repository yet, and a build that refused to run for that reason would be a build nobody could run.
+A mod with no `docs/` folder is listed in the catalog and gets no docs section, and its catalog cell
+stops being a link — so nothing points at a page that does not exist.
+
+---
+
+## Writing documentation
+
+`docs/` files may use callouts, loader tabs, step lists, collapsed detail, linked headings, a contents
+rail and copy buttons on code blocks. The full set, with a note on when each one beats plain prose, is
+in **`AGENT.md` → Writing documentation**.
 
 ---
 
@@ -92,8 +128,17 @@ no repository yet, and a build that refused to run for that reason would be a bu
 no rewrite rules are needed, because `trailingSlash` makes Next emit `docs/tasked/index.html` rather
 than `docs/tasked.html`.
 
-Not set up here, deliberately — deployment is a separate decision from the build, and this repository
-ends at a verified local `bun run build`.
+`apps/docs/out/` is what gets uploaded. Nothing in it calls an API at runtime: every download count is
+already in the HTML, which is why a visitor costs zero requests.
+
+**Freshness comes from a scheduled rebuild.** Add a Deploy Hook URL as the repository secret
+`VERCEL_DEPLOY_HOOK` and `.github/workflows/refresh-stats.yml` calls it twice a day, so Vercel rebuilds
+and `stats.mjs` re-fetches. A fetch in the visitor's browser was measured and rejected: cfwidget's author
+listing carries no download counts, so it would cost about nineteen requests per visitor. See
+`AGENT.md` → *Freshness of the numbers*.
+
+The one thing to know when deploying: **the docs come from the pinned commits in `manifest.json`**, not
+from the branches. If a page looks out of date, the pin needs moving — `bun run pins` says which.
 
 ---
 

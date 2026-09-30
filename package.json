@@ -14,6 +14,7 @@
     "sync": "bun scripts/sync.mjs",
     "stats": "bun scripts/stats.mjs",
     "check": "bun scripts/check.mjs",
+    "pins": "bun scripts/pins.mjs",
     "dev": "bun run sync && bun run stats && bun run --filter @ellipog/docs dev",
     "build": "bun run sync && bun run stats && bun run --filter @ellipog/docs build && bun run check",
     "start": "bun run --filter @ellipog/docs start",

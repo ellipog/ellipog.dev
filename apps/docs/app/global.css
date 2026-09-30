@@ -63,6 +63,15 @@
   /* No radius, stated rather than omitted so a component that adds one is visibly departing. */
   --radius: 0;
 
+  /*
+   * The masthead's height, in one place.
+   *
+   * It is needed by four rules that have to agree: the masthead itself, the docs rail's sticky offset,
+   * that rail's max-height, and the scroll margin on an anchored heading. Four copies of `56px` is four
+   * chances for the rail to sit a few pixels off the thing it is supposed to align with.
+   */
+  --masthead: 56px;
+
   /* The right-hand contents rail. Narrower than the left: page headings are shorter than mod names. */
   --rail-right: 200px;
 
@@ -317,6 +326,25 @@ html {
   color: var(--fg-faint);
 }
 
+/*
+ * Visually hidden, available to a screen reader.
+ *
+ * Used by `ShuffledNumber`, which animates a copy of a figure and hides it from assistive tech while
+ * exposing a second copy that never moves. Without this the two would have to be one, and a reader
+ * landing on the page mid-animation would be told four digits of noise.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 h1,
 h2,
 h3,
@@ -349,7 +377,7 @@ main {
   align-items: stretch;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  height: 56px;
+  height: var(--masthead);
   position: sticky;
   top: 0;
   z-index: 20;
@@ -634,31 +662,83 @@ a.grid-cell:hover .cell-index {
   font-weight: 600;
 }
 
+/*
+ * The animated figure.
+ *
+ * `display: inline-block` so the tabular figures are honoured as a box rather than being broken across
+ * a line, and `min-width` is deliberately not set here: the width comes from the characters, and
+ * `tabular-nums` keeps that constant as digits change.
+ */
+.shuffle {
+  display: inline-block;
+}
+
+/*
+ * Fixed-width figures.
+ *
+ * A number that is being scrambled must not change width while it does, or the layout shifts under it
+ * on every frame -- which is the one real failure mode a shuffle effect has. Monospace already gets
+ * this most of the way; `tabular-nums` covers a proportional fallback font, where the digit advance
+ * widths would otherwise differ between "1" and "8".
+ */
+.nums b,
+.hero-total b,
+.shuffle {
+  font-variant-numeric: tabular-nums;
+}
+
 a.grid-cell:hover .nums {
   color: var(--inv-fg);
 }
 
-/* The one big number on the page, set beside its label. */
+/*
+ * The one big number on the page, and the loudest thing on it by a wide margin.
+ *
+ * It is the first thing a visitor should see, and it is the only figure that is allowed to be this
+ * large -- everything else on the site is 10.5px to 16px. Size carries the emphasis rather than colour
+ * or weight, because those are spoken for: ink is already the strongest value available and the design
+ * has no second colour to reach for.
+ */
 .hero-total {
   margin-top: var(--s6);
   padding-top: var(--s4);
   border-top: 1px solid var(--line);
   display: flex;
   align-items: baseline;
-  gap: var(--s3);
+  gap: var(--s4);
   flex-wrap: wrap;
   width: fit-content;
 }
 
 .hero-total b {
   font-family: var(--font-mono);
-  font-size: clamp(28px, 4vw, 44px);
-  font-weight: 500;
-  letter-spacing: -0.035em;
+  /* 88px at the top end. Roughly twice the page's h1, which is the largest other type here. */
+  font-size: clamp(44px, 8vw, 88px);
+  font-weight: 700;
+  /* Tighter than the rest of the site's tracking: at this size the default looks loose. */
+  letter-spacing: -0.05em;
   line-height: 1;
+  /* Stated, not inherited. See the note on the label below -- this is the value that got lost. */
+  color: var(--fg);
 }
 
-.hero-total span {
+/*
+ * The label beside the figure. **A direct child, and that is the fix.**
+ *
+ * This was `.hero-total span` -- a descendant selector -- which also matched the two spans
+ * `ShuffledNumber` renders *inside* the `<b>`: `.shuffle` for the animated copy and `.sr-only` for the
+ * static one. So the number itself was being painted in the faint grey meant for the word after it,
+ * and had been since the shuffle effect landed.
+ *
+ * The failure is worth recognising: the figure and its label were the same grey at 28px and 11px, so
+ * nothing looked *broken* -- the number just read as a caption instead of as the headline. A selector
+ * that matches more than intended rarely produces something obviously wrong; it produces something
+ * quietly worse than intended.
+ *
+ * `> span` cannot reach inside the `<b>`, and the colour is set on `b` as well, so neither rule can
+ * undo the other.
+ */
+.hero-total > span {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -849,15 +929,83 @@ a.grid-cell:hover .nums {
 /* ------------------------------------------------------------------ */
 
 .docs {
+  /*
+   * The air either side of the prose.
+   *
+   * One token, because it has to be equal on both sides and it is applied in two different places:
+   * `.docs-body` supplies the left, and the page grid's `column-gap` supplies the right. Two
+   * hardcoded values would drift — and the whole reason this exists is that they had: 32px of air on
+   * the left, and none at all on the right, so the prose and its callouts ran straight into the
+   * contents rail's border. `check.mjs` asserts both uses resolve to this one token.
+   *
+   * Declared here rather than higher up because this is the outermost element both users sit inside.
+   */
+  --docs-gutter: var(--s6);
+
   display: grid;
   grid-template-columns: var(--rail) minmax(0, 1fr);
   flex: 1;
   align-items: stretch;
 }
 
+/*
+ * The left rail pins to the masthead, exactly as the contents rail on the right does.
+ *
+ * It did not, and the symptom was a column of blank paper: the right rail stuck while the left scrolled
+ * away, so on any page taller than a screen the navigation had left before the reader wanted it. Two
+ * rails, two behaviours, and the one that moved was the one you navigate with.
+ *
+ * `align-self: start` is what makes it work. `.docs` stretches its children to full height by default,
+ * and a stretched grid item has no height to stick within — it is already as tall as the container, so
+ * `position: sticky` has nothing to scroll against. Shrinking it to its own content gives the sticky
+ * something to move inside, and the `max-height` then keeps a long list scrolling within the rail
+ * rather than pushing the page longer.
+ *
+ * **The rail scrolls independently AND shows no scrollbar**, which are two separate properties and both
+ * deliberate:
+ *
+ *   - `overflow-y: auto` with a `max-height` is what makes it scroll on its own rather than with the
+ *     page. The page's own scroll never moves this rail, and this rail's scroll never moves the page.
+ *   - The scrollbar is suppressed, so the rail reads as a clean column of links rather than as a second
+ *     scrollable region competing with the page's own.
+ *
+ * This is the *opposite* of the decision made for the page scrollbar, and the difference is worth being
+ * clear about. On the page, the scrollbar is the only affordance saying a long document continues past
+ * the fold, so it was redrawn rather than hidden — a design that hides its own scroll position is
+ * arguing against itself. Here the rail holds a handful of navigation links, the whole point is that it
+ * is uncluttered, and the list fits in one screen on every page that exists. When a rail is genuinely
+ * taller than the viewport the wheel still scrolls it; what is lost is only the indicator.
+ */
 .sidebar {
   border-right: 1px solid var(--line);
   padding: var(--s5) 0;
+
+  position: sticky;
+  top: var(--masthead);
+  align-self: start;
+  max-height: calc(100vh - var(--masthead));
+  overflow-y: auto;
+
+  /*
+   * Both mechanisms, because they cover different engines — and here they cannot conflict.
+   *
+   * `scrollbar-width: none` is the standard property: Firefox and Chromium 121+ honour it.
+   *
+   * The `::-webkit-scrollbar` rule below is for older Chromium. It is worth knowing that on a *modern*
+   * Chromium this rule is dead code, because setting `scrollbar-width` makes Chromium discard every
+   * `::-webkit-scrollbar` rule — the trap that cost an afternoon when the page scrollbar was being
+   * drawn. That trap only bites when the two mechanisms disagree about *what* to draw. Here they both
+   * hide the bar, so whichever one wins the result is identical, and having both is just belt and
+   * braces rather than a conflict.
+   */
+  scrollbar-width: none;
+}
+
+/* The older-Chromium half of the pair above. See the note on the rule. */
+.sidebar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .sidebar-section {
@@ -881,8 +1029,22 @@ a.grid-cell:hover .nums {
   color: var(--fg);
 }
 
+/*
+ * Horizontal padding only, and no top padding, and that is load-bearing.
+ *
+ * The contents rail is sticky, so it is positioned from the viewport — while its *flow* position is
+ * whatever the layout puts it at. It only pins once scrolling brings the flow position across the
+ * sticky `top`, so if the two disagree the rail renders low on load and visibly slides upward as you
+ * scroll. A top padding here pushed both columns down while the sticky offset knew nothing about it.
+ *
+ * The top offset now lives on `.docs-page` as `--docs-top`, where the sticky position can see it. Any
+ * padding added here would reintroduce the jump.
+ *
+ * The horizontal value is the shared gutter token — the left half of a pair whose right half is the
+ * page grid's `column-gap`. See the note on `.docs`.
+ */
 .docs-body {
-  padding: var(--s7) var(--s6);
+  padding: 0 var(--docs-gutter) var(--s7);
   min-width: 0;
 }
 
@@ -977,13 +1139,20 @@ a.grid-cell:hover .nums {
   }
   .docs {
     grid-template-columns: 1fr;
+    /* The prose keeps its own top offset on narrow screens too, so this must not add one. */
+    --docs-gutter: var(--s4);
   }
   .sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--line);
+    /* One column, so there is nothing to stick beside. A pinned nav would eat the whole viewport. */
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+    /* And with nothing to scroll there is no bar to suppress; the earlier rule is inert here. */
   }
   .docs-body {
-    padding: var(--s5) var(--s4);
+    padding: 0 var(--docs-gutter) var(--s5);
   }
   .footer {
     flex-direction: column;

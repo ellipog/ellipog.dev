@@ -22,7 +22,9 @@
       "summary": "A questing engine. JSON files in, a pannable canvas out, and the server decides what counts as done.",
       "repo": "https://github.com/ellipog/tasked",
       "issues": "https://github.com/ellipog/tasked/issues",
+      "version": "0.1.0",
       "localPath": "../tasked",
+      "pin": "f770a370de7814145193b6b10a2293812b7eca51",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": ["fabric", "neoforge"]
@@ -34,7 +36,9 @@
       "summary": "The library under it. Layout, themes, shapes, a graph canvas, and one seam between the code and the game's renderer.",
       "repo": "https://github.com/ellipog/armature",
       "issues": "https://github.com/ellipog/armature/issues",
+      "version": "0.1.0",
       "localPath": "../armature",
+      "pin": "78112b31c48cd4fe1037992c67bd374f5f224d68",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": ["fabric", "neoforge"]

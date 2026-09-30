@@ -1,0 +1,107 @@
+/**
+ * Keep the deployed site's numbers current, without touching a visitor's browser.
+ *
+ * WHY A REBUILD RATHER THAN A FETCH IN THE PAGE
+ *
+ * The obvious way to keep download counts fresh is to fetch them in the browser. Measured, that costs
+ * about nineteen requests per cold visitor: Modrinth answers a whole author in one call, but cfwidget's
+ * author listing returns ids and names with **no** download counts, so every project needs its own
+ * lookup against a free keyless mirror. Nineteen requests per visitor to move a number that changes by
+ * tens per day is a bad trade, and it would also make the numbers change after paint.
+ *
+ * So the numbers are fetched at build time and the *build* is what runs on a schedule. This workflow is
+ * the only moving part, and it deliberately contains no fetching logic of its own — it triggers the same
+ * build a push triggers, so there is one code path and not two.
+ *
+ * WHY A DEPLOY HOOK RATHER THAN VERCEL CRON
+ *
+ * Vercel's own Cron Jobs invoke a route on the deployment, and this site is a static export: every path
+ * is a file, so there is no route that can run code. A Deploy Hook is the supported way to ask Vercel to
+ * rebuild, and it works with a static site because it triggers a build rather than a request.
+ *
+ * SETUP, ONCE
+ *
+ *   1. Vercel -> the project -> Settings -> Git -> Deploy Hooks. Create one for `main` and copy its URL.
+ *   2. In this repository: Settings -> Secrets and variables -> Actions -> New repository secret.
+ *      Name it VERCEL_DEPLOY_HOOK, paste the URL.
+ *
+ * Until that secret exists, this workflow fails loudly rather than silently doing nothing — a schedule
+ * that stopped working without saying so is the exact failure this whole arrangement is meant to avoid.
+ */
+
+name: Refresh stats
+
+on:
+  schedule:
+    # 06:00 and 18:00 UTC. Twice a day: download counts move by tens per day, so anything finer is
+    # spending build minutes to change the third digit of a six-figure number.
+    - cron: '0 6,18 * * *'
+
+  # So it can be run by hand from the Actions tab, which is how you would check it still works.
+  workflow_dispatch:
+
+  # A push to this file is a change to the schedule, so verify it rather than waiting for 06:00.
+  push:
+    paths:
+      - '.github/workflows/refresh-stats.yml'
+
+/**
+ * One job, and it cannot overlap itself.
+ *
+ * A rebuild takes a couple of minutes and the schedule is twelve hours apart, so a collision should be
+ * impossible — but a manual dispatch during a scheduled run would otherwise queue a second build for no
+ * reason. `cancel-in-progress: false` rather than `true`: these builds produce the same output from the
+ * same inputs, so letting the first finish costs nothing and cancelling it would waste the work.
+ */
+concurrency:
+  group: refresh-stats
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check the hook is configured
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::VERCEL_DEPLOY_HOOK is not set. Create a Deploy Hook in Vercel"
+            echo "(Project -> Settings -> Git -> Deploy Hooks, branch main) and add its URL as a"
+            echo "repository secret named VERCEL_DEPLOY_HOOK. See .github/workflows/refresh-stats.yml."
+            exit 1
+          fi
+
+      - name: Trigger the rebuild
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          # Vercel answers 200 with a small JSON body containing the new deployment's id and url.
+          # `--fail-with-body` so an HTTP error is a failed step with the body in the log, rather than
+          # a green run that did nothing.
+          curl --silent --show-error --fail-with-body \
+            --request POST \
+            --max-time 30 \
+            --output /tmp/hook.json \
+            --write-out 'HTTP %{http_code}\n' \
+            "$HOOK"
+
+          echo "Vercel accepted the rebuild:"
+          cat /tmp/hook.json
+          echo ""
+
+      - name: Summarise
+        run: |
+          {
+            echo "### Stats refresh triggered"
+            echo ""
+            echo "A Vercel rebuild was queued. \`scripts/stats.mjs\` runs as part of it, so"
+            echo "\`apps/docs/stats.json\` — and every number on the catalog page — is re-fetched"
+            echo "from Modrinth and CurseForge when the build completes."
+            echo ""
+            echo "The pins in \`manifest.json\` were **not** changed. This workflow only refreshes"
+            echo "numbers; moving a pin is a content change and is done deliberately, with"
+            echo "\`bun run pins --write\`."
+          } >> "$GITHUB_STEP_SUMMARY"

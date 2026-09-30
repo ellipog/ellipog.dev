@@ -2,9 +2,13 @@ import type { MDXComponents } from 'mdx/types';
 
 import { Callout } from './callout';
 import { CodeBlock } from './code-block';
+import { Glossary } from './glossary';
+import { GlossaryTerm } from './glossary-term';
 import { H2, H3 } from './heading';
+import { Since } from './since';
 import { Step, Steps } from './steps';
 import { Tab, Tabs } from './tabs';
+import { Table } from './table';
 
 /**
  * The elements a documentation page can use.
@@ -27,9 +31,13 @@ export const mdxComponents: MDXComponents = {
   pre: CodeBlock,
   h2: H2,
   h3: H3,
+  table: Table,
   Callout,
   Tabs,
   Tab,
   Steps,
   Step,
+  Since,
+  Glossary,
+  GlossaryTerm,
 };

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import '../docs.css';
+import { standalonePages } from '@/lib/docs';
 import { source } from '@/lib/source';
 import manifest from '@/manifest.json';
 
@@ -32,6 +33,15 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         .sort((a, b) => a.slugs.length - b.slugs.length || a.url.localeCompare(b.url)),
     }));
 
+  /**
+   * Pages belonging to no mod — the glossary.
+   *
+   * Without this the glossary would build, be reachable by URL, and appear nowhere. It is not a section
+   * with a `docs/` folder, so it does not fit the loop above, and it gets its own labelled group rather
+   * than being sorted in among the mods.
+   */
+  const standalone = standalonePages();
+
   return (
     <div className="docs">
       <aside className="sidebar">
@@ -53,6 +63,19 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
             </ul>
           </div>
         ))}
+
+        {standalone.length > 0 ? (
+          <div className="sidebar-section">
+            <span className="label">Reference</span>
+            <ul>
+              {standalone.map((page) => (
+                <li key={page.url}>
+                  <a href={page.url}>{page.data.title ?? page.slugs.at(-1)}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </aside>
       <div className="docs-body">{children}</div>
     </div>

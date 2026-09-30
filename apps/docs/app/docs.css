@@ -30,29 +30,89 @@
  * own box.
  */
 .docs-page {
+  /*
+   * THE ONE THING THAT KEEPS THE RAIL STILL.
+   *
+   * A sticky element is positioned from the viewport, but it lives in the flow, and it only pins once
+   * its flow position would cross the sticky `top`. So if those two disagree, the rail renders at its
+   * flow position on load and then *slides upward* into its pinned position over the first screenful of
+   * scroll. Which is what it did: 152px down on load, jumping to 80px, because `.docs-body` (48px) and
+   * `.docs-rail` (48px) each added top padding the sticky offset knew nothing about.
+   *
+   * Both columns therefore take their top offset from this one token, and the sticky top is built from
+   * the same token. The flow position and the pinned position are then equal by construction rather
+   * than by arithmetic that has to be kept in step.
+   */
+  --docs-top: var(--s6);
+
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
 
+/*
+ * The right half of the prose gutter.
+ *
+ * `global.css` supplies the left from `.docs-body`'s padding. Without a matching gap here the prose
+ * ran edge to edge into this rail's border — 32px of air on one side and none on the other, which is
+ * what it looked like: the callouts and the tables touching the vertical rule.
+ *
+ * A grid gap rather than padding on the article, because a gap only exists *between* columns. Padding
+ * on `.prose` would also apply to the many pages that have no rail at all, where it would stack on top
+ * of `.docs-body`'s own padding and give those pages 64px on one side.
+ *
+ * Both halves resolve to `--docs-gutter`, so they cannot drift apart.
+ */
 .docs-page-with-rail {
   grid-template-columns: minmax(0, 1fr) var(--rail-right);
+  column-gap: var(--docs-gutter);
 }
 
+/*
+ * The article supplies its own top offset now that `.docs-body` no longer does.
+ *
+ * **`max-width: none` is load-bearing, and it is a fix rather than a preference.** `global.css` caps
+ * `.prose` at `--measure` (68ch), which is the right guard for a page of text with nothing beside it.
+ * Inside this layout the column already *is* the measure: the shell is 1200px, the left rail takes
+ * 232px and the right rail 200px, so the prose column lands at about 704px — 75 characters at this
+ * size, at the top of the comfortable range and no wider. Keeping both caps meant the smaller one won
+ * and the difference rendered as a void between the text and the rail, roughly 190px of nothing on
+ * every page that had a rail.
+ *
+ * So the column sets the measure here and the character cap stands down. Any rule added between the
+ * two columns — padding, a wider rail — changes the line length, which is the trade for filling the
+ * width, and the assertion in `check.mjs` is what stops the cap creeping back.
+ */
+.docs-page > .prose {
+  padding-top: var(--docs-top);
+  max-width: none;
+}
+
+/*
+ * The rail pads horizontally only.
+ *
+ * Its vertical inset is the same `--docs-top` the article uses, so the rail's own flow position is
+ * already where it will be pinned -- that is the whole fix, and a `padding` shorthand here that added
+ * a different top value would undo it.
+ */
 .docs-rail {
   border-left: 1px solid var(--line);
-  padding: var(--s7) var(--s4);
+  padding: var(--docs-top) var(--s4) var(--s5);
 }
 
 /*
  * Sticky under the masthead, and scrolling on its own if a page ever has more headings than fit.
  *
+ * `top` is masthead + `--docs-top`, which is exactly where the rail already sits in the flow. See the
+ * note on `.docs-page` -- changing either half without the other is how this broke the first time.
+ *
  * `max-height` is what makes the inner scroll work: without it the rail is as tall as its list and
- * `position: sticky` has nothing to stick within. 56px is the masthead, `--s5` is the breathing room.
+ * `position: sticky` has nothing to stick within. The `--s5` is breathing room at the bottom, so the
+ * last entry is not flush against the window edge.
  */
 .toc {
   position: sticky;
-  top: calc(56px + var(--s5));
-  max-height: calc(100vh - 56px - var(--s5) * 2);
+  top: calc(var(--masthead) + var(--docs-top));
+  max-height: calc(100vh - var(--masthead) - var(--docs-top) - var(--s5));
   overflow-y: auto;
 }
 
@@ -398,6 +458,16 @@
  */
 .heading {
   position: relative;
+
+  /*
+   * Where an anchor target stops, so it does not land under the sticky masthead.
+   *
+   * The browser aligns an anchor target with the top of the viewport, and the masthead is 56px of
+   * sticky furniture sitting over it — so without this, following a contents entry puts the heading
+   * you asked for just out of sight. Same tokens as the rail's offset, so the two cannot drift apart.
+   * `scrollIntoView` honours this, not only native hash navigation.
+   */
+  scroll-margin-top: calc(var(--masthead) + var(--s4));
 }
 
 .heading-anchor {
@@ -575,19 +645,378 @@
 }
 
 /*
- * Markdown tables are inside the prose measure, but a table with five columns of paths needs the
- * room. This lets one scroll sideways rather than forcing the whole page wide.
+ * A wide table scrolls sideways inside its own box rather than forcing the page wide.
+ *
+ * **The wrapper is what makes this work, and the obvious alternative does not.** `display: block;
+ * overflow-x: auto` on the `<table>` scrolls, but it takes the element out of table layout; the fix
+ * people reach for next (`display: table` on `thead`/`tbody`) makes those two *separate tables*, so
+ * the header computes its own column widths and stops lining up with the body. That shipped, and it
+ * looked like this: the heading row's first column 145px wider than the body's, with a doubled border
+ * at the seam. See `components/mdx/table.tsx`.
  */
-.prose table {
-  display: block;
+.table-wrap {
   overflow-x: auto;
-  white-space: normal;
+  margin: var(--s4) 0;
 }
 
-.prose table thead,
-.prose table tbody {
-  display: table;
-  width: 100%;
+/* The tab stop the wrapper needs so a keyboard can scroll it. Visible when it lands. */
+.table-wrap:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+.table-wrap > table {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* The head of a page                                                  */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The title and its maturity marker, on one baseline.
+ *
+ * **`flex: 1 1 auto` on the heading is load-bearing, not cosmetic.** `.prose h1` draws a rule under
+ * itself, and a flex item shrinks to the width of its own text — so the rule would stop where the word
+ * does instead of spanning the prose. Stretching the heading keeps that rule full width, which is the
+ * entire job it does; it is the line that separates the page head from the page.
+ */
+.page-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.page-head h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/*
+ * `draft` / `stable` / `unreleased`, declared in a document's own frontmatter.
+ *
+ * Square, like everything else here. `draft` is the quietest and `unreleased` carries the caution
+ * colour, because those are the two states a reader needs to know about before trusting anything
+ * below — and a page that is aspirational should be able to say so without a prose apology.
+ */
+.maturity {
+  flex: none;
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  color: var(--fg-faint);
+  white-space: nowrap;
+}
+
+.maturity-stable {
+  border-color: var(--fg-faint);
+  color: var(--fg-muted);
+}
+
+/* Dashed, because an unfinished thing should not have the same hard edge as a settled one. */
+.maturity-draft {
+  border-style: dashed;
+}
+
+.maturity-unreleased {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/*
+ * The one-line facts a reader needs before they start — from the manifest, so it cannot drift.
+ *
+ * Mono and faint, directly under the title with no rule of its own, so it reads as part of the heading
+ * block rather than as the first sentence of the page.
+ */
+.prereq {
+  margin-top: var(--s2);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--fg-faint);
+}
+
+/* ------------------------------------------------------------------ */
+/* A glossary term in prose                                            */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Written as `[[canvas]]` and rewritten into a component by `sync.mjs`.
+ *
+ * A **dashed** rule rather than a solid one. Solid underline means "this takes you somewhere" on this
+ * site, and a term does not — it shows you something and leaves you where you were. The distinction is
+ * one glyph wide and it is the difference between a reader clicking and a reader hovering.
+ */
+.term {
+  position: relative;
+  border-bottom: 1px dashed var(--fg-faint);
+  cursor: help;
+}
+
+.term:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+/*
+ * The definition.
+ *
+ * Hidden the way `.sr-only` hides things — one pixel, clipped, `overflow: hidden` — rather than with
+ * `display: none` or `visibility: hidden`. Both of those remove an element from the accessibility tree,
+ * and `aria-describedby` pointing at something outside that tree is announced as nothing at all. A
+ * tooltip injected on hover has the same problem. So it is always *there*, and hover or focus reveals
+ * what is already rendered.
+ *
+ * Absolute, so revealing it shifts nothing; and small rather than `auto` while hidden, or its box would
+ * sit over the content below and eat that content's pointer events.
+ */
+.term-def {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.term:hover .term-def,
+.term:focus .term-def,
+.term:focus-within .term-def {
+  width: max-content;
+  /*
+   * Capped against the viewport as well as against a comfortable measure: a term near the right edge
+   * of the prose would otherwise push its definition off the page, and without CSS anchor positioning
+   * there is no way to flip it leftward based on where it landed.
+   */
+  max-width: min(36ch, 78vw);
+  height: auto;
+  padding: var(--s3);
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+  background: var(--bg);
+  border: 1px solid var(--line-ink);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  text-align: left;
+}
+
+.term-def-name {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  margin-bottom: var(--s1);
+}
+
+.term-def-see {
+  display: block;
+  margin-top: var(--s2);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+}
+
+.term-def-see a {
+  color: var(--fg);
+  border-bottom: 1px solid var(--line-ink);
+}
+
+/* ------------------------------------------------------------------ */
+/* The glossary                                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A three-column definition list: an ordinal, the term, the meaning.
+ *
+ * The ordinal comes from a CSS counter rather than from the data, so inserting a term renumbers
+ * everything after it — the same trick `.steps` uses, and the reason neither of them can drift out of
+ * sequence. It also gives the left edge a column of its own, which is what lets the eye run down the
+ * terms without reading them.
+ *
+ * A grid rather than the browser's default `<dl>` stacking. The whole reason a glossary is easier to
+ * read than prose is that every definition starts at the same x, and that only happens if the term
+ * column has a fixed width.
+ */
+.glossary {
+  counter-reset: term;
+  margin: var(--s5) 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.glossary-row {
+  counter-increment: term;
+
+  /*
+   * Baseline rather than the default stretch: the term is a 14px sans title and the meaning is 13.5px
+   * sans body, so aligning their boxes leaves their first lines at different heights and the row looks
+   * subtly broken without it being obvious why.
+   */
+  display: grid;
+  grid-template-columns: 2.5ch minmax(0, 11rem) minmax(0, 1fr);
+  gap: var(--s4);
+  align-items: baseline;
+  padding: var(--s4) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/*
+ * The ordinal, and the hover marker that shares its column.
+ *
+ * The marker is an **inset box-shadow**, not a `border-left`, and that is the same technique the active
+ * tab uses for its underline. A border appearing on hover would push the whole row 2px sideways every
+ * time the pointer crossed it; a shadow is drawn in space that is already reserved.
+ */
+.glossary-row::before {
+  content: counter(term, decimal-leading-zero);
+  padding-left: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--fg-faint);
+  box-shadow: inset 2px 0 0 transparent;
+  transition: color 0.12s linear, box-shadow 0.12s linear;
+}
+
+.glossary-row:hover::before {
+  color: var(--fg);
+  box-shadow: inset 2px 0 0 var(--fg);
+}
+
+/*
+ * The term itself: sans, because it is a name rather than an identifier — and the identifier sits
+ * beside it in mono, where the site's typographic rule says machine names belong.
+ */
+.glossary-row dt {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  /* Clears the sticky masthead when a term is linked to directly. */
+  scroll-margin-top: calc(var(--masthead) + var(--s4));
+}
+
+.glossary-id {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--fg-faint);
+}
+
+/*
+ * The anchor, revealed on hover like a heading's. Invisible until wanted, and focusable so a term can
+ * be linked to without a mouse — the one affordance a glossary genuinely needs and most do not have.
+ */
+.glossary-anchor {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+  opacity: 0;
+  transition: opacity 0.12s linear, color 0.12s linear;
+}
+
+.glossary-row:hover .glossary-anchor,
+.glossary-anchor:focus-visible {
+  opacity: 1;
+}
+
+.glossary-anchor:hover {
+  color: var(--fg);
+}
+
+.glossary-row dd {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+}
+
+/*
+ * Cross-references, under a hairline of their own.
+ *
+ * Set below the definition rather than inline after it: "See also Task" running on from the end of a
+ * sentence reads as part of that sentence, which is exactly the wrong meaning.
+ */
+.glossary-see {
+  display: block;
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-faint);
+}
+
+.glossary-see-label {
+  margin-right: var(--s2);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.glossary-see a {
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--line-ink);
+  transition: color 0.12s linear;
+}
+
+.glossary-see a:hover {
+  color: var(--fg);
+}
+
+/*
+ * Below 700px the term column loses the fight for width, so the meaning moves under the term and the
+ * ordinal goes. Two columns of text sharing 300px is worse than one.
+ */
+@media (max-width: 700px) {
+  .glossary-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s2);
+  }
+  .glossary-row::before {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The `@since` chip                                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Inline and small enough to sit inside a table cell without changing the row height.
+ *
+ * No fill and no border weight, unlike `.maturity`: this is a fact attached to a name, not a statement
+ * about the page it is on.
+ */
+.since {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--fg-faint);
+  border: 1px solid var(--line);
+  vertical-align: 1px;
+  white-space: nowrap;
 }
 
 @media (max-width: 700px) {

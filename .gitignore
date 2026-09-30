@@ -36,7 +36,8 @@ apps/docs/stats.json
 apps/docs/public/avatar.*
 
 
-# The git checkouts sync.mjs makes when a mod is not present as a sibling folder.
+# The pinned-commit checkouts sync.mjs makes when a mod's folder is not present. One per mod, each a
+# bare snapshot at the SHA in manifest.json. Reproducible from the manifest and safe to delete.
 .cache/
 
 # Editor and OS noise

@@ -4,7 +4,7 @@ import { DocsContents } from '@/components/docs-contents';
 import { DocsFooter } from '@/components/docs-footer';
 import { TableOfContents } from '@/components/toc';
 import { mdxComponents } from '@/components/mdx';
-import { neighboursOf, sectionOf, tocOf } from '@/lib/docs';
+import { maturityOf, neighboursOf, prerequisitesOf, sectionOf, tocOf } from '@/lib/docs';
 import { source } from '@/lib/source';
 
 type Props = { params: Promise<{ slug?: string[] }> };
@@ -32,6 +32,11 @@ export default async function DocsPage({ params }: Props) {
   const isIndex = resolved.length === 0;
   const mod = sectionOf(resolved);
   const { prev, next } = neighboursOf(resolved);
+  const prereq = prerequisitesOf(mod);
+
+  // The one frontmatter key a document may set for itself. Read from the file rather than from
+  // `page.data` because the page schema strips unknown keys — see `maturityOf`.
+  const maturity = maturityOf(resolved);
 
   // Depth 1 items are the page title and are not worth listing; two is the point where a rail earns
   // its width.
@@ -40,7 +45,12 @@ export default async function DocsPage({ params }: Props) {
   return (
     <div className={rail.length >= 2 ? 'docs-page docs-page-with-rail' : 'docs-page'}>
       <article className="prose">
-        <h1>{page.data.title}</h1>
+        <div className="page-head">
+          <h1>{page.data.title}</h1>
+          {maturity ? <span className={`maturity maturity-${maturity}`}>{maturity}</span> : null}
+        </div>
+        {/* The one-line facts, before the prose. From the manifest, so it cannot drift. */}
+        {prereq ? <p className="prereq mono">{prereq}</p> : null}
         {page.data.description ? <p className="lede">{page.data.description}</p> : null}
 
         {/* The contents list, on the docs index only. Rendered rather than authored, so it cannot

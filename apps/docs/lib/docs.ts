@@ -17,11 +17,29 @@ type SuiteMod = {
   summary: string;
   repo?: string;
   issues?: string;
+  version?: string;
   minecraft?: string;
   loaders?: string[];
 };
 
 export const mods = manifest.suite as SuiteMod[];
+
+/**
+ * The one-line facts a page needs before it is read.
+ *
+ * Nobody should read a page for a version they are not running, and today almost every page needs that
+ * caveat. Built from the manifest, so it cannot go stale the way a hand-written "requires 1.21.1" in
+ * prose would -- and it disappears entirely for a mod that has none of these fields.
+ */
+export function prerequisitesOf(mod: SuiteMod | undefined): string | null {
+  if (!mod) return null;
+  const parts = [
+    mod.minecraft ? `Minecraft ${mod.minecraft}` : null,
+    mod.loaders?.length ? mod.loaders.map((l) => l.charAt(0).toUpperCase() + l.slice(1)).join(' + ') : null,
+    mod.version ? `${mod.name} ${mod.version}` : null,
+  ].filter(Boolean) as string[];
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
 
 /** The manifest entry a page belongs to, from the first slug segment. */
 export function sectionOf(slugs: string[]): SuiteMod | undefined {
@@ -63,6 +81,35 @@ export function tocOf(slugs: string[]): TOCItemType[] {
   return getTableOfContents(body);
 }
 
+/**
+ * A page's maturity marker, read from the generated file.
+ *
+ * **Read from disk rather than from `page.data`, because the schema strips it.** Fumadocs applies
+ * `pageSchema` to every page, and that schema is built with `z.core.$strip` — so an unknown
+ * frontmatter key is silently discarded before anything can read it. `maturity` is not in the schema,
+ * so `page.data.maturity` is always `undefined` and the marker never rendered.
+ *
+ * The alternative was extending the schema (`pageSchema.extend({ maturity: ... })`), which means
+ * importing Zod and pinning a schema from a library whose own docs mark the export as version-sensitive
+ * — a lot of coupling for one string. `tocOf` already established reading the generated file for
+ * exactly this reason, so this follows the same route and the two helpers agree about where a page lives.
+ *
+ * Returns undefined rather than throwing when the file or the key is missing: a page with no marker is
+ * the normal case, not a failure.
+ */
+export function maturityOf(slugs: string[]): string | undefined {
+  const base = join(process.cwd(), 'content', 'docs', ...slugs);
+  const file = existsSync(`${base}.mdx`) ? `${base}.mdx` : join(base, 'index.mdx');
+  if (!existsSync(file)) return undefined;
+
+  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(readFileSync(file, 'utf8'))?.[1];
+  if (!front) return undefined;
+
+  const value = /^maturity:\s*(.+)$/m.exec(front)?.[1]?.trim().replace(/^["']|["']$/g, '');
+  // An allowlist, because the class name it becomes goes straight into the markup.
+  return value === 'draft' || value === 'stable' || value === 'unreleased' ? value : undefined;
+}
+
 export type Neighbour = { url: string; title: string };
 
 /**
@@ -88,6 +135,20 @@ export function neighboursOf(slugs: string[]): { prev?: Neighbour; next?: Neighb
     page ? { url: page.url, title: page.data.title } : undefined;
 
   return { prev: toNeighbour(pages[index - 1]), next: toNeighbour(pages[index + 1]) };
+}
+
+/**
+ * Top-level pages that belong to no mod.
+ *
+ * The glossary is the only one today. It has to appear somewhere in the rail, and it is not a section
+ * with a `docs/` folder -- so it is collected here and rendered under its own label rather than being
+ * quietly unreachable.
+ */
+export function standalonePages() {
+  return source
+    .getPages()
+    .filter((page) => page.slugs.length === 1 && !mods.some((mod) => mod.id === page.slugs[0]))
+    .sort((a, b) => a.url.localeCompare(b.url));
 }
 
 /**

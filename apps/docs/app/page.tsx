@@ -1,6 +1,7 @@
 import manifest from '@/manifest.json';
 import stats from '@/stats.json';
 import { Arrow } from '@/components/arrow';
+import { ShuffledNumber } from '@/components/shuffled-number';
 import { source } from '@/lib/source';
 
 type SuiteMod = {
@@ -98,7 +99,7 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
   );
 }
 
-function SelectedCell({ item }: { item: Selected }) {
+function SelectedCell({ item, index }: { item: Selected; index: number }) {
   const count = combined(item);
   return (
     <a className="grid-cell pub-cell" href={item.url} target="_blank" rel="noreferrer noopener">
@@ -112,7 +113,13 @@ function SelectedCell({ item }: { item: Selected }) {
       {count ? (
         <div className="meta">
           <span className="nums">
-            <b>{n(count.total)}</b> downloads
+            {/* Staggered by position, so the three settle in sequence rather than at once. The
+                breakdown beside it is left alone on purpose: four numbers shuffling in one cell is
+                noise, and the headline figure is the one worth the flourish. */}
+            <b>
+              <ShuffledNumber value={n(count.total)} delay={100 + index * 90} />
+            </b>{' '}
+            downloads
           </span>
           <span className="faint">{count.breakdown}</span>
         </div>
@@ -139,7 +146,12 @@ export default function Home() {
         </p>
         {total > 0 ? (
           <p className="hero-total">
-            <b>{n(total)}</b>
+            <b>
+              <ShuffledNumber value={n(total)} />
+            </b>
+            {/* The label, as a direct child of `.hero-total`. The stylesheet depends on that: the
+                figure's own spans are nested inside `<b>`, and a descendant selector would paint them
+                too -- which is exactly what it did. */}
             <span>downloads · modrinth + curseforge</span>
           </p>
         ) : null}
@@ -185,8 +197,8 @@ export default function Home() {
           </span>
         </div>
         <div className="grid" style={{ ['--cols' as string]: '3' }}>
-          {selected.map((item) => (
-            <SelectedCell key={item.id} item={item} />
+          {selected.map((item, i) => (
+            <SelectedCell key={item.id} item={item} index={i} />
           ))}
           {Array.from({ length: fillers(selected.length, 3) }, (_, i) => (
             <Filler key={`s${i}`} />

@@ -17,6 +17,19 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 const OUT = 'apps/docs/out';
 const CHUNKS = `${OUT}/_next/static/chunks`;
 
+/*
+ * The two source files, read once and near the top.
+ *
+ * **Declared HERE rather than beside the sections that first wanted them, and that is the same lesson
+ * twice.** Both `allCss` and this were originally declared further down, next to where they were first
+ * used. Every section after them worked; then a new section was added *above* one of them and threw
+ * `Cannot access 'X' before initialization` — a temporal-dead-zone error, because `const` is not hoisted
+ * the way `function` is. A reader adds sections in whatever order makes sense, so a declaration's
+ * position must not depend on which section happens to come first.
+ */
+const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
+const stats = JSON.parse(readFileSync('apps/docs/stats.json', 'utf8'));
+
 const failures = [];
 const notes = [];
 
@@ -105,6 +118,25 @@ for (const id of ['tasked', 'armature']) {
 console.log('\n== the scrollbar is drawn, not inherited ==');
 const cssFiles = existsSync(CHUNKS) ? readdirSync(CHUNKS).filter((f) => f.endsWith('.css')) : [];
 const css = cssFiles.map((f) => readFileSync(`${CHUNKS}/${f}`, 'utf8')).join('\n');
+
+/*
+ * The concatenated stylesheet, under the name the later sections use — declared HERE rather than where
+ * it is first wanted.
+ *
+ * It was originally declared further down, beside the docs-rail assertions, and every section that came
+ * *after* it worked. Then the glossary section was added *above* it and threw
+ * `Cannot access 'allCss' before initialization` — a temporal-dead-zone error, because `const` is not
+ * hoisted the way `function` is. One declaration, at the top, is the fix; a second one further down
+ * would shadow it and throw on the duplicate instead.
+ */
+const allCss = css;
+
+/** The rule a failure is about, so a failure says what is there instead of only what is not. */
+function show(needle) {
+  const at = allCss.indexOf(needle);
+  return at === -1 ? `"${needle}" absent` : allCss.slice(at, at + 120);
+}
+
 check('a stylesheet exists', css.length > 0, `${cssFiles.length} file(s)`);
 check('::-webkit-scrollbar sized', /::-webkit-scrollbar\{[^}]*width:11px/.test(css));
 check('::-webkit-scrollbar-button suppressed', /::-webkit-scrollbar-button\{[^}]*display:none/.test(css));
@@ -145,6 +177,17 @@ if (existsSync(SHOWCASE)) {
   check('headings carry anchors', html.includes('class="heading-anchor"'));
   check('the page has a contents rail', html.includes('class="docs-rail"'));
   check('the rail lists nested headings', html.includes('toc-nested'));
+
+  /*
+   * The table bug, asserted so it cannot come back.
+   *
+   * A wide table has to be scrollable, and the way that was done the first time -- `display: block` on
+   * the `<table>` -- took it out of table layout, which made `thead` and `tbody` separate tables with
+   * independent column widths. The header stopped lining up with the body. The wrapper is the fix, and
+   * these two are the shape of it: the table is wrapped, and nothing has changed its display.
+   */
+  check('tables are wrapped, not display-blocked', html.includes('class="table-wrap"'));
+  check('no rule takes a table out of table layout', !/\.prose table\{[^}]*display:block/.test(css));
   // Nothing is active until the reader scrolls, so a server-rendered marker would be a lie.
   check('no section is marked current before scrolling', !html.includes('aria-current="location"'));
 
@@ -174,6 +217,8 @@ if (taskedIndex) {
   check('authored page: callout from a GFM alert', taskedIndex.includes('callout-note'));
   check('authored page: h2 carries an anchor', taskedIndex.includes('class="heading-anchor"'));
   check('authored page: table renders', taskedIndex.includes('<table'));
+  // The wrapper is what keeps a wide table scrollable without breaking its column alignment.
+  check('authored page: table is wrapped for scrolling', taskedIndex.includes('class="table-wrap"'));
   check('authored page: contents rail on a page with sections', taskedIndex.includes('docs-rail'));
   check('authored page: footer names the repository', taskedIndex.includes('ellipog/tasked'));
   check('authored page: footer carries page navigation', taskedIndex.includes('docs-nav'));
@@ -212,17 +257,349 @@ for (const id of ['tasked', 'armature']) {
   check(`${id}: no README profile paths on the site`, !html.includes('testModsDirFabric'));
 }
 
+console.log('\n== cross-mod links and the glossary ==');
+/*
+ * The link syntax resolves at sync time, and an unresolved one fails the build rather than shipping as
+ * literal text. This is the belt to that braces.
+ *
+ * **`<script>` contents are stripped first, and they have to be.** Next embeds its RSC payload as JSON
+ * inside script tags, and a JSON array of arrays contains `[[` as a matter of course — so a plain
+ * `html.includes('[[')` is true on every Next page ever built and the assertion could never pass. It
+ * failed on both files here for exactly that reason, while the rendered page contained no `[[` at all.
+ * The question is about visible content, so the check is too.
+ */
+const withoutScripts = (html) => html.replace(/<script[\s\S]*?<\/script>/g, '');
+for (const path of [`${OUT}/docs/tasked/index.html`, `${OUT}/docs/tasked/design-preview/index.html`]) {
+  const html = read(path);
+  if (!html) continue;
+  const name = path.slice(OUT.length + 1);
+  check(`${name}: no unresolved [[...]]`, !withoutScripts(html).includes('[['));
+}
+
+if (existsSync(SHOWCASE)) {
+  const html = readFileSync(SHOWCASE, 'utf8');
+
+  // A cross-mod link is a real href into another mod's section, with the target's own title as its text.
+  check(
+    'cross-mod link resolves to the other mod',
+    /href="\/docs\/armature\/"/.test(html),
+  );
+  check('cross-mod link takes its text from the target title', html.includes('Armature documentation'));
+  // Custom text and anchors.
+  check('cross-mod link honours custom text', html.includes('the Armature manual'));
+  check('cross-mod link honours an anchor', /href="\/docs\/tasked\/#/.test(html));
+
+  // Terms: a span with the definition in the DOM, not injected.
+  const terms = (html.match(/class="term"/g) ?? []).length;
+  const defs = (html.match(/class="term-def"/g) ?? []).length;
+  check('glossary terms render as hover spans', terms >= 4, `${terms}`);
+  check('every term carries its definition', terms === defs, `${terms} term(s) / ${defs} definition(s)`);
+  check('definitions are described to assistive tech', html.includes('aria-describedby="glossary-'));
+  check('definitions are in the DOM, not injected', html.includes('class="term-def-name"'));
+
+  // The furniture.
+  check('@since chips render', html.includes('class="since"'));
+  check('the maturity marker renders', html.includes('maturity-draft'));
+
+  /*
+   * `class="prereq` with no closing quote, deliberately.
+   *
+   * The element renders as `class="prereq mono"`, so asserting on `class="prereq"` — with the quote —
+   * can never match. That is exactly how it failed, and the tell was two assertions disagreeing about
+   * one element: this one said the strip was missing while `prerequisites name the Minecraft version`
+   * passed, because the version string was inside the very element this check could not see.
+   */
+  check('the prerequisites strip renders', html.includes('class="prereq'));
+  check('prerequisites name the Minecraft version', html.includes('Minecraft 1.21.1'));
+}
+
+const glossaryPage = read(`${OUT}/docs/glossary/index.html`);
+if (glossaryPage) {
+  check('the glossary page exists', true);
+  check('the glossary lists terms', glossaryPage.includes('class="glossary-row"'));
+  check('glossary terms are anchorable', glossaryPage.includes('id="glossary-quest"'));
+
+  /*
+   * THE CHECK THAT WAS MISSING, AND THE REASON THE GLOSSARY SHIPPED UNSTYLED.
+   *
+   * Every assertion above passes on markup alone, so they all passed while the page rendered as a raw
+   * `<dl>` — browser-default bold term, indented definition, no hairlines. An `edit_file` had failed on
+   * a stale anchor and the whole block of CSS never landed, and nothing noticed because nothing was
+   * looking at the stylesheet. Presence of a class in the HTML is not evidence that anything styles it.
+   */
+  check('the glossary is styled', /\.glossary\{[^}]*counter-reset:term/.test(allCss), show('.glossary{'));
+  check('glossary rows are a grid', /\.glossary-row\{[^}]*display:grid/.test(allCss), show('.glossary-row{'));
+
+  /*
+   * **Assertions against compiled CSS must survive the minifier, and these did not.**
+   *
+   * Two of them failed against CSS that was correct. Lightning CSS rewrites `::before` to `:before`,
+   * and shortens `flex: 1 1 auto` to `flex: auto` — so a regex looking for either one verbatim fails
+   * while the rule is right there in the file. `:?` and an alternation cost nothing and are the
+   * difference between a test that checks the work and one that checks the formatter.
+   *
+   * The general rule: match the *property and value* you care about, not the exact syntax you wrote.
+   */
+  check('the ordinal is generated', /\.glossary-row:?:before\{[^}]*counter\(term/.test(allCss), show('.glossary-row'));
+  check(
+    'renderers are visible before hover',
+    /\.glossary\{/.test(allCss) && /\.glossary-row dd\{[^}]*color:var\(--fg-muted\)/.test(allCss),
+    show('.glossary-row dd{'),
+  );
+  check('glossary terms carry an anchor', glossaryPage.includes('class="glossary-anchor"'));
+  check('glossary terms show their identifier', glossaryPage.includes('class="glossary-id"'));
+  check('cross-references are rendered', glossaryPage.includes('class="glossary-see"'));
+}
+
+/*
+ * The whole furniture set, checked in the CSS rather than the markup — for the same reason as above.
+ * Each of these rendered as unstyled text at some point.
+ */
+check('the page head is a flex row', /\.page-head\{[^}]*display:flex/.test(allCss), show('.page-head{'));
+/*
+ * `flex:auto` rather than `flex:1` -- the minifier shortens `flex: 1 1 auto` to `flex: auto`, so the
+ * assertion checks that the heading is *flexible* rather than how it was spelled. See the note on the
+ * glossary assertion above; this is the second instance of the same trap.
+ */
+check(
+  'the page heading stretches, so its rule spans',
+  /\.page-head h1\{[^}]*flex:(1|auto|1 1 auto)/.test(allCss),
+  show('.page-head h1{'),
+);
+check('the maturity chip is styled', /\.maturity\{[^}]*text-transform:uppercase/.test(allCss), show('.maturity{'));
+check('the draft state is distinguished', /\.maturity-draft\{[^}]*border-style:dashed/.test(allCss));
+check('the prerequisites line is styled', /\.prereq\{[^}]*letter-spacing/.test(allCss), show('.prereq{'));
+check('the @since chip is styled', /\.since\{[^}]*font-family:var\(--font-mono\)/.test(allCss), show('.since{'));
+check('inline terms are underlined as terms', /\.term\{[^}]*border-bottom:1px dashed/.test(allCss), show('.term{'));
+
+/*
+ * The hover definition must be *hidden*, not *removed*.
+ *
+ * `display: none` or `visibility: hidden` would take it out of the accessibility tree, and an
+ * `aria-describedby` pointing at an element outside that tree announces nothing — so the tooltip would
+ * be silent for exactly the readers who cannot hover. The clip trick is what keeps both properties at
+ * once, and this asserts the mechanism rather than trusting it.
+ */
+check(
+  'hidden definitions are clipped, not removed',
+  /\.term-def\{[^}]*clip-path:inset\(50%\)/.test(allCss) && !/\.term-def\{[^}]*display:none/.test(allCss),
+  show('.term-def{'),
+);
+check('a revealed definition stops being clipped', /\.term:hover \.term-def[^{]*\{[^}]*clip-path:none/.test(allCss));
+
+console.log('\n== the contents rail cannot move on scroll ==');
+/*
+ * THE BUG THIS GUARDS.
+ *
+ * A sticky element is positioned from the viewport, but it lives in the flow, and it only pins once its
+ * flow position would cross the sticky `top`. So if the two disagree, the rail renders at its flow
+ * position on load and *slides upward* into its pinned position over the first screenful of scroll.
+ *
+ * Which is what happened: two ancestors each added top padding that the sticky offset could not see, so
+ * the rail sat 152px below the masthead at rest and 80px once pinned — a visible slide on every page
+ * that had a rail.
+ *
+ * The fix is that one token feeds both sides, and that is what these assertions are: the offset exists,
+ * both columns take their top from it, the sticky position is built from it, and nothing in between has
+ * grown a top offset of its own again. Checked in the built CSS rather than measured in a browser,
+ * because arithmetic does not need a browser and a measurement would need one that can run a script.
+ */
+/*
+ * Every stylesheet, concatenated — **not `cssFiles[0]`**.
+ *
+ * Next emits more than one CSS chunk and `global.css` and `docs.css` land in different ones. An earlier
+ * version of this read only the first file, so `--masthead` was found (it is in `global.css`) while all
+ * four `--docs-top` assertions failed (it is in `docs.css`) — with the rules present and correct the
+ * whole time. That is the worst kind of failing test: a false alarm that costs a debugging round. `css`
+ * above is already the concatenation.
+ */
+/* `allCss` and `show` are declared beside `css`, at the top of the scrollbar section. */
+
+check('the masthead height is one token', /--masthead:/.test(allCss));
+check('the top offset is one token', /--docs-top:/.test(allCss), show('.docs-page{'));
+check(
+  'the rail takes its top from that token',
+  /\.docs-rail\{[^}]*padding:var\(--docs-top\)/.test(allCss),
+  show('.docs-rail{'),
+);
+check(
+  'the article takes the same offset',
+  /\.docs-page>\.prose\{[^}]*padding-top:var\(--docs-top\)/.test(allCss),
+  show('.docs-page>.prose{'),
+);
+/*
+ * The prose must fill its column, not stop at the character cap.
+ *
+ * `global.css` caps `.prose` at 68ch, which is right for a page of text standing alone. Inside the docs
+ * layout the column is already narrower than that on a 1200px shell, so keeping both caps meant the
+ * smaller one won and the difference rendered as ~190px of empty space between the text and the
+ * contents rail. The override is what closes it.
+ */
+check(
+  'the docs prose fills its column',
+  /\.docs-page>\.prose\{[^}]*max-width:none/.test(allCss),
+  show('.docs-page>.prose{'),
+);
+check(
+  'the sticky top is built from the same two tokens',
+  /\.toc\{[^}]*top:calc\(var\(--masthead\)[^}]*var\(--docs-top\)/.test(allCss),
+  show('.toc{'),
+);
+// The regression: a top padding on the column between the page and the masthead, which is what put the
+// flow position and the pinned position out of step in the first place.
+check('no column adds a top offset of its own', !/\.docs-body\{[^}]*padding:var\(--s7\)/.test(allCss));
+
+console.log('\n== the contents rail scrolls, and marks what you clicked ==');
+
+/*
+ * The rail's click behaviour lives in a client component, so these are asserted against the built
+ * JavaScript rather than against the HTML or the CSS. Three things have to be true for a click to do
+ * what a reader expects, and each of them was missing at some point:
+ *
+ *   - `scrollIntoView` — the click scrolls the page at all, rather than only moving the URL.
+ *   - `prefers-reduced-motion` — the smooth scroll is skipped for a reader who asked for less motion.
+ *   - `scroll-margin-top` on the heading — the target stops below the masthead instead of under it.
+ *
+ * The mark being *held* while the scroll is in flight is the fourth, and it is the one that cannot be
+ * asserted from outside: it is a timestamp in a closure. `components/toc.tsx` explains it.
+ */
+const clientJs = existsSync(CHUNKS)
+  ? readdirSync(CHUNKS)
+      .filter((f) => f.endsWith('.js'))
+      .map((f) => readFileSync(`${CHUNKS}/${f}`, 'utf8'))
+      .join('\n')
+  : '';
+
+check('the client bundle exists', clientJs.length > 0, `${clientJs.length} bytes`);
+check('a contents click scrolls the page', clientJs.includes('scrollIntoView'));
+check('the smooth scroll is skipped for reduced motion', clientJs.includes('prefers-reduced-motion'));
+check('a clicked entry pushes a history entry', clientJs.includes('pushState'));
+check(
+  'heading anchors clear the masthead',
+  /\.heading\{[^}]*scroll-margin-top/.test(allCss),
+  show('.heading{'),
+);
+
+console.log('\n== the prose sits in equal air ==');
+/*
+ * The gutter: the same 32px between the left rail and the prose as between the prose and the contents
+ * rail. It shipped with only the left half, so the prose, its callouts and its tables ran edge to edge
+ * into the rail's border — 32px of air on one side and none on the other.
+ *
+ * The two halves are applied in *different places* — `.docs-body`'s padding and the page grid's
+ * `column-gap` — which is exactly why one of them went missing. One token feeds both, so these assert
+ * the token and both of its uses rather than the number 32, and the last one guards the regression:
+ * a hardcoded value reappearing in either half.
+ */
+check('the gutter is one token', /--docs-gutter:/.test(allCss), show('.docs{'));
+check(
+  'the left half comes from the token',
+  /\.docs-body\{[^}]*padding:0 var\(--docs-gutter\)/.test(allCss),
+  show('.docs-body{'),
+);
+check(
+  'the right half comes from the same token',
+  /\.docs-page-with-rail\{[^}]*column-gap:var\(--docs-gutter\)/.test(allCss),
+  show('.docs-page-with-rail{'),
+);
+check('neither half is hardcoded', !/\.docs-body\{[^}]*padding:0 var\(--s6\)/.test(allCss));
+
+console.log('\n== every mod can be built from a pin ==');
+/*
+ * THE DEPLOY BLOCKER, ASSERTED.
+ *
+ * On a build server there are no sibling folders. A clone of this repository is `.gitignore`, `AGENT.md`,
+ * `apps`, `bun.lock`, `manifest.json`, `package.json`, `README.md` and `scripts` — and nothing else. So
+ * `../tasked` does not exist, the sibling read finds nothing, every mod is skipped and the sync exits
+ * non-zero: **the site could not have been deployed at all.**
+ *
+ * These assertions cannot prove the fetch works — that needs the network, and `check.mjs` reads the
+ * built output rather than doing network I/O. What they can prove is that every active mod *has* a pin
+ * and a repository to fetch it from, which is the half of the problem that is a property of the repo
+ * rather than of the internet. The other half is asserted by the sync itself: a pin it cannot fetch
+ * pushes a message into `problems`, and a non-empty `problems` fails the build.
+ */
+const pinned = manifest.suite.filter((m) => m.status === 'active');
+check('there is at least one active mod to pin', pinned.length > 0, `${pinned.length}`);
+
+for (const mod of pinned) {
+  check(`${mod.id}: has a repository to fetch from`, Boolean(mod.repo), mod.repo ?? 'MISSING');
+  check(
+    `${mod.id}: has a pinned commit`,
+    typeof mod.pin === 'string' && /^[0-9a-f]{40}$/.test(mod.pin),
+    typeof mod.pin === 'string' ? mod.pin.slice(0, 7) : 'MISSING — a deploy would find no docs',
+  );
+}
+
+/*
+ * The pin a page was built from, printed rather than asserted.
+ *
+ * A pinned commit is reproducible and *not* automatically fresh: the site describes the pin, not the
+ * branch. Being able to read which commit the build used is what makes a stale pin visible instead of
+ * silent, and it is why the sync prints its source on every run: `+ tasked  2 page(s) from f770a37`.
+ */
+for (const mod of pinned) {
+  console.log(`  .   ${mod.id.padEnd(10)} builds from ${mod.pin.slice(0, 7)}`);
+}
+
+console.log('\n== the left rail scrolls alone, and silently ==');
+/*
+ * TWO PROPERTIES, ASSERTED SEPARATELY, because "scrolls independently" and "shows no scrollbar" are
+ * different things and it is easy to fix one and lose the other.
+ *
+ * This is also the one place the design deliberately contradicts itself, so it is worth an assertion
+ * rather than a comment alone: the *page* scrollbar is drawn as a hairline progress indicator on the
+ * argument that hiding it argues against a design built on visible edges. This rail hides its own,
+ * because it holds a handful of links and the whole point is that it is uncluttered. Same stylesheet,
+ * opposite decisions, each right for its own element.
+ */
+check(
+  'the left rail scrolls on its own',
+  /\.sidebar\{[^}]*overflow-y:auto/.test(allCss) && /\.sidebar\{[^}]*max-height:calc\(100vh/.test(allCss),
+  show('.sidebar{'),
+);
+check(
+  'the left rail pins below the masthead',
+  /\.sidebar\{[^}]*position:sticky/.test(allCss) && /\.sidebar\{[^}]*top:var\(--masthead\)/.test(allCss),
+  show('.sidebar{'),
+);
+/*
+ * `align-self: start` is not optional and is easy to lose in a refactor. `.docs` stretches its children,
+ * and a grid item already as tall as its container has nothing for `position: sticky` to move inside --
+ * so dropping this line silently un-sticks the rail while every other assertion here still passes.
+ */
+check(
+  'the rail is sized to its content, not stretched',
+  /\.sidebar\{[^}]*align-self:start/.test(allCss),
+  show('.sidebar{'),
+);
+check(
+  'no scrollbar inside the rail',
+  /\.sidebar\{[^}]*scrollbar-width:none/.test(allCss),
+  show('.sidebar{'),
+);
+check(
+  'the older-Chromium scrollbar is hidden too',
+  /\.sidebar::-webkit-scrollbar\{[^}]*display:none/.test(allCss),
+  show('.sidebar::-webkit-scrollbar{'),
+);
+// The page scrollbar must still be the drawn one -- suppressing the rail's must not have taken it with.
+check('the page scrollbar is still drawn', /::-webkit-scrollbar\{[^}]*width:11px/.test(allCss));
+
 console.log('\n== nothing generated leaked into the repo ==');
 const strays = [
   ...readdirSync('scripts').filter((f) => /^_/.test(f)),
   ...readdirSync('apps/docs/public').filter((f) => /^_/.test(f)),
   ...(existsSync('.') ? readdirSync('.').filter((f) => /\.html$/.test(f)) : []),
+  // Probe pages are written into `public/` while developing and copied into `out/` by the build, so
+  // both places are checked. One left behind is a page a visitor could reach.
+  ...readdirSync('apps/docs/public').filter((f) => /probe/i.test(f)),
+  ...(existsSync(OUT) ? readdirSync(OUT).filter((f) => /probe/i.test(f)) : []),
 ];
 check('no probe files left', strays.length === 0, strays.join(', '));
 
 console.log('\n== the manifest and the numbers agree ==');
-const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
-const stats = JSON.parse(readFileSync('apps/docs/stats.json', 'utf8'));
+// `manifest` and `stats` are read at the top of the file; see the note there.
 for (const item of manifest.selected) {
   const cr = item.curseforge ? stats.curseforge[item.curseforge] : undefined;
   const mr = item.modrinth ? stats.modrinth[item.modrinth] : undefined;
@@ -234,6 +611,49 @@ for (const item of manifest.selected) {
 }
 check('totals sum', stats.totals.all === stats.totals.modrinth + stats.totals.curseforge);
 check('avatar downloaded', existsSync('apps/docs/public/avatar.webp') || existsSync('apps/docs/public/avatar.png'));
+
+console.log('\n== the numbers survive without JavaScript ==');
+/*
+ * The shuffle effect animates a figure on the catalog page. The property that must not break is that
+ * the real value is in the static HTML -- not injected by the animation -- so that JavaScript off, a
+ * hydration failure or a crawler all still see a correct number. These three assertions are the whole
+ * of that guarantee.
+ */
+const home = read(`${OUT}/index.html`);
+if (home) {
+  const total = (stats.totals?.all ?? 0).toLocaleString('en-US');
+  check('the hero total is in the static HTML', home.includes(total), total);
+
+  /*
+   * Counted by class, not by `aria-hidden`.
+   *
+   * The first version of this counted every `aria-hidden="true"` on the page and compared it to the
+   * `sr-only` count. It read 15 against 4, because the `Arrow` component is also `aria-hidden` and
+   * appears in every link — a fact the assertion could not see from where it was standing. The class
+   * on the animated span is what makes the pair countable, which is why it exists.
+   */
+  const animated = (home.match(/class="shuffle"/g) ?? []).length;
+  const exposed = (home.match(/class="sr-only"/g) ?? []).length;
+  check('every animated figure has a moving copy', animated >= 1, `${animated}`);
+  check('every animated figure has a still copy', animated === exposed, `${animated} moving / ${exposed} still`);
+  check('the still copy is not hidden from assistive tech', !/class="sr-only"[^>]*aria-hidden/.test(home));
+
+  // The figure classes must pin the digit width, or a scrambling number drags the layout with it.
+  check('figures use fixed-width numerals', /tabular-nums/.test(css));
+
+  /*
+   * The hero figure must be ink, and nothing may repaint it.
+   *
+   * This is the regression: `.hero-total span` -- a descendant selector -- also matched the spans
+   * `ShuffledNumber` renders inside the `<b>`, so the number was painted in the faint grey meant for
+   * its own label. Two assertions, because either alone would have passed:
+   *
+   *   - the size, so nobody shrinks it back to something that reads as a caption
+   *   - the selector, so nobody reaches for the descendant form again
+   */
+  check('the hero figure is the largest type on the page', /\.hero-total b\{[^}]*font-size:clamp\(44px/.test(css), show('.hero-total b{'));
+  check('the hero label only targets its own span', !/\.hero-total span\{/.test(css), show('.hero-total span{'));
+}
 notes.push(`totals: modrinth ${stats.totals.modrinth}, curseforge ${stats.totals.curseforge}, all ${stats.totals.all}`);
 for (const n of stats.notes ?? []) notes.push(n);
 
