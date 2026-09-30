@@ -395,22 +395,50 @@ main {
 /*
  * The site's mark, beside the name it belongs to.
  *
- * **The tab icon, drawn from the same file.** `SiteMark` inlines what `scripts/site-mark.mjs` derived
- * from `public/favicon.svg`, so the thing in the tab and the thing in the masthead are one drawing
- * rather than two that have to be kept in step.
+ * **Two files, one per theme, and the CSS is the switch.** `mark-on-light.png` is the studio's mark drawn
+ * in dark ink, which is what a light ground shows; `mark-on-dark.png` is the same drawing in light ink for
+ * a dark one. `[data-theme='dark']` picks between them — the attribute the toggle sets, so there is no
+ * JavaScript and no flash.
  *
- * 22px against a 56px masthead, which is the weight the old avatar had. Nothing else is needed: the
- * glyph's ink is `currentColor`, so it is ink on paper and paper on ink with nothing switched, and it
- * is line work with `fill="none"` rather than a filled shape, so there is no knockout and no
- * `--icon-ground` to set here.
+ * **The names describe the GROUND, and the studio's describe the INK.** The sources are `logo-mark.png`
+ * (dark ink) and `logo-mark-light.png` (light ink), where `-light` means the mark *is* light. Renamed
+ * here because "the mark shown on a light ground" is what the rule below has to say, and it is the
+ * opposite file. A swap is invisible — dark ink on the dark ground is a mark the same colour as the page,
+ * which reads as absent rather than as wrong — so `check.mjs` decodes both files and asserts which ink
+ * each one is drawn in.
+ *
+ * **A background image rather than an `<img>` and this is a measured decision, not a style one.** An
+ * `<img>` needs one element per theme with the other `display: none`, and a `display: none` image is
+ * still fetched: 49KB of PNG for a 28px mark, on every page. Two rules fetch exactly one file, because a
+ * browser fetches the background a rule *resolves to* and not the one it overrides. `<picture
+ * media="...">` is not an option either — it cannot see the `data-theme` attribute, which is the same
+ * reason the host's light/dark logo pair was retired.
+ *
+ * **And a raster cannot take `currentColor`, which is why this is not inlined like every other mark
+ * here.** The mod icons and the host's logo are vector shapes mapped to `currentColor` at build time, so
+ * one file works on either ground. That is not available for a PNG — the colour is in the pixels and no
+ * amount of CSS reaches into them. Two files is the honest consequence; inlining a base64 PNG would gain
+ * nothing and cost a third more bytes again.
+ *
+ * **28px, and the number comes from the artwork.** The supplied files are 879x879 with the mark inset
+ * 90px — 79.4% of the box — so a 28px box draws the mark itself at 22px, which is the footprint the avatar
+ * had and the weight the wordmark beside it is cut to. Sizing this to 22px would draw the mark at 17px.
+ * `contain` cannot distort it, since the file is square.
  *
  * This replaced a 9px filled square, and before that the Modrinth profile picture — a downloaded
- * photograph with no dark variant, which was the only mark on the page that could go missing.
+ * photograph with no dark variant, and the only mark on the page that could go missing.
  */
 .site-mark {
+  width: 28px;
+  height: 28px;
   flex: none;
   display: block;
-  color: inherit;
+  background: center / contain no-repeat url("/site/mark-on-light.png");
+}
+
+/* The other half of the pair above. `background-image` alone, so the shorthand's other properties stand. */
+[data-theme="dark"] .site-mark {
+  background-image: url("/site/mark-on-dark.png");
 }
 
 .masthead nav {

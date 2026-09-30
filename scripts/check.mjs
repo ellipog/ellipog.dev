@@ -15,6 +15,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
+import { readInk } from './lib/png-ink.mjs';
+
 const OUT = 'apps/docs/out';
 const CHUNKS = `${OUT}/_next/static/chunks`;
 
@@ -988,23 +990,20 @@ for (const item of manifest.selected) {
 }
 check('totals sum', stats.totals.all === stats.totals.modrinth + stats.totals.curseforge);
 
-console.log('\n== the tab icon, and the mark that comes from it ==');
+console.log('\n== the tab icon, and the two files the masthead mark is made of ==');
 /*
- * THE ONE FILE HERE THAT IS COPIED FROM ANOTHER REPOSITORY, AND THE ASSERTIONS IT CANNOT HAVE.
+ * THE IDENTITY HERE IS COPIED FROM ANOTHER REPOSITORY THIS BUILD CANNOT REACH.
  *
- * `apps/docs/public/favicon.svg` is the same document as `aaenz/public/favicon.svg`, byte for byte, and
- * `aaenz` is a **separate checkout this build has no route into**. So there is nothing to regenerate it
- * from and nothing to compare it against — the copy is the one arrangement on this site with no guard,
- * and no assertion can invent one. What can be asserted is everything short of that: it is committed,
- * the build copied it through unchanged, and the pages ask for it.
+ * `favicon.svg` and the two marks under `site/` are the same files as `aaenz/public/favicon.svg` and
+ * `aaenz/public/assets/logo-mark*.png`, byte for byte, and `aaenz` is a **separate checkout with no route
+ * into it from here**. There is nothing to regenerate them from and nothing to compare them against, so
+ * these copies are the one arrangement on this site with no guard behind them — and no assertion can
+ * invent one. Change a file there and change it here.
  *
- * The masthead mark is the part that *is* guarded, and the reason it is generated rather than drawn:
- * `bun run site-mark` derives it from that same favicon, so the two cannot drift at all. Change the
- * source and re-run and both move together; redraw either by hand and these assertions are what say so.
- *
- * The plate check is the loud one. The favicon is drawn on a full-bleed `#f3f1ec` tile, which is right
- * for a browser tab and wrong in the masthead, where it would be a small rectangle of a second paper
- * colour on the page's own. It is removed by *size* — a rect covering the whole 64px viewBox.
+ * What CAN be asserted is everything short of that: that they are committed, that the build copied each
+ * one through **unchanged** — the only thing standing between "the two repositories agree" and "they
+ * agreed the day this was written" — that the pages reference them, and everything about the drawing that
+ * is invisible when it is wrong. See the note below on the ink.
  */
 check('the favicon is committed', existsSync('apps/docs/public/favicon.svg'), 'apps/docs/public/favicon.svg');
 check('the favicon ships', existsSync(`${OUT}/favicon.svg`));
@@ -1020,50 +1019,139 @@ check(
     readFileSync('apps/docs/public/favicon.svg', 'utf8') === readFileSync(`${OUT}/favicon.svg`, 'utf8'),
 );
 
-const SITE_MARK = 'apps/docs/public/site/ellipog.svg';
-check('the masthead mark is committed', existsSync(SITE_MARK), SITE_MARK);
+/*
+ * THE MARK IS TWO HAND-SUPPLIED PNGs, AND THE THREE THINGS THAT MATTER ABOUT THEM ARE ALL INVISIBLE
+ * WHEN THEY ARE WRONG.
+ *
+ * `mark-on-light.png` is the studio's mark in dark ink, shown on a light ground; `mark-on-dark.png` is
+ * the same drawing in light ink for the dark theme. `.site-mark` in `global.css` picks between them with
+ * `[data-theme='dark']`, so one file is fetched per visitor and no JavaScript is involved.
+ *
+ *   - **A swap.** Dark ink on the dark ground is a mark the same colour as the page behind it. It does
+ *     not read as broken; it reads as *absent*, and the natural response is to add a fallback for a mark
+ *     that is already there. This is the one worth the decoder below: the names are the opposite way
+ *     round from the studio's, so the swap is a rename away at all times.
+ *   - **A plate.** A file exported with its background baked in puts a rectangle of a second paper colour
+ *     in the masthead. It looks like the page behind is slightly the wrong colour, not like a mistake —
+ *     and the two SVG marks in this repository need a transform that exists purely to strip that.
+ *   - **A size change in one file only.** Half of a two-file theme switch resizing shifts the wordmark
+ *     sideways, and only for readers in one theme.
+ *
+ * All three are readable from the bytes, so `scripts/lib/png-ink.mjs` decodes them — the one thing in
+ * this repository that parses an image rather than an SVG. It is a reader and not a transform: nothing
+ * here rewrites the art, because the files are used exactly as the studio exports them, which is what
+ * keeps the copies diffable against that repository by eye.
+ *
+ * **The one thing NOT asserted is that they are the studio's files**, because that needs the network and a
+ * checkout of a different repository. `readInk` fails loudly on an unexpected format rather than skipping
+ * quietly, which is the closest thing available to noticing that a human replaced the artwork.
+ */
+const MARK_ON_LIGHT = 'apps/docs/public/site/mark-on-light.png';
+const MARK_ON_DARK = 'apps/docs/public/site/mark-on-dark.png';
 
-if (existsSync(SITE_MARK)) {
-  const svg = readFileSync(SITE_MARK, 'utf8');
+const lightMark = existsSync(MARK_ON_LIGHT) ? readInk(MARK_ON_LIGHT) : null;
+const darkMark = existsSync(MARK_ON_DARK) ? readInk(MARK_ON_DARK) : null;
 
-  // The same two the mod marks get, for the same reasons: a surviving hex is a colour in a monochrome
-  // design, and a plate that stayed behind is a background that is nearly the page's own.
-  const hexes = [...new Set(svg.match(/#[0-9a-f]{6}\b/gi) ?? [])];
-  check('the mark is monochrome', hexes.length === 0, hexes.length ? `leftover: ${hexes.join(' ')}` : '');
-  check('the mark takes its colour from the text', svg.includes('currentColor'), 'currentColor');
-  check('the paper plate was removed', !/<rect[^>]*width="64"/.test(svg));
+check('the mark for a light ground is committed', Boolean(lightMark), MARK_ON_LIGHT);
+check('the mark for a dark ground is committed', Boolean(darkMark), MARK_ON_DARK);
+
+if (lightMark && darkMark) {
+  // Both 28px in a box the CSS sizes, so a mismatch here is the wordmark shifting when the theme flips.
+  check(
+    'both are one size, so nothing moves between themes',
+    lightMark.width === darkMark.width && lightMark.height === darkMark.height,
+    `${lightMark.width}x${lightMark.height} / ${darkMark.width}x${darkMark.height}`,
+  );
+
+  check(
+    'neither file was exported with a ground',
+    [lightMark, darkMark].every((m) => m.cornerAlphas.every((a) => a === 0)),
+    [lightMark, darkMark].map((m) => `corners at ${m.cornerAlphas.join('/')}`).join(' · '),
+  );
+
+  check(
+    'the dark-ink mark is the one a light ground shows',
+    lightMark.luminance !== null && lightMark.luminance < 0.2,
+    `${lightMark.ink} · luminance ${lightMark.luminance?.toFixed(4)}`,
+  );
+  check(
+    'the light-ink mark is the one a dark ground shows',
+    darkMark.luminance !== null && darkMark.luminance > 0.8,
+    `${darkMark.ink} · luminance ${darkMark.luminance?.toFixed(4)}`,
+  );
 
   /*
-   * And it has no knockouts, which is the one way it differs from every other mark on the site.
-   *
-   * The mod icons and the host's logo are filled shapes with holes where the ground shows through, so
-   * they point those holes at `--icon-ground` — a token the component sets because an inlined SVG cannot
-   * know what it is standing on. This mark is line work, `fill="none"` throughout, so there is nothing
-   * to knock out and a `--icon-ground` here would be a token read by nobody.
-   *
-   * Asserted rather than left as a remark, because "it happens to have no fills today" is exactly the
-   * kind of thing that stops being true without anyone deciding it should.
+   * Same drawing, same place, in both files — one artwork exported twice rather than two marks that
+   * happen to be similar. A redraw of one of them is the kind of change that would otherwise pass the
+   * ink check above and look wrong only to a reader who flipped the theme to compare.
    */
-  check('the mark has no knockouts', !svg.includes('var(--icon-ground)'), 'line work, fill="none"');
+  const sameBox =
+    lightMark.bbox !== null &&
+    darkMark.bbox !== null &&
+    ['minX', 'minY', 'maxX', 'maxY'].every((k) => lightMark.bbox[k] === darkMark.bbox[k]);
+  check('both files draw the same mark in the same place', sameBox, JSON.stringify(lightMark.bbox));
 
-  check('the mark ships', existsSync(`${OUT}/site/ellipog.svg`));
-  check('the mark is inlined, not an <img>', /<svg class="site-mark"/.test(home ?? ''), 'not an <img>');
-  check('no mark is loaded as an <img>', !/<img[^>]*site\//.test(home ?? ''));
-  // Both dimensions, so the box is reserved before the SVG is parsed and nothing shifts under the name.
   check(
-    'the mark box is reserved',
-    /<svg class="site-mark"[^>]*width="22"[^>]*height="22"/.test(home ?? ''),
-    'width and height on the mark',
+    'both marks ship',
+    existsSync(`${OUT}/site/mark-on-light.png`) && existsSync(`${OUT}/site/mark-on-dark.png`),
+  );
+  check(
+    'the build copied them through unchanged',
+    readFileSync(MARK_ON_LIGHT).equals(readFileSync(`${OUT}/site/mark-on-light.png`)) &&
+      readFileSync(MARK_ON_DARK).equals(readFileSync(`${OUT}/site/mark-on-dark.png`)),
   );
 }
+
+/*
+ * The markup, and the one deliberate departure in it.
+ *
+ * Every other mark on this site is an inlined `<svg>` — and that is not decoration, it is the only way
+ * `currentColor` and `var(--icon-ground)` reach a glyph, since an SVG inside an `<img>` is a separate
+ * document that cannot see the page's CSS. **A raster cannot take `currentColor` at all**, so neither
+ * applies, and inlining one would gain nothing while costing a third more bytes again.
+ *
+ * So this is a `<span>` with a background image, which is what makes one file per visitor possible: an
+ * `<img>` would need two elements with one `display: none`, and a `display: none` image is still fetched
+ * — 49KB of PNG for a 28px mark on every page. Asserted because it reverses a rule stated everywhere
+ * else in this repository, and a reader will want to know that it was decided rather than overlooked.
+ */
+check(
+  'the mark is one styled span, not a pair of <img>s',
+  (withoutScripts(home ?? '').match(/<span class="site-mark"/g) ?? []).length === 1,
+  'a background image, switched by CSS',
+);
+check('no mark is loaded as an <img>', !/<img[^>]*site\//.test(home ?? ''));
+check(
+  'both rules are in the built CSS',
+  /site\/mark-on-light\.png/.test(allCss) && /site\/mark-on-dark\.png/.test(allCss),
+);
+check(
+  'the un-overridden rule is the one for a light ground',
+  /\.site-mark\{[^}]*mark-on-light/.test(allCss),
+  show('.site-mark{'),
+);
+check(
+  'the dark rule overrides it, rather than the other way round',
+  /\[data-theme=["']?dark["']?\]\s*\.site-mark\{[^}]*mark-on-dark/.test(allCss),
+  // The needle the *minifier* writes, not the one the source has: it strips the quotes off the attribute
+  // value, so a literal `[data-theme="dark"]` is absent from the built CSS and `show` would report "absent"
+  // for this rule whether it was there or not.
+  show('[data-theme=dark] .site-mark{'),
+);
+// Both dimensions, so the box is reserved before the image loads and nothing shifts under the name.
+check(
+  'the mark box is reserved',
+  /\.site-mark\{[^}]*width:28px[^}]*height:28px/.test(allCss),
+  show('.site-mark{'),
+);
 
 /*
  * THE AVATAR IS RETIRED, AND ASSERTED RATHER THAN ASSUMED.
  *
  * It was a build-time download of the Modrinth profile picture: a photograph of a person standing in for
  * the site, the only mark on the page with no dark variant, and the only one that could disappear when a
- * fetch failed. A committed `favicon.svg` cannot go missing the way a fetched `avatar.webp` could, so the
- * failure mode went with it — and this is what keeps it from drifting back in as a "fallback".
+ * fetch failed. A committed file cannot go missing the way a fetched `avatar.webp` could, so the failure
+ * mode went with it — and this is what keeps it from drifting back in as a "fallback".
  */
 check(
   'the Modrinth avatar is retired',

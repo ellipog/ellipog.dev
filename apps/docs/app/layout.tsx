@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import './global.css';
-import { SiteMark } from '@/components/site-mark';
 import { SponsorBanner } from '@/components/sponsor';
 import { ThemeToggle } from '@/components/theme-toggle';
 import manifest from '@/manifest.json';
@@ -31,10 +30,10 @@ export const metadata: Metadata = {
    * uses. The same file in the same place in both repositories is the one that can be diffed by eye, and
    * the convention would additionally hash the URL, which is a worse thing to compare.
    *
-   * **It is also the masthead mark's source, by way of `bun run site-mark`** — see `<SiteMark>` below and
-   * `scripts/site-mark.mjs`. So the tab and the mark beside the wordmark are one drawing rather than two
-   * that have to be kept in step, and the transform is what takes the paper tile off for the masthead's
-   * purpose, where a rectangle of a second paper colour would be wrong.
+   * **The masthead's mark is a different pair of files from the same folder** — `public/site/`, copied by
+   * hand from `aaenz/public/assets/`. A tab icon wants a paper plate and a drawing simplified for 16px;
+   * the mark beside a wordmark wants neither. So this file is the tab's and those two are the masthead's,
+   * and all three are copies from the studio repository that no assertion here can reach back into.
    */
   icons: { icon: '/favicon.svg' },
 };
@@ -58,10 +57,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <div className="shell">
           <header className="masthead">
             <a className="brand" href="/">
-              {/* The tab icon, transformed into strokes. It carries its own `aria-hidden`, and there is
-                  no `alt` to write: the name beside it already says who this is, so announcing the mark
-                  too would only make a screen reader read the same thing twice. */}
-              <SiteMark />
+              {/* The mark, as a background image rather than an `<img>`: two files, one per theme, chosen
+                  by CSS, which is the only way to fetch one of them. `.site-mark` in `global.css` carries
+                  the whole of that reasoning. Nothing to write an `alt` for either way — the wordmark
+                  beside it already says who this is — and the element has no content to hide, so the
+                  `aria-hidden` is there to say "decorative" rather than to hide anything. */}
+              <span className="site-mark" aria-hidden="true" />
               ellipog
             </a>
             <nav>

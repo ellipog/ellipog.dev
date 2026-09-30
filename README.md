@@ -51,8 +51,8 @@ will not work as written; see `AGENT.md`.
     │   ├── pins.mjs           moves the pins; dry unless --write
     │   ├── icons.mjs          turns the mod icon sources into monochrome glyphs
     │   ├── brand.mjs          the same for the host's logo
-    │   ├── site-mark.mjs      the same for the favicon, which becomes the masthead mark
-    │   ├── lib/monochrome.mjs the transform all three of those share
+    │   ├── lib/monochrome.mjs the transform both of those share
+    │   ├── lib/png-ink.mjs    reads a PNG's size, ink and corners — used by check.mjs
     │   └── check.mjs          asserts the built site is what it should be
     ├── AGENT.md               conventions, the element set, and the known gaps
     └── apps/
@@ -68,7 +68,7 @@ will not work as written; see `AGENT.md`.
             │   └── …
             ├── lib/           the Fumadocs source, and the docs helpers
             ├── content/       GENERATED — gitignored
-            ├── public/        the favicon, the mod marks, the host's logo
+            ├── public/        the favicon, the mod marks, the host's logo, the site mark
             └── out/           the static build
 
 ---
