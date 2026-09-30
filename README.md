@@ -43,12 +43,15 @@ will not work as written; see `AGENT.md`.
     ├── glossary.json          terms defined once, referenced from any mod's docs
     ├── .github/workflows/     refresh-stats.yml, update-pins.yml
     ├── design/
-    │   └── icons-source/      the five brand SVGs the mod marks are generated from
+    │   ├── icons-source/      the five brand SVGs the mod marks are generated from
+    │   └── brand-source/      the host's logo, same idea
     ├── scripts/
     │   ├── sync.mjs           checks out each pin, copies docs/ in, wipes the target first
     │   ├── stats.mjs          fetches both platforms' download counts and the avatar
     │   ├── pins.mjs           moves the pins; dry unless --write
-    │   ├── icons.mjs          turns the sources into monochrome glyphs
+    │   ├── icons.mjs          turns the mod icon sources into monochrome glyphs
+    │   ├── brand.mjs          the same for the host's logo
+    │   ├── lib/monochrome.mjs the transform both of those share
     │   └── check.mjs          asserts the built site is what it should be
     ├── AGENT.md               conventions, the element set, and the known gaps
     └── apps/
@@ -145,21 +148,26 @@ from the branches. If a page looks out of date, the pin needs moving — `bun ru
 
 ---
 
-## The mod marks
+## The mod marks, and the host's
 
 Each mod has an icon beside its name on the catalog and on its docs section in the sidebar. Five do;
 Kindred renders a dashed placeholder, which is the honest treatment for a slot waiting to be filled.
 
 They are **monochrome and inherit the text colour** — ink on paper, paper on ink — so one file works in
 both themes. The sources live in `design/icons-source/` and the generated glyphs in
-`apps/docs/public/icons/`; both are committed, and `bun run icons` regenerates one from the other.
+`apps/docs/public/icons/`; both are committed.
 
-They are **inlined into the page rather than loaded as images**, and that is required rather than
+The host's logo gets the same treatment, from `design/brand-source/`. Both go through
+`scripts/lib/monochrome.mjs`, which strips the background plate, maps the palette to `currentColor` at
+ranked opacity, and points the knockouts at a ground token.
+
+**All of them are inlined into the page rather than loaded as images**, and that is required rather than
 preferred: an SVG in an `<img>` cannot see the page's CSS, so `currentColor` and the knockouts' ground
 variable would both fail to resolve. See `AGENT.md` → *The mod marks*.
 
 ```cmd
-bun run icons     :: regenerate the glyphs from design/icons-source/
+bun run icons     :: regenerate the mod glyphs from design/icons-source/
+bun run brand     :: regenerate the host's mark from design/brand-source/
 ```
 
 ---
@@ -171,8 +179,13 @@ Every page carries one affiliate arrangement at its foot — BisectHosting, with
 does not declare itself is a link pretending to be a recommendation.
 
 The details live in `manifest.json` under `sponsor`; removing that object removes the band, and
-`check.mjs` skips its assertions. The two logos are in `apps/docs/public/brand/`, committed, because a
-logo is not a fact about the mods.
+`check.mjs` skips its assertions. The generated mark is in `apps/docs/public/brand/`, committed, from
+`design/brand-source/`.
+
+The small `Partner` chip beside the host's name is a deliberate wording choice, not a default — it does
+**not** say "Verified", because BisectHosting do not confer that status and their own terms are `Partner
+Program` and `affiliate`. Change the label in `manifest.json`; `check.mjs` will hold you to whatever is
+written there.
 
 ---
 

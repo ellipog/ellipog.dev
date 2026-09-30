@@ -473,25 +473,75 @@ licence, where else the work lives. A paid arrangement inside that list would be
 which is exactly what the label exists to prevent. As a band it inherits the grid the whole page is made
 of — a label strip, then content — and reads as one more hairline-separated row.
 
-**Two logos, and CSS picks one.** The site's theme is a `data-theme` attribute rather than
-`prefers-color-scheme`, so a `<picture media="...">` cannot switch on it, and one keyed on the system
-preference would show the wrong logo to anybody who had overridden the theme. There are two grounds
-(paper and ink) and each can be inverted by hover, which is four states, written out longhand in
-`global.css`. Less clever than the alternatives and considerably easier to check.
+**The mark is inlined, and monochrome, and it used to be neither.**
 
-**`width` and `height` are set from the manifest, and they matter more than they look.** Both SVGs declare
-a `viewBox` of `243.7 × 81.21` and no dimensions of their own, so without the attributes the box is
-nothing until the image loads — and the band, the footer and everything below it shifts down the moment
-it arrives. The numbers live in the manifest rather than the component because they come from the files.
+`BrandMark` renders it inline rather than as an `<img>`, for the same reason the mod icons are: the glyph
+takes its ink from `currentColor` and its knockouts from `var(--icon-ground)`, and an SVG in an `<img>` is
+a separate document that **cannot see the page's CSS**. The ink would fall back to black and the hexagon's
+interior would fill in solid — and it would look correct in light mode, which is exactly why it is not
+something to judge by eye.
 
-**`alt=""` on both.** The link's own text names the host, so an alt describing the image would make a
-screen reader say the name twice. It is a decoration beside the word, which is what an empty alt means.
+**That replaced two files and four rules.** There was a `-light.svg` and a `-dark.svg` — the same artwork
+recoloured — plus `[data-theme='dark']` and `:hover` selectors switching between two `<img>` elements.
+Four states, written longhand, because the theme is a `data-theme` attribute rather than
+`prefers-color-scheme` and a `<picture media="...">` cannot see it. Once the mark takes its colour from the
+page there is one file and nothing to switch.
+
+**Three things in the source needed handling that the mod icons did not:**
+
+| In the source | Why it matters |
+|---|---|
+| A `<style>` block with `.cls-1` / `.cls-3` | An inline SVG's styles are **document-scoped**. Inlining it with the block intact leaks `.cls-1 { fill: #000 }` into the whole page |
+| `#000` **and** `#0d1129` | Luminance 0.000 and 0.006 — two blacks the artwork means as *one* value. Per-colour ranking splits them into a black wordmark and a grey hexagon |
+| `#03ddff` | Not a tone: it fills the hexagon's **interior**, with the ink brackets drawn on top. As a grey it gives a muddy middle; as the ground it gives ink mark, paper interior, ink detail |
+
+The shared transform (`scripts/lib/monochrome.mjs`) clusters colours within a luminance distance before
+ranking, so the two blacks share the darkest rank. The threshold is **0.02** — small enough that Armature's
+genuine facet tones (`#0f172a` and `#334155`, 0.043 apart) stay distinguishable, large enough that the
+brand's blacks merge. Both callers state it; neither relies on the default.
+
+**`width` and `height` come from the manifest**, and they matter more than they look: the SVG declares a
+`viewBox` of `243.7 × 81.21` and no dimensions of its own, so without the attributes the box is nothing
+until it parses and the band, the footer and everything below it shifts. The numbers live in the manifest
+because they come from the file rather than from a design decision, and `BrandMark` derives the width from
+them rather than from its own `height` prop.
+
+**No `alt` is needed** — the `<svg>` is `aria-hidden` and the host's name is in the band head as text, so
+a screen reader hears it once. It used to be `alt=""` on two `<img>`s for the same reason.
+
+### The trust mark, and why it does not say "verified"
+
+A small chip sits beside the host's name in the band head: a tick and one word, hairline-bordered, 9px —
+smaller than anything else on the page, and deliberately the quietest thing in the band. The same
+construction as `.maturity` and `.since`, so it reads as one of the site's own chips rather than a badge
+imported from elsewhere. It has no hover state, because it is not interactive and a chip that lights up
+under the pointer would imply it is.
+
+**The wording is `Partner`, and `Verified partner` was rejected on purpose.** BisectHosting run a
+[Partner Program](https://www.bisecthosting.com/partnerships) and, separately, an **Affiliate Program** —
+the self-serve one that issues a unique link and a discount code, which is what `mcstellar` is. Those are
+not the same thing, and **neither of their pages uses the word _verified_**. Putting it on the site would
+assert a status the host does not confer, and a trust mark that overstates is worse than no mark at all:
+it is the one kind of claim a reader is entitled to take literally.
+
+This is the same instinct as `rel="sponsored"` and the "Sponsored" label. The arrangement is real, so
+saying so costs nothing and inventing more than the arrangement supports is the thing to avoid.
+
+**The label lives in `manifest.json`** under `sponsor.badge`, so the wording is one edit and the page
+cannot drift from the data. `check.mjs` asserts three things: that it renders, that what renders matches
+the manifest, and that it contains no "verified" — so the choice is recorded rather than merely made once.
+
+**It sits in the band head, outside the `<a>`.** A badge inside a link is one the reader can click, which
+would make a decoration behave like a destination — and it would navigate to the host, which is not what a
+mark meaning "this is the host we use" should do. The assertion proves it by comparing positions in the
+markup rather than by trusting the component's structure.
 
 **It is a `<section aria-label="Sponsored">`**, not a `<div>`, so it appears in a screen reader's landmark
 list and can be skipped deliberately — which a plain div would not allow.
 
-**Which files are the brand's:** `apps/docs/public/brand/bisecthosting-{light,dark}.svg`, copied in from
-`~/Pictures`. They are committed rather than generated, because a logo is not a fact about the mods.
+**Which files are the brand's:** the source is `design/brand-source/bisecthosting.svg` (the light variant,
+committed — the dark one was the same artwork recoloured and is gone), and the generated glyph is
+`apps/docs/public/brand/bisecthosting.svg`. Regenerate with `bun run brand`.
 
 ---
 
@@ -644,6 +694,61 @@ The fix is to restart the dev server after any build.
 Making it not happen would mean `sync.mjs` writing somewhere the dev server is not watching, or an
 atomic swap of the directory, which Windows does not offer for a non-empty target. Not worth either
 for a local annoyance, but worth knowing before it costs an hour.
+
+---
+
+## Deploying to Vercel
+
+`vercel.json` carries five keys and nothing else:
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "bun install --frozen-lockfile",
+  "buildCommand": "bun run build",
+  "outputDirectory": "apps/docs/out"
+}
+```
+
+Each of the three settings is doing real work, and none of them is what you would guess:
+
+**`buildCommand`.** `bun run build` — the same command used locally and in CI. It syncs from the
+pinned commits, fetches the platform numbers, builds the static site, and then asserts the result. A
+deploy that ran a different sequence from a local build is a deploy nobody has tested.
+
+**`outputDirectory`.** `apps/docs/out`, because this is a static export (`output: 'export'` in
+`next.config.mjs`). Vercel's Next.js preset looks in `.next`, which is the intermediate build
+directory, not the exported site — so without this the deploy would have nothing to serve.
+
+**`framework: null`** stops Vercel applying that preset at all. There is no server, no serverless
+function and no ISR here, just files.
+
+**`installCommand`.** `bun install --frozen-lockfile`, so the deploy uses the committed `bun.lock` and
+fails loudly if it has drifted from `package.json`. An install that silently resolves different
+versions is a build that cannot be reproduced.
+
+### Node is pinned, and deliberately not to a range
+
+`package.json` declares `"engines": { "node": "24.x" }`. **Not `>=22`.** An open range would move the
+build to a new Node major the day one is released, which is a build that changes without a commit and
+without anyone having tested it — the exact failure the lockfile exists to prevent. `.nvmrc` pins the
+same major for local use. Bun is the package manager and is pinned separately, via `packageManager`.
+
+### `vercel.json` cannot hold comments
+
+This is worth knowing before it costs you a deploy. `vercel.json` is validated against a published
+JSON Schema, and that schema sets `additionalProperties: false`. **An unknown top-level key is a
+rejected deploy, not a warning** — which is exactly what happened to a `"/*"` comment key that read
+perfectly well and had been sitting in the file unnoticed.
+
+The `"/*"` trick is a fine habit in `manifest.json` and `glossary.json`, where nothing validates the
+file against a schema and the notes are worth having where the data is. It is never fine here. Notes
+about the deploy belong in this section, where prose is allowed and nobody's build depends on the
+parser tolerating them.
+
+`check.mjs` asserts both halves of this — that `vercel.json` carries no comment key, and that the
+five keys above are the whole file — so the mistake fails locally rather than in Washington.
 
 ---
 

@@ -1147,10 +1147,55 @@ a.grid-cell:hover .nums {
   border-bottom: 1px solid var(--line);
 }
 
+/*
+ * The host's name, and the badge beside it.
+ *
+ * `inline-flex` so the name and the mark share a baseline and a gap — `align-items: center` rather than
+ * `baseline` because the badge is a bordered box, and a box aligned on the text baseline sits visibly
+ * low next to it.
+ */
 .sponsor-host {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
   font-size: 11px;
   letter-spacing: 0.06em;
   color: var(--fg-faint);
+}
+
+/*
+ * The trust mark. Deliberately the quietest thing in the band.
+ *
+ * The same construction as `.maturity` and `.since` — hairline border, no fill, tiny uppercase mono — so
+ * it reads as one of the site's own chips rather than as a badge imported from somewhere else. It takes
+ * the faint colour and only 9px, which is smaller than anything else on the page: visible on inspection,
+ * invisible unless you look, which is what "subtle" has to mean for a mark that is also a claim.
+ *
+ * No hover state and no fill on hover. It is not interactive, and a chip that lights up under the
+ * pointer would imply it does something.
+ */
+.sponsor-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+/*
+ * The tick.
+ *
+ * Slightly larger than the label, because a checkmark at 9px is a smudge — it needs a pixel more to read
+ * as a mark rather than as punctuation. `line-height: 1` so it cannot stretch the chip's own height.
+ */
+.sponsor-badge > [aria-hidden] {
+  font-size: 10px;
+  line-height: 1;
 }
 
 /*
@@ -1176,57 +1221,28 @@ a.grid-cell:hover .nums {
   color: var(--inv-fg);
 }
 
-.sponsor-logo {
-  display: block;
-  flex: none;
-
-  /*
-   * Height fixed, width left to the aspect ratio from the `width`/`height` attributes. 41px is a little
-   * under three times the label above it — large enough that the logo reads as a logo, small enough that
-   * the band does not become the tallest thing on the page.
-   */
-  height: 41px;
-  width: auto;
-}
-
 /*
- * WHICH LOGO SHOWS, IN FOUR STATES.
+ * THE HOST'S MARK, INLINE — the same treatment as the mod icons, and for the same reason.
  *
- * The logo is not a single-colour glyph — it is a lockup with its own light and dark variants — so it
- * cannot simply inherit the text colour, and it has to change when the ground behind it does. There are
- * two grounds (paper and ink) and each can be inverted by hover, which is four combinations. Writing all
- * four out is less clever than the alternatives and considerably easier to check.
+ * It takes its ink from `currentColor` and its knockouts from `var(--icon-ground)`. Both are page CSS, and
+ * an SVG inside an `<img>` is a separate document that cannot see any of it — the ink would fall back to
+ * black and the hexagon's interior would fill in solid. It would look right in light mode, which is
+ * exactly why it is not something to judge by eye.
+ *
+ * **This replaced two files and four rules.** There used to be a light and a dark SVG with
+ * `[data-theme='dark']` and `:hover` selectors switching between two `<img>` elements. Once the mark
+ * takes its colour from the page there is one file and nothing to switch.
  */
-.sponsor-logo-dark {
-  display: none;
-}
-
-/* Dark theme: ink ground, so the light-on-dark logo. */
-[data-theme='dark'] .sponsor-logo-light {
-  display: none;
-}
-
-[data-theme='dark'] .sponsor-logo-dark {
+.brand-mark {
+  --icon-ground: var(--bg);
+  flex: none;
   display: block;
+  color: inherit;
 }
 
-/* Hover on paper: the ground becomes ink, so the logo inverts with it. */
-.sponsor-link:hover .sponsor-logo-light {
-  display: none;
-}
-
-.sponsor-link:hover .sponsor-logo-dark {
-  display: block;
-}
-
-/* Hover in dark theme: the ground becomes paper, so it inverts back the other way. These two selectors
-   have to out-specify the pair above, which is why the theme comes first. */
-[data-theme='dark'] .sponsor-link:hover .sponsor-logo-light {
-  display: block;
-}
-
-[data-theme='dark'] .sponsor-link:hover .sponsor-logo-dark {
-  display: none;
+/* A hovered sponsor row inverts its ground, so the mark's knockouts move with it. */
+.sponsor-link:hover .brand-mark {
+  --icon-ground: var(--inv-bg);
 }
 
 .sponsor-copy {

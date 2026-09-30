@@ -719,26 +719,92 @@ if (sponsor) {
   check('the discount is stated', home.includes(sponsor.discount), sponsor.discount);
   check('the link opens away from the site', /target="_blank"/.test(home));
 
+  /*
+   * The trust mark.
+   *
+   * Three things, and the third is the one that would be easy to get wrong:
+   *
+   *   1. it renders at all, and what renders is what the manifest says — so changing the wording is one
+   *      edit and the page cannot drift from the data;
+   *   2. it is not worded as a status the host does not confer. `Verified` is the specific word to keep
+   *      out: BisectHosting run a Partner Program and an Affiliate Program, and neither of their pages
+   *      uses it. A trust mark that overstates is worse than no mark;
+   *   3. it sits in the band **head**, outside the link. A badge inside an `<a>` is one the reader can
+   *      click, which would make a decoration behave like a destination — and it would navigate to the
+   *      host, which is not what a mark meaning "this is who we use" should do.
+   */
+  if (sponsor.badge) {
+    check('the trust mark renders', home.includes('class="sponsor-badge"'));
+    check('its label matches the manifest', home.includes(sponsor.badge.label), sponsor.badge.label);
+    check(
+      'it does not overstate the arrangement',
+      !/verified/i.test(sponsor.badge.label),
+      `"${sponsor.badge.label}" — see the note in manifest.json`,
+    );
+
+    // Order in the markup is what proves it is in the head and not the row.
+    const badgeAt = home.indexOf('sponsor-badge');
+    const linkAt = home.indexOf('class="sponsor-link"');
+    check(
+      'it sits outside the link',
+      badgeAt !== -1 && linkAt !== -1 && badgeAt < linkAt,
+      badgeAt < linkAt ? 'in the head' : 'INSIDE the link — clicking it would navigate',
+    );
+  }
+
   check(
-    'both logo variants are in the repo',
-    existsSync('apps/docs/public/brand/bisecthosting-light.svg') &&
-      existsSync('apps/docs/public/brand/bisecthosting-dark.svg'),
+    'the brand mark is in the repo',
+    existsSync('apps/docs/public/brand/bisecthosting.svg'),
+    'apps/docs/public/brand/bisecthosting.svg',
   );
   check(
-    'both logo variants are in the build',
-    existsSync(`${OUT}/brand/bisecthosting-light.svg`) &&
-      existsSync(`${OUT}/brand/bisecthosting-dark.svg`),
+    'the brand mark is copied into the build',
+    existsSync(`${OUT}/brand/bisecthosting.svg`),
   );
 
   /*
-   * The dimensions matter more than they look. The SVGs declare a `viewBox` and no width or height of
-   * their own, so without the attributes the box is nothing until the image loads -- and the whole band,
-   * the footer and everything below it shifts down the moment it arrives.
+   * The mark is monochrome and inline, which is the whole point of the transform.
+   *
+   * A hex colour left in the file would render a coloured logo in a monochrome design. A surviving
+   * `<style>` block is worse than cosmetic: an inline SVG's styles are **document-scoped**, so
+   * `.cls-1 { fill: #000 }` would leak into the entire page. Both are invisible in a screenshot until
+   * something else on the page loses its colour.
+   */
+  const brandSvg = existsSync('apps/docs/public/brand/bisecthosting.svg')
+    ? readFileSync('apps/docs/public/brand/bisecthosting.svg', 'utf8')
+    : '';
+
+  check('the brand mark is monochrome', !/#[0-9a-f]{6}\b/i.test(brandSvg), 'no hex colours');
+  check('it carries no <style> block', !/<style/i.test(brandSvg), 'classes are folded into fill attributes');
+  check('it takes its colour from the text', brandSvg.includes('currentColor'), 'currentColor');
+  check('its knockouts use the ground token', brandSvg.includes('var(--icon-ground)'), 'var(--icon-ground)');
+  // `#03ddff` is the hexagon's interior field, not a tone — mapped to the ground so the mark is two-value.
+  check('the brand colour is the ground, not a tone', !/03ddff/i.test(brandSvg), 'cyan mapped to the ground');
+
+  check(
+    'the mark is inlined, not an <img>',
+    /<svg class="brand-mark"/.test(home),
+    'an <img> could not see the page CSS',
+  );
+  check('no brand asset is loaded as an <img>', !/<img[^>]*brand\//.test(home));
+
+  /*
+   * The two variants and the four CSS rules that switched between them are gone. Asserted rather than
+   * assumed, because a leftover `.sponsor-logo` rule would be dead code that reads as a live mechanism —
+   * and the next person would try to edit it.
+   */
+  check('the light/dark pair is retired', !existsSync('apps/docs/public/brand/bisecthosting-light.svg'));
+  check('no display-switching rules remain', !/sponsor-logo/.test(allCss));
+
+  /*
+   * The dimensions matter more than they look: the SVG declares a `viewBox` and no width or height of
+   * its own, so without the attributes the box is nothing until the element is laid out. `BrandMark`
+   * sets both from the manifest's real ratio.
    */
   check(
-    'the logo box is reserved',
-    /class="sponsor-logo sponsor-logo-light"[^>]*width="\d+"[^>]*height="\d+"/.test(home),
-    'width and height on the light logo',
+    'the mark box is reserved',
+    /<svg class="brand-mark"[^>]*width="\d+"[^>]*height="\d+"/.test(home),
+    'width and height on the mark',
   );
 
   // Every page, not just the home page -- it is in the root layout, and this is what proves it.
@@ -945,6 +1011,27 @@ if (home) {
   check('the hero figure is the largest type on the page', /\.hero-total b\{[^}]*font-size:clamp\(44px/.test(css), show('.hero-total b{'));
   check('the hero label only targets its own span', !/\.hero-total span\{/.test(css), show('.hero-total span{'));
 }
+/*
+ * `vercel.json` is validated against Vercel's published schema, which sets
+ * `additionalProperties: false`. An unknown top-level key there is a rejected
+ * deploy rather than a warning, and a `"/*"` comment key is exactly that -- it
+ * reads perfectly well locally and fails in the build. Notes about the deploy
+ * live in AGENT.md, and this is what keeps them out of the file.
+ *
+ * Two assertions, because either alone would pass while the file is wrong:
+ *   - no comment key, which is the mistake that actually happened
+ *   - exactly the five keys, so the fix cannot be "delete the note and drift"
+ */
+const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
+const strayVercelKeys = Object.keys(vercel).filter((k) => k.startsWith('/'));
+const allowedVercelKeys = ['$schema', 'framework', 'installCommand', 'buildCommand', 'outputDirectory'];
+check('vercel.json carries no comment keys', strayVercelKeys.length === 0, strayVercelKeys.join(', ') || 'none');
+check(
+  'vercel.json is exactly the keys the deploy needs',
+  allowedVercelKeys.every((k) => k in vercel) && Object.keys(vercel).length === allowedVercelKeys.length,
+  Object.keys(vercel).join(', '),
+);
+
 notes.push(`totals: modrinth ${stats.totals.modrinth}, curseforge ${stats.totals.curseforge}, all ${stats.totals.all}`);
 for (const n of stats.notes ?? []) notes.push(n);
 

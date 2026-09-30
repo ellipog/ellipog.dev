@@ -47,6 +47,11 @@ apps/docs/public/avatar.*
 # bare snapshot at the SHA in manifest.json. Reproducible from the manifest and safe to delete.
 .cache/
 
+# Build logs and captured command output. Written by `bun run dev` and by redirecting a build to a file
+# while checking something; never something to commit, and always regenerable.
+*.log
+*.out.txt
+
 # Editor and OS noise
 .DS_Store
 Thumbs.db

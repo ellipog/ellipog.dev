@@ -16,6 +16,7 @@
     "check": "bun scripts/check.mjs",
     "pins": "bun scripts/pins.mjs",
     "icons": "bun scripts/icons.mjs",
+    "brand": "bun scripts/brand.mjs",
     "reset": "bun scripts/reset.mjs",
     "dev": "bun run sync && bun run stats && bun run --filter @ellipog/docs dev",
     "build": "bun run sync && bun run stats && bun run --filter @ellipog/docs build && bun run check",
