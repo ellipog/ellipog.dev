@@ -45,7 +45,7 @@ const OUT = join(SITE, 'apps', 'docs', 'stats.json');
 const manifest = JSON.parse(readFileSync(join(SITE, 'manifest.json'), 'utf8'));
 
 /** The creator this site is bound to. Both ids are needed: neither API looks a creator up by name. */
-const MODRINTH_USER = 'Ellipog';
+const MODRINTH_USER = 'ellipog';
 
 /**
  * CurseForge's numeric author id.
@@ -156,7 +156,7 @@ async function fetchCurseForge() {
   const failed = [];
 
   async function worker() {
-    for (;;) {
+    for (; ;) {
       const entry = queue.shift();
       if (!entry) return;
       try {
@@ -249,8 +249,8 @@ async function main() {
   const n = (v) => v.toLocaleString('en-US');
   console.log(
     `stats: modrinth ${Object.keys(out.modrinth).length} projects / ${n(out.totals.modrinth)} · ` +
-      `curseforge ${Object.keys(out.curseforge).length} / ${n(out.totals.curseforge)} · ` +
-      `total ${n(out.totals.all)}`,
+    `curseforge ${Object.keys(out.curseforge).length} / ${n(out.totals.curseforge)} · ` +
+    `total ${n(out.totals.all)}`,
   );
   for (const note of out.notes) console.log(`stats: note -- ${note}`);
 }
