@@ -1168,38 +1168,17 @@ a.grid-cell:hover .nums {
  * the footer — the domain, then links to where else the work lives — and a paid arrangement dropped
  * into that list would have been posing as one of those, which is the thing the disclosure exists to
  * avoid. The footer has since gone as redundant, and the band stays a band regardless: it is plainly a
- * separate row with a separate purpose, and it inherits the grid the whole page is made of — a label
- * strip, then content. The disclosure itself now lives in the content row rather than in that strip; see
- * `.sponsor-disclosure`.
+ * separate row with a separate purpose, and it reads as one more hairline-separated row.
+ *
+ * **There is no head strip, and `check.mjs` asserts that.** There used to be one, carrying the host's name
+ * and its `Partner` chip above the row. It cost a full band of vertical space to repeat a name that the
+ * mark's own wordmark already gives at the left of the row, and the chip belongs beside the thing it
+ * qualifies rather than above it — so the strip is gone and the chip sits inside, next to the tagline. The
+ * band is about half the height it was, and one assertion exists purely so a later edit cannot put the
+ * second bar back without saying so.
  */
 .sponsor {
   border-top: 1px solid var(--line);
-}
-
-/* One child now. The `SPONSORED` label that used to sit opposite the host is gone — see
-   `.sponsor-disclosure` for where it went and why. */
-.sponsor-head {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  padding: var(--s3) var(--s4);
-  border-bottom: 1px solid var(--line);
-}
-
-/*
- * The host's name, and the badge beside it.
- *
- * `inline-flex` so the name and the mark share a baseline and a gap — `align-items: center` rather than
- * `baseline` because the badge is a bordered box, and a box aligned on the text baseline sits visibly
- * low next to it.
- */
-.sponsor-host {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s2);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--fg-faint);
 }
 
 /*
@@ -1210,8 +1189,16 @@ a.grid-cell:hover .nums {
  * the faint colour and only 9px, which is smaller than anything else on the page: visible on inspection,
  * invisible unless you look, which is what "subtle" has to mean for a mark that is also a claim.
  *
- * No hover state and no fill on hover. It is not interactive, and a chip that lights up under the
- * pointer would imply it does something.
+ * **It sits inside the link now, and it did not before.** It was in the head strip, deliberately outside
+ * the `<a>`, on the argument that a decoration the reader can click would behave like a destination. That
+ * argument was about a *head strip* — a place the reader was not already clicking. The chip is now part of
+ * the row that is one link to the host, so it adds no click target and no second destination: every pixel
+ * of that row already navigates there. What made the old placement worth the trouble is gone with the
+ * strip, and `check.mjs` records the reversal rather than quietly dropping the assertion.
+ *
+ * **And it follows the hover inversion**, which the old one had no reason to. The row inverts under it, so
+ * a colour that stayed put would be faint-on-ink against a near-black ground — *invisible*, not merely
+ * off — and that is easy to miss because the un-hovered state is correct.
  */
 .sponsor-badge {
   display: inline-flex;
@@ -1224,6 +1211,11 @@ a.grid-cell:hover .nums {
   color: var(--fg-faint);
   border: 1px solid var(--line);
   white-space: nowrap;
+}
+
+.sponsor-link:hover .sponsor-badge {
+  color: var(--inv-faint);
+  border-color: var(--inv-line);
 }
 
 /*
@@ -1292,7 +1284,15 @@ a.grid-cell:hover .nums {
   flex: 1;
 }
 
+/* A row rather than a line of text, because the `Partner` chip sits in it beside the tagline. `center`
+   rather than `baseline`: the chip is a bordered box, and a box aligned on the text baseline sits visibly
+   low next to it. `wrap` so the chip drops to its own line on a narrow screen instead of squeezing the
+   tagline. */
 .sponsor-tagline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.015em;
@@ -1393,7 +1393,7 @@ a.grid-cell:hover .nums {
 /* ------------------------------------------------------------------ */
 
 /*
- * The studio's signature: who presents this site, at the very foot of every page.
+ * The studio's signature: who engineers and maintains this site, at the very foot of every page.
  *
  * **It is the last row, and it is deliberately below the sponsor band.** The band was given its own row
  * so it would not read as part of the site's colophon, and it used to be the last thing on the page
@@ -1403,9 +1403,9 @@ a.grid-cell:hover .nums {
  *
  * **One row, hairline-separated, and nothing else.** The structure is the one the "Elsewhere" rows
  * already use — a name at the left, a handle pushed to the right — because it is the same kind of fact:
- * a label, and where it points. No head strip, unlike the band above it, which has one to carry the
- * host's name and its `Partner` chip — the disclosure itself is in the band's content row, deliberately,
- * so nothing uppercase sits directly above this strip.
+ * a label, and where it points. No head strip — and neither has the band above it any more, which is what
+ * keeps two small uppercase strips from stacking at the foot of the page and reading as one heading over
+ * both rows.
  *
  * **`.footer` is still retired and this class is not it.** What was wrong with the old footer was its
  * contents: it repeated the masthead's own links, which is why it read as furniture. `check.mjs` asserts

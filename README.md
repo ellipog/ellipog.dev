@@ -181,16 +181,21 @@ Every page carries one affiliate arrangement at its foot — BisectHosting, with
 `rel="sponsored"`, because a paid link that does not declare itself is a link pretending to be a
 recommendation. The section also carries `aria-label="Sponsored: BisectHosting"`.
 
-The note used to be an uppercase `SPONSORED` label in the band head. That head sits directly above the
-colophon's own `ENGINEERED & MAINTAINED BY` strip, so the two stacked labels read as one heading over both
-rows and made the studio look like part of the sponsorship — which is why it moved down into the row it
-describes.
+The note used to be an uppercase `SPONSORED` label in a head strip above the row. That strip sat directly
+above the colophon's own `ENGINEERED & MAINTAINED BY` line, so the two stacked labels read as one heading
+over both rows and made the studio look like part of the sponsorship — which is why the note moved down
+into the row it describes.
+
+**The strip itself is gone too, so the band is one row rather than two.** It existed to carry the host's
+name and its `Partner` chip, and it was repeating a name the mark's own wordmark already gives at the left
+of the row. The chip moved in beside the tagline and the band is roughly half its height. `check.mjs`
+asserts no `sponsor-head` is rendered, so the second bar cannot return unnoticed.
 
 The details live in `manifest.json` under `sponsor`; removing that object removes the band, and
 `check.mjs` skips its assertions. The generated mark is in `apps/docs/public/brand/`, committed, from
 `design/brand-source/`.
 
-The small `Partner` chip beside the host's name is a deliberate wording choice, not a default — it does
+The small `Partner` chip beside the host's tagline is a deliberate wording choice, not a default — it does
 **not** say "Verified", because BisectHosting do not confer that status and their own terms are `Partner
 Program` and `affiliate`. Change the label in `manifest.json`; `check.mjs` will hold you to whatever is
 written there.

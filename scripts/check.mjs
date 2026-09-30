@@ -800,19 +800,21 @@ const sponsor = manifest.sponsor;
 
 if (sponsor) {
   check('the sponsor band renders', home.includes('class="sponsor"'));
+
   /*
- * THE DISCLOSURE MOVED, AND BOTH HALVES OF THAT ARE ASSERTED.
- *
- * It is in the offer row now, beside the code. It was an uppercase `SPONSORED` label in the band head,
- * directly above the colophon's own `ENGINEERED & MAINTAINED BY` strip — and two stacked labels read as
- * one heading over both rows, which put the studio's name under a paid heading. So the assertion is not
- * just "the word is somewhere": it is present *where it applies*, absent as a heading above the row, and
- * still declared for a screen reader, which never sees the layout that caused the misreading in the first
- * place.
- */
-check('it is disclosed in the row it describes', home.includes('class="sponsor-disclosure"'), 'affiliate link');
-check('nothing above the row reads as a heading over it', !/>Sponsored</.test(home));
-check('the region still names itself for a screen reader', /aria-label="Sponsored/.test(home), 'aria-label');
+   * THE DISCLOSURE MOVED, AND BOTH HALVES OF THAT ARE ASSERTED.
+   *
+   * It is in the offer row now, beside the code. It was an uppercase `SPONSORED` label in the band head,
+   * directly above the colophon's own `ENGINEERED & MAINTAINED BY` strip — and two stacked labels read as
+   * one heading over both rows, which put the studio's name under a paid heading. So the assertion is not
+   * just "the word is somewhere": it is present *where it applies*, absent as a heading above the row,
+   * and still declared for a screen reader, which never sees the layout that caused the misreading in the
+   * first place.
+   */
+  check('it is disclosed in the row it describes', home.includes('class="sponsor-disclosure"'), 'affiliate link');
+  check('nothing above the row reads as a heading over it', !/>Sponsored</.test(home));
+  check('the region still names itself for a screen reader', /aria-label="Sponsored/.test(home), 'aria-label');
+
   check('the affiliate link is the agreed one', home.includes(sponsor.url), sponsor.url);
   check(
     'the link declares itself sponsored',
@@ -826,16 +828,20 @@ check('the region still names itself for a screen reader', /aria-label="Sponsore
   /*
    * The trust mark.
    *
-   * Three things, and the third is the one that would be easy to get wrong:
+   * Three things, and the third has been reversed:
    *
    *   1. it renders at all, and what renders is what the manifest says — so changing the wording is one
    *      edit and the page cannot drift from the data;
    *   2. it is not worded as a status the host does not confer. `Verified` is the specific word to keep
    *      out: BisectHosting run a Partner Program and an Affiliate Program, and neither of their pages
    *      uses it. A trust mark that overstates is worse than no mark;
-   *   3. it sits in the band **head**, outside the link. A badge inside an `<a>` is one the reader can
-   *      click, which would make a decoration behave like a destination — and it would navigate to the
-   *      host, which is not what a mark meaning "this is who we use" should do.
+   *   3. **it sits inside the row's link, and it used to be asserted out of it.** The old assertion read
+   *      "a badge inside an `<a>` is one the reader can click, which would make a decoration behave like a
+   *      destination" — true of a *head strip*, which was a place the reader was not already clicking. The
+   *      chip is now part of the row that is itself one link to the host, so it adds no click target and no
+   *      second destination: every pixel of that row already navigates there. Rather than delete the
+   *      assertion, it is replaced by the one that makes the placement deliberate — that the head strip is
+   *      gone, so the chip is in the row because there is no longer anywhere else for it to be.
    */
   if (sponsor.badge) {
     check('the trust mark renders', home.includes('class="sponsor-badge"'));
@@ -845,14 +851,24 @@ check('the region still names itself for a screen reader', /aria-label="Sponsore
       !/verified/i.test(sponsor.badge.label),
       `"${sponsor.badge.label}" — see the note in manifest.json`,
     );
-
-    // Order in the markup is what proves it is in the head and not the row.
-    const badgeAt = home.indexOf('sponsor-badge');
-    const linkAt = home.indexOf('class="sponsor-link"');
     check(
-      'it sits outside the link',
-      badgeAt !== -1 && linkAt !== -1 && badgeAt < linkAt,
-      badgeAt < linkAt ? 'in the head' : 'INSIDE the link — clicking it would navigate',
+      'the band is one row, with no head strip above it',
+      !home.includes('class="sponsor-head"'),
+      'the slimmed band',
+    );
+
+    /*
+     * And the chip goes into the inversion with the row.
+     *
+     * It sits inside the link now, so the row's hover flips the ground beneath it. A colour that stayed
+     * put would be faint-on-ink on a near-black ground — invisible rather than merely wrong, and easy to
+     * miss because the resting state is correct. Asserted separately from "the chip renders" for exactly
+     * that reason: the two failures look nothing alike.
+     */
+    check(
+      'the chip follows the row into the inversion',
+      /sponsor-link:hover \.sponsor-badge\{[^}]*color:var\(--inv-faint\)/.test(allCss),
+      show('.sponsor-link:hover .sponsor-badge{'),
     );
   }
 

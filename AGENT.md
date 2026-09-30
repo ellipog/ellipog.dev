@@ -484,8 +484,18 @@ text is left above it, and the landmark still names itself.
 **Why its own band rather than a line in the footer — and it is now the last row on every page.** It was
 given its own band because the footer was the site's colophon: the domain, the licence, where else the
 work lives. A paid arrangement inside that list would be posing as one of those, which is exactly what the
-label exists to prevent. As a band it inherits the grid the whole page is made of — a label strip, then
-content — and reads as one more hairline-separated row.
+disclosure exists to prevent. As a band it reads as one more hairline-separated row.
+
+**The band is one row now, and it used to be two.** A head strip carried the host's name and its `Partner`
+chip above the link. It went for two reasons: it cost a full band of height to write the host's name a
+second time, when the mark's own wordmark at the left of the row already says it; and the chip belongs
+beside the thing it qualifies rather than above it. The chip is now in the row, next to the tagline, and
+the band is about half its former height.
+
+`check.mjs` asserts the head strip is **absent** — the one assertion here that exists to stop something
+coming back rather than to prove something works. Reinstating a second bar is precisely the change a later
+edit would make without noticing that a head strip above the colophon was what caused the disclosure
+misreading in the first place.
 
 **The footer is gone, and the band stayed a band anyway.** It read `ellipog.dev` (with a green liveness
 dot) in one cell and then the two platform links and `Docs` in another — and every one of those was
@@ -501,7 +511,7 @@ which is on the home page and not on a docs page — a docs page at that width c
 `Source` and `Issues` row instead, which is the more relevant pair.
 
 **The band used to be the last thing on the page, and it no longer is.** The colophon below it — who
-presents the site — was added afterwards, and that is an improvement rather than a complication: the page
+engineers and maintains the site — was added afterwards, and that is an improvement rather than a complication: the page
 now ends in the site's own voice instead of on a paid row, and the band is no more part of that signature
 than it was part of the footer. `check.mjs` asserts the band sits *above* the colophon, which is the
 relationship that matters, rather than that it is last.
@@ -539,16 +549,16 @@ until it parses and the band and everything below it shifts. The numbers live in
 because they come from the file rather than from a design decision, and `BrandMark` derives the width from
 them rather than from its own `height` prop.
 
-**No `alt` is needed** — the `<svg>` is `aria-hidden` and the host's name is in the band head as text, so
-a screen reader hears it once. It used to be `alt=""` on two `<img>`s for the same reason.
+**No `alt` is needed** — the `<svg>` is `aria-hidden`, and the host is named in text twice over regardless:
+the CTA carries its domain, and the section's own `aria-label` names it. It used to be `alt=""` on two
+`<img>`s for the same reason.
 
 ### The trust mark, and why it does not say "verified"
 
-A small chip sits beside the host's name in the band head: a tick and one word, hairline-bordered, 9px —
-smaller than anything else on the page, and deliberately the quietest thing in the band. The same
-construction as `.maturity` and `.since`, so it reads as one of the site's own chips rather than a badge
-imported from elsewhere. It has no hover state, because it is not interactive and a chip that lights up
-under the pointer would imply it is.
+A small chip sits beside the host's tagline: a tick and one word, hairline-bordered, 9px — smaller than
+anything else on the page, and deliberately the quietest thing in the band. The same construction as
+`.maturity` and `.since`, so it reads as one of the site's own chips rather than a badge imported from
+elsewhere.
 
 **The wording is `Partner`, and `Verified partner` was rejected on purpose.** BisectHosting run a
 [Partner Program](https://www.bisecthosting.com/partnerships) and, separately, an **Affiliate Program** —
@@ -557,17 +567,26 @@ not the same thing, and **neither of their pages uses the word _verified_**. Put
 assert a status the host does not confer, and a trust mark that overstates is worse than no mark at all:
 it is the one kind of claim a reader is entitled to take literally.
 
-This is the same instinct as `rel="sponsored"` and the "Sponsored" label. The arrangement is real, so
+This is the same instinct as `rel="sponsored"` and the "Affiliate link" note. The arrangement is real, so
 saying so costs nothing and inventing more than the arrangement supports is the thing to avoid.
 
 **The label lives in `manifest.json`** under `sponsor.badge`, so the wording is one edit and the page
-cannot drift from the data. `check.mjs` asserts three things: that it renders, that what renders matches
-the manifest, and that it contains no "verified" — so the choice is recorded rather than merely made once.
+cannot drift from the data. `check.mjs` asserts five things about it: that it renders, that what renders
+matches the manifest, that it contains no "verified" — so the choice is recorded rather than merely made
+once — that the head strip it used to sit in is gone, and that it follows the row into the hover inversion.
 
-**It sits in the band head, outside the `<a>`.** A badge inside a link is one the reader can click, which
-would make a decoration behave like a destination — and it would navigate to the host, which is not what a
-mark meaning "this is the host we use" should do. The assertion proves it by comparing positions in the
-markup rather than by trusting the component's structure.
+**It sits inside the link now, and it used to be asserted out of it.** The old rule was that a badge inside
+an `<a>` is one the reader can click, which would make a decoration behave like a destination. That was
+true of a *head strip* — a place the reader was not already clicking. With the strip gone, the chip is part
+of the row that is itself one link to the host, so it adds no click target and no second destination: every
+pixel of that row already navigates there. The assertion was replaced rather than deleted, and by the one
+that makes the placement deliberate — that the head strip is absent — because what changed is the old
+rule's premise, not its spirit.
+
+**It needs a hover state now, and that is not decoration.** The row inverts beneath it, so a colour that
+stayed put would be faint-on-ink on a near-black ground: invisible rather than merely wrong, and easy to
+miss because the resting state is correct. `check.mjs` asserts that override separately from asserting the
+chip renders, because the two failures look nothing alike.
 
 **It is a `<section aria-label="Sponsored: <host>">`**, not a `<div>`, so it appears in a screen reader's landmark
 list and can be skipped deliberately — which a plain div would not allow.
@@ -750,9 +769,9 @@ never "the glyph is these bytes".
 
 ## The colophon, and why it is not the footer coming back
 
-The last row on every page: the studio's mark, `PRESENTED BY aaen studios`, and the domain at the far end,
-all one link to `aaenz.no`. It lives in `manifest.json` under `studio` — `label`, `name` and `url`, with
-the domain shown on the page **derived from the URL** so the two cannot disagree — and
+The last row on every page: the studio's mark, `ENGINEERED & MAINTAINED BY Aaen Studios`, and the domain at
+the far end, all one link to `aaenz.no`. It lives in `manifest.json` under `studio` — `label`, `name` and
+`url`, with the domain shown on the page **derived from the URL** so the two cannot disagree — and
 `components/colophon.tsx` renders it.
 
 **It is below the sponsor band, which is a change in the band's role rather than in the colophon's.** The
