@@ -10,6 +10,13 @@ type SuiteMod = {
   name: string;
   status?: string;
   summary: string;
+  /**
+   * Where the code lives, and it is the cell's second destination.
+   *
+   * Optional, because a planned mod has no repository yet — and the cell renders the link only when the
+   * field is there, so adding a mod to the manifest without one cannot produce a link to nothing.
+   */
+  repo?: string;
   minecraft?: string;
   loaders?: string[];
 };
@@ -71,7 +78,35 @@ function Filler() {
   return <div className="grid-filler" aria-hidden />;
 }
 
+/**
+ * A mod in the catalog, and the one cell on the site with two destinations in it.
+ *
+ * **This used to be a single `<a>` around the whole cell, and an `<a>` cannot contain an `<a>`.** That
+ * was fine while the cell had one destination. It stopped being fine when the cell gained a second one:
+ * a link to the mod's repository, so a visitor can read the code without the documentation being the
+ * only way through. Nesting is not an option the browser forgives — it closes the outer anchor at the
+ * inner one and the rest of the cell silently stops being clickable.
+ *
+ * **So the cell is a `<div>` and the docs link is stretched over it.** `cell-link`'s `::after` is an
+ * absolutely positioned box covering the cell's own padding box, which is why `.grid-cell` carries
+ * `position: relative` in `global.css`. Nothing about the surface changes for a reader: every pixel that
+ * navigated to the docs page before still does. The repository link is raised above that overlay by one
+ * z-index, so it stays its own destination rather than being swallowed by the link underneath it.
+ *
+ * **The one thing this costs, stated rather than discovered:** text inside the cell can no longer be
+ * selected by dragging, because the overlay sits over it. Inside an `<a>` it could. That is the trade the
+ * stretched-link pattern always makes, it is invisible unless somebody tries to copy the summary, and the
+ * alternative — two links and no whole-cell target — makes the commonest action on the page (open the
+ * docs) require aiming at a 40px label.
+ *
+ * **Both links are derived, not written.** The repository comes from the manifest's `repo` and the docs
+ * link from what actually synced, so a mod with no repository or no `docs/` folder renders exactly the
+ * links it has rather than a link to a page that does not exist. The docs branch is unchanged in that
+ * respect; the repository branch follows the same rule for the same reason.
+ */
 function SuiteCell({ mod }: { mod: SuiteMod }) {
+  const hasDocs = documented.has(mod.id);
+
   const body = (
     <>
       <div className="cell-top">
@@ -87,19 +122,61 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
       <p className="summary">{mod.summary}</p>
       <div className="meta">
         <span className="faint">{mod.status === 'active' ? 'in development' : 'planned'}</span>
-        {documented.has(mod.id) ? (
-          <span className="faint">
-            docs <Arrow />
+        {hasDocs || mod.repo ? (
+          <span className="cell-links faint">
+            {mod.repo ? (
+              /*
+               * Named per mod rather than left as the bare word `github`.
+               *
+               * This was a `<span>` inside one big anchor when the cell had a single destination, so a
+               * screen reader announced the whole cell — "Tasked, A questing engine…, in development,
+               * docs" — and the words here were only ever a signpost for the eye. Now that they are a
+               * link of their own, "github" on its own is a link with no subject: a reader tabbing
+               * through the catalog hears six identical ones.
+               *
+               * The accessible name contains the visible text, which is what WCAG's label-in-name asks
+               * for — the same reason a bare "read more" is a bad link name and "Read the Tasked manual"
+               * is a good one.
+               */
+              <a
+                className="cell-repo"
+                href={mod.repo}
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label={`${mod.name} on GitHub`}
+              >
+                github <Arrow />
+              </a>
+            ) : null}
+            {mod.repo && hasDocs ? (
+              // Punctuation, not content, and no class: a screen reader announcing "middle dot" between
+              // two links is noise, so it is hidden — and it needs no styling of its own, because
+              // `.cell-links` already spaces its children apart. A class here would be a selector in the
+              // stylesheet that does nothing, which is the thing that file's own header warns about.
+              <span aria-hidden="true">·</span>
+            ) : null}
+            {hasDocs ? (
+              // Same reason as the repository link above: `docs` alone would be one of six identical
+              // link names on this page. The visible text is inside the accessible one.
+              <a className="cell-link" href={`/docs/${mod.id}/`} aria-label={`${mod.name} documentation`}>
+                docs <Arrow />
+              </a>
+            ) : null}
           </span>
         ) : null}
       </div>
     </>
   );
 
-  return documented.has(mod.id) ? (
-    <a className="grid-cell pub-cell" href={`/docs/${mod.id}/`}>
-      {body}
-    </a>
+  /*
+   * The `grid-cell` class is what inverts on hover, and it is put on the cell only when the cell is a
+   * destination for the docs — the same condition as before, on a different element. A mod with no docs
+   * is a `<div class="pub-cell">` and does not invert, which is `global.css`'s `a.grid-cell` becoming
+   * `.grid-cell`: the qualifier had to go, or every cell in the first band would have quietly stopped
+   * responding to the pointer.
+   */
+  return hasDocs ? (
+    <div className="grid-cell pub-cell">{body}</div>
   ) : (
     <div className="pub-cell">{body}</div>
   );

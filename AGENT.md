@@ -78,9 +78,10 @@ looks wrong.
 There is no step three where you write a page here. That is the point.
 
 A mod with `status: "active"` but **no `docs/` folder** is listed in the catalog and gets no docs
-section — and its catalog cell stops being a link, because `app/page.tsx` derives which mods have
-docs from the built pages rather than from the status. A cell that looks like a destination and
-404s is worse than a cell that plainly says there is nothing there yet.
+section — and its catalog cell does not become a destination, because `app/page.tsx` derives which mods
+have docs from the built pages rather than from the status. A cell that looks like a destination and 404s
+is worse than a cell that plainly says there is nothing there yet. It renders only the links it actually
+has: its repository, if the manifest gives it one, and never a `docs` link.
 
 If `docs/` exists but has no `index.md`, the sync writes one from the manifest summary. An authored
 `index` always wins.
@@ -456,6 +457,52 @@ the way to settle it is to load the catalog page and look at it.
 
 ---
 
+## The catalog cell, and why it is not one link any more
+
+A cell in the catalog's first band used to be a single `<a>` wrapping everything in it — the cleanest
+possible version of "the whole card is a link". **It is a `<div>` now**, because the cell holds two
+destinations: the mod's own documentation, and its repository.
+
+**An anchor cannot contain an anchor.** That is not a rule a browser enforces with an error — it closes the
+outer one at the inner one, and everything after the nested link silently stops being part of the card. So
+the choice is between two links and one target, and the arrangement taken keeps both:
+
+- **`github ↗ · docs ↗`** in the cell's footer row, beside the status — the row that used to carry `docs ↗`
+  alone;
+- **the docs link stretched over the whole cell** by `.cell-link::after`, an absolutely positioned box
+  covering the cell's padding box, so every pixel that went to the docs page before still does.
+
+Where the two would overlap the repository wins one small area, because it is raised above the overlay by a
+single `z-index`. Everywhere else in the cell belongs to the docs.
+
+**Three things have to hold for that, and each fails silently on its own:**
+
+| What | If it is wrong |
+|---|---|
+| `.grid-cell` is `position: relative` | The overlay resolves against the nearest positioned ancestor instead — the page — so every cell becomes a link to its docs from anywhere in the document |
+| No hover rule is qualified by the element | They were all `a.grid-cell`, back when every cell that inverted was an anchor. Two of them are `<div>`s now, so `a.grid-cell` matches nothing on that band: no ink ground, and no ink knockouts for the marks. CSS does not report a selector that matches nothing |
+| `.pub-cell:not(a)` becomes `:not(.grid-cell)` | `:not(a)` meant "a cell with no destination". It is now *also* true of the two cells that do lead somewhere, so their names go grey while every other rule keeps working — the opposite of the intent |
+
+None of the three produces an error, a warning, or a page that looks obviously broken, which is the whole
+argument for asserting them rather than looking at one. `check.mjs` asserts all three, and the two links.
+
+**What it costs, stated rather than discovered:** text inside the cell can no longer be dragged to select
+it, because a transparent box is over it. Inside an `<a>` it could. That is the trade the stretched-link
+pattern always makes; the alternative is a 40px target for the commonest action on the page, and the cost
+is invisible unless somebody tries to copy a summary.
+
+**Both links are derived rather than written.** The repository comes from the manifest's `repo` and the docs
+link from what actually synced. A mod with neither is a plain `.pub-cell` that does not invert — the same
+rule as before, now applied to a different element.
+
+The two links are also **named per mod**, not left as bare `github` and `docs`. They were `<span>`s inside
+one anchor, where the cell's own text was the accessible name and these words were only a signpost for the
+eye. As links of their own they need subjects: six identical `github` links down one page is the same
+defect as a bare "read more". Each accessible name contains its visible text, which is what label-in-name
+asks for.
+
+---
+
 ## The sponsor band
 
 One affiliate arrangement, at the foot of every page: BisectHosting, with the code `mcstellar` for 25%
@@ -481,13 +528,14 @@ a name for the region and a crawler gets the relationship, neither of which depe
 caused the misreading. `check.mjs` asserts all three: the note is in the row, no `>Sponsored<` element
 text is left above it, and the landmark still names itself.
 
-**Why its own band rather than a line in the footer — and it is now the last row on every page.** It was
-given its own band because the footer was the site's colophon: the domain, the licence, where else the
+**Why its own band rather than a line in the footer — and it is no longer the last row on every page.** It
+was given its own band because the footer was the site's colophon: the domain, the licence, where else the
 work lives. A paid arrangement inside that list would be posing as one of those, which is exactly what the
-disclosure exists to prevent. As a band it reads as one more hairline-separated row.
+disclosure exists to prevent. As a band it reads as one more hairline-separated row, and the colophon
+follows it — so the site's last word is its own voice rather than a paid one.
 
-**The band is one row now, and it used to be two.** A head strip carried the host's name and its `Partner`
-chip above the link. It went for two reasons: it cost a full band of height to write the host's name a
+**The band is one row now, and it used to be two.** A head strip carried the host's name and its
+`Hosting partner` chip above the link. It went for two reasons: it cost a full band of height to write the host's name a
 second time, when the mark's own wordmark at the left of the row already says it; and the chip belongs
 beside the thing it qualifies rather than above it. The chip is now in the row, next to the tagline, and
 the band is about half its former height.
@@ -514,7 +562,8 @@ which is on the home page and not on a docs page — a docs page at that width c
 engineers and maintains the site — was added afterwards, and that is an improvement rather than a complication: the page
 now ends in the site's own voice instead of on a paid row, and the band is no more part of that signature
 than it was part of the footer. `check.mjs` asserts the band sits *above* the colophon, which is the
-relationship that matters, rather than that it is last.
+relationship that matters, rather than that it is last — so adding a row below the colophon later does not
+fail the build.
 
 **The mark is inlined, and monochrome, and it used to be neither.**
 
@@ -560,7 +609,20 @@ anything else on the page, and deliberately the quietest thing in the band. The 
 `.maturity` and `.since`, so it reads as one of the site's own chips rather than a badge imported from
 elsewhere.
 
-**The wording is `Partner`, and `Verified partner` was rejected on purpose.** BisectHosting run a
+**The wording is `Hosting partner`, and it was `Partner` alone until it was read beside the tagline it
+qualifies.** `Minecraft server hosting` next to `PARTNER` says what the host does and that there is some
+arrangement — but not what the arrangement is *about*. Partner of what? The chip's job is to name the
+relationship, and one word could not: the tagline names the host's business, so the chip has to name the
+other half. `Hosting partner` carries both.
+
+**Two alternatives were rejected, and both are worth keeping on the record.**
+
+`Infrastructure` names a category this arrangement is not. BisectHosting is somewhere a server can be run,
+which is neither what the chip is doing in that row nor a claim the arrangement supports — and a label
+that makes the arrangement sound *larger* than it is is the same fault as one that makes it sound better
+than it is.
+
+`Verified` / `Verified partner` is the one to keep out entirely. BisectHosting run a
 [Partner Program](https://www.bisecthosting.com/partnerships) and, separately, an **Affiliate Program** —
 the self-serve one that issues a unique link and a discount code, which is what `mcstellar` is. Those are
 not the same thing, and **neither of their pages uses the word _verified_**. Putting it on the site would

@@ -835,6 +835,207 @@ check(
 );
 check('a section front page is not qualified twice', !/Tasked — Tasked/.test(docsTitle ?? ''), 'no repeated mod name');
 
+console.log('\n== the catalog cell, and its two destinations ==');
+/*
+ * A CELL WITH TWO LINKS IN IT, WHICH IS WHY THE CELL IS NOT AN ANCHOR ANY MORE.
+ *
+ * A suite cell used to wrap its whole contents in `<a href="/docs/<id>/">` — the simplest possible
+ * version of "the whole card is a link", and it cannot hold a second link. **An anchor may not contain
+ * one, and the browser does not complain: it closes the outer anchor at the inner one, and everything
+ * after the nested link quietly stops being part of the card.** So the cell is a `<div>` with the docs
+ * link stretched over it by `.cell-link::after`, and the repository link raised above that overlay.
+ *
+ * Three things have to hold for that to behave, and each of them fails *silently* on its own:
+ *
+ *   1. **the cell is positioned.** The overlay is absolutely positioned against `.grid-cell`; without
+ *      `position: relative` it resolves against the nearest positioned ancestor instead, which is the
+ *      page — so every cell becomes a link to its docs from anywhere in the document.
+ *   2. **no hover rule is left qualified by the element.** They were all `a.grid-cell`, back when every
+ *      cell that inverted was an anchor. Two of the cells that must invert are `<div>`s now, so
+ *      `a.grid-cell` matches nothing on that band: no ink ground, no ink knockouts for the marks. CSS
+ *      does not report a selector that matches nothing.
+ *   3. **the dimmed-name rule tests the class, not the element.** It was `.pub-cell:not(a)`, which meant
+ *      "a cell with no destination". It is now *also* true of the two cells that do lead somewhere, so
+ *      their names would go grey while every other rule kept working — the opposite of the intent.
+ *
+ * None of the three produces an error, a warning or a page that looks obviously broken, which is the
+ * whole argument for asserting them rather than looking at the page.
+ */
+if (home) {
+  /*
+   * Counted with the render-tree payload stripped, and compared against the manifest rather than a
+   * literal — the same trap the mod-mark placeholder count documents above: Next serialises its render
+   * tree into a `<script>`, so a naive count reads roughly double, and a literal would need editing the
+   * day a mod gains a repository.
+   */
+  const visibleHome = withoutScripts(home);
+  const repoMods = manifest.suite.filter((m) => m.repo);
+
+  /*
+   * Which mods have documentation, derived from what actually built.
+   *
+   * Read from the artifact rather than from `status: "active"`, because those are not the same question
+   * and the page itself draws the distinction: a mod can be active and have no `docs/` folder, in which
+   * case it gets no `docs` link and its cell is not a destination. Deriving it here the same way the page
+   * derives it means this expectation cannot disagree with the markup for a reason that is not a bug.
+   */
+  const documentedMods = manifest.suite.filter((m) => existsSync(`${OUT}/docs/${m.id}/index.html`));
+  const documentedIds = documentedMods.map((m) => m.id);
+
+  /* Every cell that should carry the row at all: it has one destination or the other. */
+  const rowMods = manifest.suite.filter((m) => Boolean(m.repo) || documentedIds.includes(m.id));
+
+  check('the cell carries a repository link', visibleHome.includes('class="cell-repo"'));
+  check('the cell carries a docs link', visibleHome.includes('class="cell-link"'));
+
+  /*
+   * BOTH LINKS IN ONE ROW, ASSERTED ON THE ROW RATHER THAN ON A DISTANCE BETWEEN TWO STRINGS.
+   *
+   * **The first version of this bounded the gap between the links by character count** —
+   * `class="cell-links"[\\s\\S]{0,400}class="cell-repo"[\\s\\S]{0,200}class="cell-link"` — and it failed
+   * against markup that was completely correct. The measured gap is 208 characters and the bound was 200,
+   * because the bound was a guess about how much markup sits between two links with an accessible name and
+   * a hidden separator on each. That is the same mistake as asserting the exact syntax a minifier happened
+   * to emit: a number that describes today's markup rather than the property anyone cares about.
+   *
+   * What the assertion means is "each cell's footer row holds both links, in that order, in one row". So
+   * it slices the rows out and asks exactly that. Each `.cell-links` block runs to the next `</div>`,
+   * which is the end of the `.meta` row it lives in — and a row is checked as a unit, so two links in two
+   * different cells cannot pass by being adjacent in document order.
+   */
+  const rows = visibleHome.split('class="cell-links').slice(1).map((s) => s.slice(0, s.indexOf('</div>')));
+
+  check(
+    'every cell that leads somewhere has a footer row',
+    rows.length === rowMods.length,
+    `${rows.length} row(s) / ${rowMods.length} expected — ${rowMods.map((m) => m.id).join(', ')}`,
+  );
+
+  for (const [i, mod] of rowMods.entries()) {
+    const row = rows[i] ?? '';
+    const hasRepo = row.includes('cell-repo');
+    const hasDocs = row.includes('cell-link');
+
+    if (mod.repo && documentedIds.includes(mod.id)) {
+      check(
+        `${mod.id}: the row holds both links, github first`,
+        hasRepo && hasDocs && row.indexOf('cell-repo') < row.indexOf('cell-link'),
+        hasRepo && hasDocs ? 'github · docs' : `${hasRepo ? 'github' : '—'} / ${hasDocs ? 'docs' : '—'}`,
+      );
+    } else if (mod.repo) {
+      check(`${mod.id}: the row holds the repository link and no docs link`, hasRepo && !hasDocs);
+    } else {
+      check(`${mod.id}: the row holds the docs link and no repository link`, hasDocs && !hasRepo);
+    }
+  }
+  check(
+    'a cell with both destinations is not itself an anchor',
+    !/<a[^>]*class="grid-cell pub-cell"[^>]*href="\/docs\//.test(visibleHome),
+    'an <a> cannot contain the repository link',
+  );
+
+  /*
+   * The two links point at what the manifest says, and they are named per mod.
+   *
+   * The names matter more than they look. They were `<span>`s inside one big anchor, where the cell's own
+   * text was the accessible name and the words here were only a signpost for the eye. As links of their
+   * own, a bare `github` is a link with no subject — six identical ones down the page — which is the same
+   * defect as a bare "read more". Both accessible names contain their visible text, which is what
+   * label-in-name asks for.
+   */
+  for (const mod of repoMods) {
+    check(
+      `${mod.id}: the repository link is the manifest's`,
+      visibleHome.includes(`href="${mod.repo}"`),
+      mod.repo,
+    );
+    check(`${mod.id}: the repository link names the mod`, visibleHome.includes(`aria-label="${mod.name} on GitHub"`));
+  }
+  for (const mod of manifest.suite.filter((m) => m.status === 'active')) {
+    check(
+      `${mod.id}: the docs link is named for its mod`,
+      visibleHome.includes(`aria-label="${mod.name} documentation"`),
+    );
+  }
+  /*
+   * Every link in the row carries an accessible name, checked on the anchors themselves.
+   *
+   * **The first version of this was wrong and would have failed on correct markup.** It read
+   * `!/<a[^>]*>\s*github/` — "no bare github link" — and that pattern matches the *good* anchor too: the
+   * tag ends, `\s*` eats the newline, and `github` is right there in the link text. Which is the trap
+   * this file keeps re-learning, and it made the same mistake in the same shape as the assertion two
+   * sections up: assert the property you care about — "does this anchor have a name?" — rather than a
+   * fragment of markup that happens to appear next to it.
+   */
+  const repoAnchors = [...visibleHome.matchAll(/<a class="cell-repo"[^>]*>/g)].map((m) => m[0]);
+  const docsAnchors = [...visibleHome.matchAll(/<a class="cell-link"[^>]*>/g)].map((m) => m[0]);
+
+  check(
+    'every repository link carries an accessible name',
+    repoAnchors.length > 0 && repoAnchors.every((tag) => /aria-label="[^"]+"/.test(tag)),
+    `${repoAnchors.length} link(s)`,
+  );
+  check(
+    'every docs link carries an accessible name',
+    docsAnchors.length > 0 && docsAnchors.every((tag) => /aria-label="[^"]+"/.test(tag)),
+    `${docsAnchors.length} link(s)`,
+  );
+
+  // One per mod with a repository, derived so adding a mod keeps this honest.
+  const repoLinks = (visibleHome.match(/class="cell-repo"/g) ?? []).length;
+  check(
+    'every mod with a repository gets a link, and no others do',
+    repoLinks === repoMods.length,
+    `${repoLinks} rendered / ${repoMods.length} expected`,
+  );
+
+  // The status and the shape of the row are unchanged by any of this.
+  check('the cell still states its status', visibleHome.includes('in development') && visibleHome.includes('planned'));
+  check('a mod with no repository gets no repository link', !visibleHome.includes('aria-label="Kindred on GitHub"'));
+
+  /*
+   * The three CSS properties, asked of the built stylesheet rather than of the source.
+   *
+   * `::after` is matched as `:?:after` because Lightning CSS rewrites the double colon to a single one —
+   * the same trap the glossary assertions document, where the rule was right and the assertion was wrong.
+   */
+  const cellRule = declarationsFor(allCss, '.grid-cell');
+  const stretched = declarationsFor(allCss, '.cell-link::after') + declarationsFor(allCss, '.cell-link:after');
+  const repoRule = declarationsFor(allCss, '.cell-repo');
+
+  check('the cell is the containing block for the overlay', cellRule.includes('position:relative'), cellRule);
+  check(
+    'the docs link is stretched across the cell',
+    stretched.includes('position:absolute') && stretched.includes('inset:0'),
+    stretched || 'no .cell-link::after rule',
+  );
+  check(
+    'the repository link sits above the overlay',
+    repoRule.includes('position:relative') && /z-index:[1-9]/.test(repoRule),
+    repoRule || 'no .cell-repo rule',
+  );
+
+  /*
+   * And the two rules that break without saying anything: the element qualifier, and the `:not()` test.
+   *
+   * Asserted on the built CSS as a property of the file rather than of any one rule, because the failure
+   * is "somewhere in this stylesheet a selector still says `a.`" — and a check that named one rule would
+   * pass while the other six were still wrong.
+   */
+  check(
+    'no hover rule is still qualified by the element',
+    !/a\.grid-cell/.test(allCss),
+    'a.grid-cell matches nothing on the first band now',
+  );
+  check(
+    'the dimmed-name rule tests the class, not the element',
+    /\.pub-cell:not\(\.grid-cell\)/.test(allCss) && !/\.pub-cell:not\(a\)/.test(allCss),
+    show('.pub-cell:not('),
+  );
+} else {
+  console.log('  .   no home page -- skipping the catalog cell assertions');
+}
+
 console.log('\n== the sponsor band ==');
 /*
  * An affiliate link, so most of these are about honesty rather than layout.

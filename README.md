@@ -118,7 +118,12 @@ JavaScript runs and unchanged when JavaScript is off — see `AGENT.md` → *The
    every link in a contents rail pointing at a heading that exists.
 
 A mod with no `docs/` folder is listed in the catalog and gets no docs section, and its catalog cell
-stops being a link — so nothing points at a page that does not exist.
+stops being a destination — so nothing points at a page that does not exist.
+
+A cell in that first band carries **two** links, `github ↗ · docs ↗`, so the whole cell cannot be one
+`<a>`: an anchor may not contain another one. The cell is a `<div>` with the docs link stretched over it,
+and the repository link raised above that overlay. The reasoning, and the three selectors that break
+silently without it, are in `AGENT.md` → *The catalog cell*.
 
 ---
 
@@ -207,10 +212,12 @@ The details live in `manifest.json` under `sponsor`; removing that object remove
 `check.mjs` skips its assertions. The generated mark is in `apps/docs/public/brand/`, committed, from
 `design/brand-source/`.
 
-The small `Partner` chip beside the host's tagline is a deliberate wording choice, not a default — it does
-**not** say "Verified", because BisectHosting do not confer that status and their own terms are `Partner
-Program` and `affiliate`. Change the label in `manifest.json`; `check.mjs` will hold you to whatever is
-written there.
+The small `Hosting partner` chip beside the host's tagline is a deliberate wording choice, not a default.
+It is two words rather than one because `Minecraft server hosting` beside `PARTNER` says what the host does
+without saying what the arrangement is about; `Infrastructure` was rejected for claiming a category this
+is not, and it does **not** say "Verified", because BisectHosting do not confer that status and their own
+terms are `Partner Program` and `affiliate`. Change the label in `manifest.json`; `check.mjs` will hold you
+to whatever is written there.
 
 ---
 

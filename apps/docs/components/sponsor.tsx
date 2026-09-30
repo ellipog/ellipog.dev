@@ -20,6 +20,10 @@ type Sponsor = {
  * mark's own wordmark, which sits at the left of the row. So the strip is gone and the chip moved inside,
  * beside the tagline it qualifies. The band is roughly half the height it was.
  *
+ * **The chip reads `Hosting partner` now rather than `Partner`, and the note beside it below says why.**
+ * The rename is a wording change rather than part of the strip's removal — the two arrived together and
+ * are separate decisions, which is worth knowing if one of them is ever revisited alone.
+ *
  * **Four things about this are deliberate, and three of them are not about design.**
  *
  * 1. **It says it is a paid link — beside the offer, not above the band.** It used to be an uppercase
@@ -68,10 +72,24 @@ export function SponsorBanner() {
            * where a chip beside a name conventionally goes — and the name went with the strip, so the chip
            * came here to stay next to the thing it is about.
            *
-           * **The wording is deliberately not "Verified".** BisectHosting run a `Partner Program` and
-           * separately an `Affiliate Program`, and neither of their pages uses the word *verified* — so it
-           * would be asserting a status the host does not confer. `Partner` is their own term and it is
-           * true. The label lives in the manifest so the wording is one edit, and `check.mjs` asserts what
+           * **The wording is `Hosting partner`, and two other candidates were rejected on purpose.** It was
+           * `Partner` alone, which stated that there is an arrangement without saying what the arrangement
+           * is about: the tagline beside it already names the host's business, so the chip's job is to name
+           * the *relationship*, and "partner of what?" is the question a two-word chip can answer and a
+           * one-word one cannot.
+           *
+           * `Infrastructure` names a category this is not. BisectHosting is somewhere a server can be run,
+           * which is neither what the chip is doing in this row nor a claim the arrangement supports — and
+           * a label that makes the arrangement sound larger than it is, is the same fault as one that
+           * makes it sound better than it is.
+           *
+           * `Verified`/`Verified partner` is the one to keep out entirely. BisectHosting run a
+           * `Partner Program` and separately an `Affiliate Program`, and neither of their pages uses the
+           * word *verified* — so it would assert a status the host does not confer. A trust mark that
+           * overstates is worse than no mark, because it is the one kind of claim a reader is entitled to
+           * take literally.
+           *
+           * The label lives in the manifest so the wording is one edit, and `check.mjs` asserts what
            * renders matches what is written there.
            *
            * `title` rather than a tooltip component: this is a decoration nobody has to interact with, and
@@ -100,7 +118,8 @@ export function SponsorBanner() {
             {/* The disclosure, in the row it describes. It was an uppercase `SPONSORED` label in the band
                 head, directly above the colophon's own `ENGINEERED & MAINTAINED BY` strip — and two
                 stacked labels read as one heading over both rows, which put the studio's name under a
-                paid heading. Here it is a property of this offer, which is what it actually is. */}
+                one heading over both rows, which put the studio's name under a paid heading. Here it is a
+                property of this offer, which is what it actually is. */}
             <span className="sponsor-disclosure">Affiliate link</span>
           </span>
         </span>
