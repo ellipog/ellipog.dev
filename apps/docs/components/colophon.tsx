@@ -44,7 +44,7 @@ export function Colophon() {
       <a className="colophon-link" href={s.url} target="_blank" rel="noreferrer noopener">
         {/* Same element, same class as the masthead's mark: one pair of files, two places, and the theme
             switch in `global.css` covers both without a second rule. */}
-        <span className="site-mark" aria-hidden="true" />
+        <span className="colophon-mark" aria-hidden="true" />
 
         {/*
          * The wording is the site's usual construction for a labelled row: a micro-label in the same 11px

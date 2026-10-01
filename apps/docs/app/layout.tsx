@@ -66,9 +66,10 @@ export const metadata: Metadata = {
    * accidental default. The failure mode is a mark on the wrong ground rather than no mark at all, which
    * is the one to prefer.
    *
-   * What this costs is a thinner line: the file it replaces drew 2.4px strokes on a 64px viewBox, where
-   * this one's median stroke is 21px on 879px — 3.75% of the box against 2.39%. AGENT.md has the
-   * measurement, and the reason it was judged worth making.
+   * What this costs is a thinner line, and it is a measured trade: the drawing it replaced was built
+   * for the tab with heavier strokes, while this one is the masthead's drawing used as-is — a mean ink
+   * coverage of 9.0% of the box — so a 16px tab renders it lighter than a plated glyph would. AGENT.md
+   * has the measurement, and the reason it was judged worth making.
    */
   icons: {
     icon: [

@@ -1304,20 +1304,20 @@ if (studio) {
    */
   check(
     'the colophon carries the studio mark',
-    /class="colophon"[\s\S]{0,220}<span class="site-mark"/.test(visible),
-    'the same .site-mark as the masthead',
+    /class="colophon"[\s\S]{0,220}<span class="colophon-mark"/.test(visible),
+    'the aaen pair, not the stellar one the masthead draws',
   );
-  const hoverRule = declarationsFor(allCss, '.colophon-link:hover .site-mark');
-  const darkHoverRule = declarationsFor(allCss, '[data-theme="dark"] .colophon-link:hover .site-mark');
+  const hoverRule = declarationsFor(allCss, '.colophon-link:hover .colophon-mark');
+  const darkHoverRule = declarationsFor(allCss, '[data-theme="dark"] .colophon-link:hover .colophon-mark');
 
   check(
     'the mark goes light on the inverted ground, which is dark',
-    hoverRule.includes('mark-on-dark'),
+    hoverRule.includes('aaen-mark-on-dark'),
     hoverRule || 'no rule',
   );
   check(
     'and back to dark ink in the dark theme, where the inversion is the other way round',
-    darkHoverRule.includes('mark-on-light'),
+    darkHoverRule.includes('aaen-mark-on-light'),
     darkHoverRule || 'no rule',
   );
 
@@ -1637,9 +1637,14 @@ check('no page asks for it any more', !(home ?? '').includes('favicon.svg'), 'no
  * else in this repository, and a reader will want to know that it was decided rather than overlooked.
  */
 check(
-  'the mark is a styled span in both places, not <img>s',
-  (withoutScripts(home ?? '').match(/<span class="site-mark"/g) ?? []).length === 2,
-  'the masthead and the colophon',
+  'the site mark is a styled span in the masthead, not an <img>',
+  (withoutScripts(home ?? '').match(/<span class="site-mark"/g) ?? []).length === 1,
+  'the stellar pair, and the masthead only',
+);
+check(
+  'and the colophon carries the studio mark the same way, from its own pair',
+  (withoutScripts(home ?? '').match(/<span class="colophon-mark"/g) ?? []).length === 1,
+  'the aaen pair, not the stellar one the masthead draws',
 );
 check('no mark is loaded as an <img>', !/<img[^>]*site\//.test(home ?? ''));
 check(

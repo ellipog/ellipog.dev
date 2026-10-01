@@ -395,21 +395,21 @@ main {
 /*
  * The site's mark, beside the name it belongs to.
  *
- * **Two files, one per theme, and the CSS is the switch.** `mark-on-light.png` is the studio's mark drawn
+ * **Two files, one per theme, and the CSS is the switch.** `mark-on-light.png` is the site's mark drawn
  * in dark ink, which is what a light ground shows; `mark-on-dark.png` is the same drawing in light ink for
  * a dark one. `[data-theme='dark']` picks between them — the attribute the toggle sets, so there is no
  * JavaScript and no flash.
  *
  * **It is used in two places, and that is deliberate**: the masthead, and the colophon at the foot of the
- * page. Both are the studio's mark doing the studio's job, so both draw from this one pair rather than
+ * page. Both are the site's mark doing the site's job, so both draw from this one pair rather than
  * from a copy — which is the same argument that made the tab icon name these files too.
  *
- * **The names describe the GROUND, and the studio's describe the INK.** The sources are `logo-mark.png`
- * (dark ink) and `logo-mark-light.png` (light ink), where `-light` means the mark *is* light. Renamed
- * here because "the mark shown on a light ground" is what the rule below has to say, and it is the
- * opposite file. A swap is invisible — dark ink on the dark ground is a mark the same colour as the page,
- * which reads as absent rather than as wrong — so `check.mjs` decodes both files and asserts which ink
- * each one is drawn in.
+ * **The names describe the GROUND, and the sources do too.** The stellar sources in
+ * `design/brand-source/` are `stellar-logo-on-light.png` (dark ink) and `stellar-logo-on-dark.png`
+ * (light ink) — the same convention the rule below speaks, exported to `public/site/` by
+ * `scripts/mark.mjs`. A swap is still invisible — dark ink on the dark ground is a mark the same colour
+ * as the page, which reads as absent rather than as wrong — so `check.mjs` decodes both files and
+ * asserts which ink each one is drawn in.
  *
  * **A background image rather than an `<img>` and this is a measured decision, not a style one.** An
  * `<img>` needs one element per theme with the other `display: none`, and a `display: none` image is
@@ -424,10 +424,10 @@ main {
  * amount of CSS reaches into them. Two files is the honest consequence; inlining a base64 PNG would gain
  * nothing and cost a third more bytes again.
  *
- * **28px, and the number comes from the artwork.** The supplied files are 879x879 with the mark inset
- * 90px — 79.4% of the box — so a 28px box draws the mark itself at 22px, which is the footprint the avatar
- * had and the weight the wordmark beside it is cut to. Sizing this to 22px would draw the mark at 17px.
- * `contain` cannot distort it, since the file is square.
+ * **28px, and the number comes from the artwork.** The exported files are 879x879 with the mark fitted
+ * to 684x688 — 77.8% of the box — so a 28px box draws the mark itself at about 21.8px, the footprint the
+ * previous mark had and the weight the wordmark beside it is cut to. Sizing this to 22px would draw the
+ * mark at 17px. `contain` cannot distort it, since the file is square.
  *
  * This replaced a 9px filled square, and before that the Modrinth profile picture — a downloaded
  * photograph with no dark variant, and the only mark on the page that could go missing.
@@ -444,6 +444,20 @@ main {
 [data-theme="dark"] .site-mark {
   background-image: url("/site/mark-on-dark.png");
 }
+/* The studio's own mark, drawing from the aaen pair rather than the site's: the colophon signs
+   the studio, and the studio's logo is the eye over the A-frame, not the stellar drawing the
+   masthead carries. Same size and mechanism as .site-mark, own pair of files. */
+.colophon-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: block;
+  background: center / contain no-repeat url("/site/aaen-mark-on-light.png");
+}
+
+[data-theme="dark"] .colophon-mark {
+  background-image: url("/site/aaen-mark-on-dark.png");
+}
 
 /*
  * THE MARK FOLLOWS THE GROUND IT IS STANDING ON, AND THE COLOPHON IS THE ONE PLACE THAT MOVES.
@@ -459,15 +473,15 @@ main {
  * near-white, so it must go dark. A single rule would be right in one theme and wrong in the other, and
  * wrong here means invisible rather than merely off — the ink and the ground would be the same colour.
  *
- * The second selector is more specific than the first and than `[data-theme='dark'] .site-mark`, which is
+ * The second selector is more specific than the first and than `[data-theme='dark'] .colophon-mark`, which is
  * what makes it win in the theme it is for. `check.mjs` asserts both halves, so a swap cannot pass.
  */
-.colophon-link:hover .site-mark {
-  background-image: url("/site/mark-on-dark.png");
+.colophon-link:hover .colophon-mark {
+  background-image: url("/site/aaen-mark-on-dark.png");
 }
 
-[data-theme="dark"] .colophon-link:hover .site-mark {
-  background-image: url("/site/mark-on-light.png");
+[data-theme="dark"] .colophon-link:hover .colophon-mark {
+  background-image: url("/site/aaen-mark-on-light.png");
 }
 
 .masthead nav {

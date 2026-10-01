@@ -702,22 +702,22 @@ that no icon reached the page as an `<img>`.
 
 ## The site's own mark, and the three jobs it does
 
-The site's mark comes from `aaenz/public/assets/` — two PNGs, one per theme, and **three places on the site
-draw from the same pair**: the mark beside the wordmark, the colophon at the foot of every page, and the
-tab icon.
+The site's mark is the stellar drawing, committed in `design/brand-source/` and exported to
+`apps/docs/public/site/` by `scripts/mark.mjs` (`bun run mark`) — two PNGs, one per theme, and **three
+places on the site draw from the same pair**: the mark beside the wordmark, the colophon at the foot of
+every page, and the tab icon.
 
 | File here | Ink | Luminance | Is the mark for |
 |---|---|---|---|
-| `apps/docs/public/site/mark-on-light.png` | `#101010` | 0.005 | a **light** ground |
-| `apps/docs/public/site/mark-on-dark.png` | `#f3f1ec` | 0.880 | a **dark** ground |
+| `apps/docs/public/site/mark-on-light.png` | `#000000` | 0.0000 | a **light** ground |
+| `apps/docs/public/site/mark-on-dark.png` | `#ffffff` | 1.0000 | a **dark** ground |
 
-**The names describe the ground; the studio's describe the ink, and that is the one thing here to read
-twice.** The sources are `logo-mark.png` (dark ink) and `logo-mark-light.png` (light ink), where `-light`
-means *the mark is light*. Renamed on the way in because `mark-on-light.png` is what the CSS rule has to
-say — "the mark shown **on** a light ground" — and that is the **opposite** file. This is not pedantry: a
-swap is invisible. Dark ink on the dark ground is a mark the same colour as the page behind it, so it
-reads as *absent* rather than as wrong, and the natural response is to add a fallback for a mark that is
-already there.
+**The names describe the ground, and since the stellar sources arrived they do in both places.** The
+sources are `stellar-logo-on-light.png` (dark ink) and `stellar-logo-on-dark.png` (light ink) — the same
+convention `mark-on-light.png` speaks, because "the mark shown **on** a light ground" is what the CSS rule
+has to say. This is not pedantry: a swap is invisible. Dark ink on the dark ground is a mark the same
+colour as the page behind it, so it reads as *absent* rather than as wrong, and the natural response is to
+add a fallback for a mark that is already there.
 
 ### Why two files, and why a background image
 
@@ -739,10 +739,10 @@ every reader who overrode their OS preference — the same reasoning that retire
 pair. And because the attribute is set by the inline script in `<head>`, the right file is chosen before
 first paint: no flash, no JavaScript, no second choice.
 
-**`28px`, and the number comes from the artwork.** The supplied files are 879×879 with the mark inset 90px
-— 79.4% of the box — so a 28px box draws the mark itself at 22px, which is the footprint the old avatar
-had and the weight the wordmark beside it is cut to. Sizing the box to 22px would draw the mark at 17px. A
-`contain` fit cannot distort it, since the file is square.
+**`28px`, and the number comes from the artwork.** The exported files are 879×879 with the mark fitted to
+684×688 — 77.8% of the box — so a 28px box draws the mark itself at about 21.8px, the footprint the
+previous mark had and the weight the wordmark beside it is cut to. Sizing the box to 22px would draw the
+mark at 17px. A `contain` fit cannot distort it, since the file is square.
 
 **Neither file has a plate, and neither was given one by a transform.** They are exported on a transparent
 ground — all four corners fully transparent, which `check.mjs` asserts rather than assumes. That is worth
@@ -778,11 +778,12 @@ Safari 15, and some crawlers — takes the last icon it can use, so the dark-ink
 default. The failure mode is a mark on the wrong ground rather than no mark at all, which is the one to
 prefer.
 
-**What that replaced, measured.** The file it replaces was `public/favicon.svg`: the *same drawing* — an eye
+**What that replaced, measured.** The file it replaced was `public/favicon.svg`: the *same drawing* — an eye
 over an A-frame — hand-built as an ellipse and two legs, with 2.4px strokes on a 64px viewBox and a
-`#f3f1ec` plate behind them. The studio's mark carries a median stroke of 21px on 879px. As a fraction of
-the box that is **3.75% against 2.39%**, so at a 16px tab the line goes from 0.6px to 0.38px — **about 1.6×
-finer, and sub-pixel** — with mean ink coverage of 6.7% either way.
+`#f3f1ec` plate behind them. The mark it was replaced *with* carried a median stroke of 21px on 879px —
+**3.75% against 2.39%**, so at a 16px tab the line went from 0.6px to 0.38px — **about 1.6× finer, and
+sub-pixel** — with mean ink coverage of 6.7% either way. Since 2026-10-01 the drawing itself is the
+stellar mark (mean ink coverage 9.0% of the box), and the trade is the same one, made again on purpose.
 
 So on a 1x display the tab reads as a light grey glyph rather than a solid tile. At 32px — a 2x display,
 which is most of them — the drawing resolves cleanly. The shape was checked by rendering the alpha channel
@@ -791,16 +792,19 @@ to look at. **The trade is one drawing for the tab and the masthead instead of t
 line in the tab.** The plate is no loss: every other mark on this site is drawn on whatever it stands on,
 so a plated favicon was the one that did not match.
 
-### These two copies have no guard, and they cannot have one
+### These two copies have a guard now: the sources are committed
 
-`apps/docs/public/site/mark-on-light.png` and `mark-on-dark.png` are the same files as
-`aaenz/public/assets/logo-mark.png` and `logo-mark-light.png`, byte for byte — **not** redrawn in the same
-spirit. Change one and change the other.
+`apps/docs/public/site/mark-on-light.png` and `mark-on-dark.png` are exported by `scripts/mark.mjs` from
+`design/brand-source/stellar-logo-on-light.png` and `stellar-logo-on-dark.png` — the stellar drawing,
+committed here. `bun run mark` regenerates the pair, and `check.mjs` asserts everything short of the
+bytes: same size, no plate, dark ink under 0.2 luminance, light ink over 0.8, one shared bounding box,
+and the build copying both through unchanged.
 
-**They are the one arrangement on this site with no assertion behind them.** `aaenz` is a separate
-repository this build has no route into: there is nothing to regenerate them from and nothing to compare
-them against. Every other generated file here can be checked against its source, because its source is in
-this repository. These cannot.
+**The one thing still without an assertion is the sources themselves.** That the committed PNGs are the
+studio's originals, byte for byte, is a diff against wherever they were supplied from — a checkout this
+build has no route into. Every other generated file here can be checked against its source in this
+repository; these now can too, and what remains outside every guard is the one hand-supplied step at the
+top of the chain.
 
 What `check.mjs` proves is everything short of that:
 
@@ -951,7 +955,7 @@ added: one address, one canonical. Recorded here so it is not "fixed" later.
 
 ## The colophon, and why it is not the footer coming back
 
-The last row on every page: the studio's mark, `ENGINEERED & MAINTAINED BY Aaen Studios`, and the domain at
+The last row on every page: the site's mark, `ENGINEERED & MAINTAINED BY Aaen Studios`, and the domain at
 the far end, all one link to `aaenz.no`. It lives in `manifest.json` under `studio` — `label`, `name` and
 `url`, with the domain shown on the page **derived from the URL** so the two cannot disagree — and
 `components/colophon.tsx` renders it.
