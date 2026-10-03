@@ -318,8 +318,9 @@ export default function Home() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">Released</span>
+          <span className="label">Earlier work</span>
           <span className="faint mono">
+            addons &amp; packs ·{' '}
             <a href={manifest.author.links[0].url} target="_blank" rel="noreferrer noopener">
               everything else <Arrow />
             </a>

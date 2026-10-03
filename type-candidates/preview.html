@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>loading</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #fff }
+  body.dark { background: #09090b }
+  iframe { display: block; width: 100%; height: 100%; border: 0 }
+</style>
+<!--
+  The real site, in a candidate.
+
+  Loads the built page in a full-bleed iframe and injects `facesCss` + one direction's token
+  overrides into it. Nothing is redrawn: the page is the page, only the two font tokens move.
+
+  ?d=<direction id>   which candidate
+  ?t=dark|light       which theme
+  ?p=<path>           which page of the site (default /)
+  ?h=<px>             iframe height, for capturing below the fold
+-->
+<iframe id="frame"></iframe>
+<script type="module">
+  import { facesCss, directions } from './directions.mjs';
+
+  const q = new URLSearchParams(location.search);
+  const d = directions.find((x) => x.id === q.get('d')) ?? directions[0];
+  const theme = q.get('t') === 'dark' ? 'dark' : 'light';
+  const path = q.get('p') ?? '/';
+  const height = q.get('h');
+
+  const frame = document.getElementById('frame');
+  if (height) frame.style.height = `${height}px`;
+  if (theme === 'dark') document.body.classList.add('dark');
+  document.title = `loading ${d.id}`;
+  frame.src = path;
+
+  frame.addEventListener('load', async () => {
+    const doc = frame.contentDocument;
+    doc.documentElement.setAttribute('data-theme', theme);
+    doc.head.insertAdjacentHTML('beforeend', `<style id="faces">${facesCss}</style>`);
+    doc.head.insertAdjacentHTML('beforeend', `<style id="candidate">:root{
+${d.css}
+}</style>`);
+    await doc.fonts.ready;
+    await new Promise((r) => frame.contentWindow.requestAnimationFrame(() => frame.contentWindow.requestAnimationFrame(r)));
+    document.title = `ready ${d.id} ${[...doc.fonts].filter((f) => f.status === 'loaded').length}`;
+  });
+</script>
+</html>

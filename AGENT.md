@@ -143,8 +143,8 @@ either. If those two numbers ever diverge by anything other than a known gap, on
 ## The one piece of motion on the site
 
 `components/shuffled-number.tsx` scrambles a figure's digits and settles them left to right, about
-300ms, staggered across the three released cells so they read as one gesture. It is used by the hero
-total and by each released cell's download count.
+300ms, staggered across the three earlier-work cells so they read as one gesture. It is used by the hero
+total and by each earlier-work cell's download count.
 
 It is the only animation in the design, and it is allowed to be the only one. A site whose premise is
 that every edge is visible and every line is a hairline does not want things that move; one flourish

@@ -1,0 +1,1695 @@
+/*
+ * The design language, in one file.
+ *
+ * "Technical grid minimalism / exposed devtool aesthetic": the structure of the page IS the
+ * decoration. No cards, no shadows, no rounded corners -- every surface is a rectangle meeting the
+ * next one at a 1px line. If you want a shadow, the answer is a line. If you want a gradient, the
+ * answer is a grid.
+ *
+ * Four rules exist because the style fails without them:
+ *
+ * 1. THE HAIRLINE HAS A CONTRAST FLOOR. `--line` is #E4E4E7, not the near-invisible grey the style
+ *    invites. A hairline that reads as a "subtle border" on a retina display disappears on a 1080p
+ *    panel at 100% zoom, and a grid you cannot see is not a grid -- it is a page with nothing on it.
+ *
+ * 2. LINES ARE DRAWN ONCE, BY THE ELEMENT THAT OWNS THE EDGE. A grid of cells each drawing all four
+ *    borders produces 2px seams where they meet, which is the most common way this style is got
+ *    wrong. `.grid` draws top and left; each cell draws right and bottom. So every interior line is
+ *    exactly one pixel and belongs to exactly one element.
+ *
+ * 3. COLOUR IS EARNED. The palette is paper and ink, one green for liveness, and nothing else. Hover
+ *    inverts rather than tints -- an inversion is structure, a tint is decoration.
+ *
+ * 4. THE SCROLLBAR IS DRAWN, NOT INHERITED. It is the last piece of furniture on the page that is
+ *    not ours, and a grey bevelled trough with arrow buttons is a different design language. Leaving
+ *    it default would be the one place the aesthetic stops, so it is redrawn as a hairline track with
+ *    an ink fill -- the same construction as the grids and the stats band.
+ *
+ * Every rule in here is used by a component. An unused rule is deleted rather than kept "in case",
+ * which is why there is no `.card`, no `.btn` and no `.stat`: those belong to a different design.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Tokens                                                              */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /* Paper. Two values and a hover. */
+  --bg: #ffffff;
+  --bg-sunken: #fafafa;
+
+  /* Ink, in three weights of presence. */
+  --fg: #09090b;
+  --fg-muted: #52525b;
+  --fg-faint: #a1a1aa;
+
+  /* The hairline, and the one place a heavier line is allowed. */
+  --line: #e4e4e7;
+  --line-ink: #09090b;
+
+  /* The blueprint backdrop behind the hero. Faint enough to read as texture, present enough that
+     the eye finds the structure. Too faint and the whole conceit is lost. */
+  --grid-line: rgba(9, 9, 11, 0.06);
+
+  /* The inversion, for hover. Set as a pair so a component never has to know which theme it is in. */
+  --inv-bg: #09090b;
+  --inv-fg: #ffffff;
+  --inv-line: rgba(255, 255, 255, 0.22);
+  --inv-faint: rgba(255, 255, 255, 0.6);
+
+  /* No radius, stated rather than omitted so a component that adds one is visibly departing. */
+  --radius: 0;
+
+  /*
+   * The masthead's height, in one place.
+   *
+   * It is needed by four rules that have to agree: the masthead itself, the docs rail's sticky offset,
+   * that rail's max-height, and the scroll margin on an anchored heading. Four copies of `56px` is four
+   * chances for the rail to sit a few pixels off the thing it is supposed to align with.
+   */
+  --masthead: 56px;
+
+  /* The right-hand contents rail. Narrower than the left: page headings are shorter than mod names. */
+  --rail-right: 200px;
+
+  /* The one red on the site, and it means one thing: this loses data or breaks a world. */
+  --danger: #b91c1c;
+
+  /* System stacks deliberately: no build-time font fetch, so the build works offline and there is
+     nothing to fail on a machine without the CDN. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas,
+    "Liberation Mono", monospace;
+
+  /* A compact scale. Density is the point -- generous spacing reads as marketing, not as a tool. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+  --s9: 96px;
+
+  --measure: 68ch;
+  --page: 1200px;
+  --rail: 232px;
+}
+
+[data-theme="dark"] {
+  --bg: #09090b;
+  --bg-sunken: #0e0e11;
+
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --fg-faint: #52525b;
+
+  --line: #26262a;
+  --line-ink: #fafafa;
+
+  --danger: #ef4444;
+
+  --grid-line: rgba(250, 250, 250, 0.05);
+
+  --inv-bg: #fafafa;
+  --inv-fg: #09090b;
+  --inv-line: rgba(9, 9, 11, 0.22);
+  --inv-faint: rgba(9, 9, 11, 0.6);
+}
+
+/* ------------------------------------------------------------------ */
+/* Reset                                                               */
+/* ------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* The scrollbar                                                       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The scrollbar, drawn as a progress indicator rather than left as OS chrome.
+ *
+ * Two options here, and this is the one taken:
+ *
+ *   - Hide it. `scrollbar-width: none` and the chrome is gone entirely. But that also removes the
+ *     only affordance that says a long page continues past the fold, and on a site whose premise is
+ *     that every edge is visible, hiding the scroll position is arguing against itself.
+ *   - Redraw it. A hairline track with a solid ink fill, which is the same construction as the grids
+ *     and the stats band. The bar then says something true: how far through the document you are.
+ *
+ * On macOS and iOS, "show scrollbars: when scrolling" draws an overlay scrollbar and ignores every
+ * rule below. Nothing can be done about that and nothing needs to be: an overlay scrollbar is
+ * already minimal, and it fades out on its own.
+ */
+
+html {
+  /*
+   * Reserve the gutter whether or not this particular page scrolls.
+   *
+   * The shell is centred with a max width, so a scrollbar arriving when a page grows past the fold
+   * shifts everything sideways by half its width -- a visible jump when moving between a short page
+   * and a long one. Reserving the space always removes the jump, and the reserved strip is paper
+   * coloured, so it is invisible.
+   *
+   * Safe unguarded: this conflicts with nothing below. The colouring and width properties do, which
+   * is what the `@supports` immediately after is for.
+   */
+  scrollbar-gutter: stable;
+}
+
+/*
+ * The standard scrollbar properties, scoped to Gecko.
+ *
+ * `-moz-appearance` is the discriminator: Firefox answers true, every other engine false.
+ *
+ * The scoping is not tidiness, it is the fix, and getting it wrong cost most of an afternoon. Measured
+ * on Chromium 154 against a 160px box, where the reserve is the layout width the bar costs:
+ *
+ *   neither property set ................ 15px, the engine's untouched default
+ *   both set, no `::-webkit-scrollbar` .. 10px, Chromium's own bar
+ *   both set AND the WebKit rules ....... 10px, demonstrably identical
+ *   WebKit rules alone, nothing set ..... 11px, the design below
+ *
+ * That third row is the whole problem. Chromium 121+ understands `scrollbar-width` and
+ * `scrollbar-color`, and setting either makes it **discard every `::-webkit-scrollbar` rule** and draw
+ * its own bar instead. So having them on `html` put a stock grey scrollbar -- rounded, not inset, no
+ * hairline track, arrow buttons restored -- on a page built entirely from hairlines, and left all
+ * eight rules below as dead code. Which is exactly what it looked like, and why editing the WebKit
+ * rules changed nothing at all.
+ *
+ * `scrollbar-width: thin` is not optional alongside the colours, either: Gecko ignores
+ * `scrollbar-color` at the default width, so setting one without the other does nothing.
+ */
+@supports (-moz-appearance: none) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--fg-faint) transparent;
+  }
+}
+
+/* Every scrollbar on the page, and there is only ever the page's own. */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+  background: transparent;
+}
+
+/*
+ * No arrow buttons, ever.
+ *
+ * Windows can draw stepper arrows at the ends of a scrollbar. They are the most dated thing a
+ * scrollbar can have, and `display: none` together with a zero size is the only way to be sure.
+ */
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/*
+ * The unfilled track: one hairline down the left edge, so the whole extent of the document is visible
+ * as an empty bar behind the fill. That hairline is what makes this read as a progress indicator
+ * rather than as a plain slider, and it is the same 1px the rest of the design is built from.
+ */
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-left: 1px solid var(--line);
+}
+
+/*
+ * The fill.
+ *
+ * `background-clip: content-box` with a transparent border is how a scrollbar is inset -- there is no
+ * padding to reach for here -- and the 3px border keeps the bar off both the window edge and the
+ * track's own hairline. Square corners, like everything else on the page.
+ *
+ * Faint at rest, ink on hover. The bar is furniture and should not compete with the content until
+ * you reach for it.
+ */
+::-webkit-scrollbar-thumb {
+  background-color: var(--fg-faint);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--fg);
+}
+
+/* Where the two bars meet. Left alone this is the one opaque rectangle on the page. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Type primitives                                                     */
+/* ------------------------------------------------------------------ */
+
+/* Anything that is an identifier -- a mod id, a path, a version, a field name -- is monospace. This
+   is the one typographic rule the whole aesthetic rests on: prose is sans, machine names are not,
+   and the difference is visible at a glance without a colour or a chip. */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  font-feature-settings: "calt" 0;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.muted {
+  color: var(--fg-muted);
+}
+
+.faint {
+  color: var(--fg-faint);
+}
+
+/*
+ * Visually hidden, available to a screen reader.
+ *
+ * Used by `ShuffledNumber`, which animates a copy of a figure and hides it from assistive tech while
+ * exposing a second copy that never moves. Without this the two would have to be one, and a reader
+ * landing on the page mid-animation would be told four digits of noise.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+}
+
+/* ------------------------------------------------------------------ */
+/* Layout                                                              */
+/* ------------------------------------------------------------------ */
+
+.shell {
+  max-width: var(--page);
+  margin: 0 auto;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+.masthead {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  height: var(--masthead);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+}
+
+.masthead>* {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  gap: var(--s2);
+  padding: 0 var(--s4);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-size: 15px;
+}
+
+/*
+ * The site's mark, beside the name it belongs to.
+ *
+ * **Two files, one per theme, and the CSS is the switch.** `mark-on-light.png` is the site's mark drawn
+ * in dark ink, which is what a light ground shows; `mark-on-dark.png` is the same drawing in light ink for
+ * a dark one. `[data-theme='dark']` picks between them — the attribute the toggle sets, so there is no
+ * JavaScript and no flash.
+ *
+ * **It is used in two places, and that is deliberate**: the masthead, and the colophon at the foot of the
+ * page. Both are the site's mark doing the site's job, so both draw from this one pair rather than
+ * from a copy — which is the same argument that made the tab icon name these files too.
+ *
+ * **The names describe the GROUND, and the sources do too.** The stellar sources in
+ * `design/brand-source/` are `stellar-logo-on-light.png` (dark ink) and `stellar-logo-on-dark.png`
+ * (light ink) — the same convention the rule below speaks, exported to `public/site/` by
+ * `scripts/mark.mjs`. A swap is still invisible — dark ink on the dark ground is a mark the same colour
+ * as the page, which reads as absent rather than as wrong — so `check.mjs` decodes both files and
+ * asserts which ink each one is drawn in.
+ *
+ * **A background image rather than an `<img>` and this is a measured decision, not a style one.** An
+ * `<img>` needs one element per theme with the other `display: none`, and a `display: none` image is
+ * still fetched: 49KB of PNG for a 28px mark, on every page. Two rules fetch exactly one file, because a
+ * browser fetches the background a rule *resolves to* and not the one it overrides. `<picture
+ * media="...">` is not an option either — it cannot see the `data-theme` attribute, which is the same
+ * reason the host's light/dark logo pair was retired.
+ *
+ * **And a raster cannot take `currentColor`, which is why this is not inlined like every other mark
+ * here.** The mod icons and the host's logo are vector shapes mapped to `currentColor` at build time, so
+ * one file works on either ground. That is not available for a PNG — the colour is in the pixels and no
+ * amount of CSS reaches into them. Two files is the honest consequence; inlining a base64 PNG would gain
+ * nothing and cost a third more bytes again.
+ *
+ * **28px, and the number comes from the artwork.** The exported files are 879x879 with the mark fitted
+ * to 684x688 — 77.8% of the box — so a 28px box draws the mark itself at about 21.8px, the footprint the
+ * previous mark had and the weight the wordmark beside it is cut to. Sizing this to 22px would draw the
+ * mark at 17px. `contain` cannot distort it, since the file is square.
+ *
+ * This replaced a 9px filled square, and before that the Modrinth profile picture — a downloaded
+ * photograph with no dark variant, and the only mark on the page that could go missing.
+ */
+.site-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: block;
+  background: center / contain no-repeat url("/site/mark-on-light.png");
+}
+
+/* The other half of the pair above. `background-image` alone, so the shorthand's other properties stand. */
+[data-theme="dark"] .site-mark {
+  background-image: url("/site/mark-on-dark.png");
+}
+/* The studio's own mark, drawing from the aaen pair rather than the site's: the colophon signs
+   the studio, and the studio's logo is the eye over the A-frame, not the stellar drawing the
+   masthead carries. Same size and mechanism as .site-mark, own pair of files. */
+.colophon-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: block;
+  background: center / contain no-repeat url("/site/aaen-mark-on-light.png");
+}
+
+[data-theme="dark"] .colophon-mark {
+  background-image: url("/site/aaen-mark-on-dark.png");
+}
+
+/*
+ * THE MARK FOLLOWS THE GROUND IT IS STANDING ON, AND THE COLOPHON IS THE ONE PLACE THAT MOVES.
+ *
+ * Every other user of this class sits still: the masthead does not hover. The colophon's row is a link,
+ * and a link inverts on hover here — `--inv-bg` under `--inv-fg` — so the ground beneath the mark flips
+ * for the duration. A raster cannot follow that on its own: the ink is in the pixels, so the *file* has
+ * to change, which is exactly what `--icon-ground` does for the vector marks that have knockouts. This is
+ * the same move by a different mechanism.
+ *
+ * **Two rules rather than one, because the inversion goes in opposite directions in the two themes.** On
+ * a light page the hovered ground is near-black, so the mark must go light; on a dark page it is
+ * near-white, so it must go dark. A single rule would be right in one theme and wrong in the other, and
+ * wrong here means invisible rather than merely off — the ink and the ground would be the same colour.
+ *
+ * The second selector is more specific than the first and than `[data-theme='dark'] .colophon-mark`, which is
+ * what makes it win in the theme it is for. `check.mjs` asserts both halves, so a swap cannot pass.
+ */
+.colophon-link:hover .colophon-mark {
+  background-image: url("/site/aaen-mark-on-dark.png");
+}
+
+[data-theme="dark"] .colophon-link:hover .colophon-mark {
+  background-image: url("/site/aaen-mark-on-light.png");
+}
+
+.masthead nav {
+  gap: 0;
+}
+
+/*
+ * One border, on one edge, for a link and a button alike.
+ *
+ * `border: 0` is not redundant with the `border-left` beneath it. A `<button>` carries a UA border on
+ * all four sides; an `<a>` carries none. Without the reset the theme toggle renders as a boxed control
+ * sitting in the middle of a row of plain cells, which is exactly what it did. The left edge is then
+ * supplied explicitly so the row's vertical rule stays continuous across the toggle.
+ */
+.masthead nav a,
+.masthead nav button {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--s4);
+  border: 0;
+  border-left: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  transition: background-color 0.12s linear, color 0.12s linear;
+  background: none;
+  cursor: pointer;
+}
+
+.masthead nav a:hover,
+.masthead nav button:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.band {
+  border-bottom: 1px solid var(--line);
+}
+
+.band-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------------ */
+/* Hero                                                                */
+/* ------------------------------------------------------------------ */
+
+.hero {
+  position: relative;
+  padding: var(--s9) var(--s4) var(--s8);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+/*
+ * The blueprint backdrop. This is the one place a gradient appears, and it is not a gradient --
+ * it is two repeating 1px lines, which is the aesthetic's own subject rendered as texture. Masked
+ * on an ellipse so it reads as a grid receding, not as a tiled background image.
+ *
+ * No solid plateau: `#000 20%, transparent 72%` was the first version, and 20% of a 944px radius is
+ * a 189px fully-opaque disc, which ends on an arc. The texture stopped at a visible curve about a
+ * third of the way across rather than dispersing. Fading from 0 gives the falloff it needs.
+ */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 90% at 12% 0%, #000 0%, transparent 68%);
+  mask-image: radial-gradient(ellipse 80% 90% at 12% 0%, #000 0%, transparent 68%);
+  pointer-events: none;
+}
+
+.hero>* {
+  position: relative;
+}
+
+.hero h1 {
+  font-size: clamp(30px, 4.6vw, 52px);
+  letter-spacing: -0.04em;
+  line-height: 1.06;
+  margin-top: var(--s4);
+  max-width: 20ch;
+  text-wrap: balance;
+}
+
+.hero .sub {
+  margin-top: var(--s5);
+  max-width: 52ch;
+  color: var(--fg-muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+/* ------------------------------------------------------------------ */
+/* The grid -- the one component the aesthetic is built around          */
+/* ------------------------------------------------------------------ */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.grid>* {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: var(--s4);
+  min-width: 0;
+  display: block;
+}
+
+.grid-filler {
+  padding: 0;
+}
+
+/* Hover inverts. An inversion says "this is a surface you can act on" without a tint, a shadow or a
+   lift -- all of which would break the flatness the whole style depends on. */
+.grid-cell {
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.12s linear, color 0.12s linear;
+
+  /*
+   * Positioned, because a link inside this cell is stretched across the whole of it.
+   *
+   * `.cell-link::after` is absolutely positioned against this box, so the cell is the containing block
+   * for a link that is only as wide as the words "docs ↗" in the markup. Nothing else in the cell needs
+   * to change for that to work, which is why it is worth naming: without it the overlay resolves against
+   * the nearest positioned ancestor instead — the page — and every cell in the first band becomes a link
+   * to its docs from anywhere on the site.
+   */
+  position: relative;
+}
+
+/*
+ * THE ELEMENT QUALIFIER IS GONE FROM THIS BLOCK, AND THAT IS LOAD-BEARING RATHER THAN TIDYING.
+ *
+ * Every selector here was `a.grid-cell`, because every cell that inverts was an `<a>` element. One of
+ * them is not any more: a cell carrying a repository link cannot be an anchor, since an anchor cannot
+ * contain one, so it is a `<div>` — see `SuiteCell` in `page.tsx`. Left as they were, none of these
+ * rules would match the two cells at the top of the catalog. No inversion, no ink ground, no knockouts
+ * for the marks. No error and no warning either, because CSS does not report a selector that matches
+ * nothing: a cell simply stops responding to the pointer. `check.mjs` asserts the qualifier has not come
+ * back.
+ *
+ * The class is only ever on a cell that leads somewhere — a suite cell that has documentation, and every
+ * released cell. A mod with no `docs/` folder is a plain `.pub-cell` and does not invert, because it is
+ * not a destination and should not claim to be one.
+ */
+.grid-cell:hover {
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+}
+
+.grid-cell:hover .summary,
+.grid-cell:hover .meta {
+  color: var(--inv-faint);
+}
+
+.grid-cell:hover .meta {
+  border-top-color: var(--inv-line);
+}
+
+.grid-cell:hover .kind,
+.grid-cell:hover .cell-index {
+  color: var(--inv-faint);
+}
+
+/*
+ * The two links in a cell's footer row: `github ↗ · docs ↗`.
+ *
+ * The row itself is `.meta`, which is `space-between` — status left, destinations right — so these are a
+ * flex row of their own rather than two items loose in it. Three children under `space-between` would
+ * spread the status and the two links apart as three peers, which is not what the row means.
+ */
+.cell-links {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+}
+
+.cell-links a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  transition: color 0.12s linear;
+}
+
+/*
+ * THE STRETCHED LINK: the cell's own destination, whose target is the whole cell.
+ *
+ * `inset: 0` is on the pseudo-element rather than on the anchor, because the anchor is an inline box in a
+ * flex row — giving *it* the cell's dimensions would drag the words "docs ↗" out of the row they belong
+ * to and put them top-left. The pseudo-element is a box the anchor owns that the layout flow never sees.
+ *
+ * This is what replaced wrapping the cell in an `<a>`, which was simpler and is no longer possible: the
+ * repository link is a second destination in the same cell, and an anchor cannot contain one. See
+ * `SuiteCell`.
+ *
+ * **What it costs, stated rather than discovered:** text in the cell can no longer be selected by
+ * dragging, because a transparent box is over it. Inside an `<a>` it could. That is the trade the
+ * stretched-link pattern always makes and it is invisible unless somebody tries to copy the summary. The
+ * alternative — two real links and no whole-cell target — makes the commonest action on the page, opening
+ * a mod's docs, require aiming at a 40px label.
+ */
+.cell-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+/*
+ * ...and the repository link sits above that overlay.
+ *
+ * Two links cannot occupy the same pixels, so this is what keeps the second one a destination rather than
+ * part of the first: raised by one z-index, it takes the pointer inside its own box and hands everything
+ * else to the overlay beneath it. `position: relative` is not decoration — a z-index on a static element
+ * is ignored, and the link would look exactly the same while being unreachable.
+ */
+.cell-repo {
+  position: relative;
+  z-index: 1;
+}
+
+/* Both links light up on the ground they are actually standing on: paper at rest, the inversion while
+   the cell is hovered. `--fg` would be the wrong value on the ink ground and `--inv-fg` the wrong one on
+   the paper ground, so the two are stated rather than shared. */
+.cell-links a:hover {
+  color: var(--fg);
+}
+
+.grid-cell:hover .cell-links a:hover {
+  color: var(--inv-fg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Cell                                                                */
+/* ------------------------------------------------------------------ */
+
+.pub-cell {
+  gap: var(--s2);
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cell header: a version or kind on the left, loaders on the right. */
+.cell-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+}
+
+.cell-index {
+  color: var(--fg-faint);
+}
+
+.kind {
+  color: var(--fg-faint);
+  text-transform: uppercase;
+}
+
+.pub-cell .name {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-top: var(--s1);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* ------------------------------------------------------------------ */
+/* The mod marks                                                       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A mod's icon, inlined into the page rather than loaded as an image.
+ *
+ * Two things it needs, and both come from tokens rather than from the file:
+ *
+ *   - `color` is what the glyph's `currentColor` resolves to, so it follows the text wherever it sits —
+ *     including the catalog's hover inversion, where the text turns to paper.
+ *   - `--icon-ground` is the **knockout** colour: the bits of the glyph that show the backdrop through.
+ *     It has to be re-declared wherever the ground inverts, which is exactly what happens on a catalog
+ *     cell. Pointing the knockouts at `--bg` instead looked right and was wrong — on a hovered cell it
+ *     revealed a colour that was not behind the glyph at all.
+ *
+ * This is the one place in the design where a component sets a custom property for its own children to
+ * read, and it is doing it because the SVG cannot know what it is standing on.
+ */
+.mod-icon {
+  --icon-ground: var(--bg);
+  flex: none;
+  display: block;
+  color: inherit;
+}
+
+/*
+ * A cell that inverts on hover moves its ground, so the knockouts move with it.
+ *
+ * Only the catalog cells. The sponsor band inverts too, and its mark is inlined for the same reason the
+ * mod glyphs are — but it is a different element in a different component, and
+ * `.sponsor-link:hover .brand-mark` already carries its override. Both tokens happen to point at
+ * `--inv-bg`; they are separate rules because a selector reaching from one component into the other would
+ * break the day either moved.
+ *
+ * No element qualifier here either — see the note where the `.grid-cell` hover rules are. Two of the
+ * cells this has to match are `<div>`s.
+ */
+.grid-cell:hover .mod-icon {
+  --icon-ground: var(--inv-bg);
+}
+
+/*
+ * No icon yet: a dashed slot the same size as the real marks.
+ *
+ * Deliberately visible. A row that simply has no icon shifts left and reads as a mod that is somehow
+ * different from its neighbours; an empty dashed square reads as a slot waiting to be filled, which is
+ * what it is. The same instinct as a typed-but-not-yet-live link: show the gap rather than hide it.
+ */
+.mod-icon-empty {
+  border: 1px dashed var(--fg-faint);
+  opacity: 0.6;
+}
+
+/* The section label in the docs rail, with its mark. */
+.sidebar-label {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.pub-cell .summary {
+  color: var(--fg-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  flex: 1;
+}
+
+/*
+ * The name in a cell that leads nowhere is dimmed, and **the test is the class rather than the element.**
+ *
+ * This was `.pub-cell:not(a) .name`, which dimmed the name of any cell that was not an anchor. That used
+ * to mean exactly one thing: a mod with no `docs/` folder, which is a `<div>` and has no destination. It
+ * no longer means that, because a suite cell with documentation is a `<div>` too — it has to be, to hold
+ * two links — so `:not(a)` would have quietly greyed out the names of the two most important cells on the
+ * page while every other rule went on working.
+ *
+ * `:not(.grid-cell)` says the thing that was always meant: dim the name when the cell does not lead
+ * anywhere. The class is the cell's own marker for being a destination.
+ */
+.pub-cell:not(.grid-cell) .name {
+  color: var(--fg-muted);
+}
+
+.pub-cell .meta {
+  display: flex;
+  gap: var(--s3);
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding-top: var(--s3);
+  margin-top: var(--s2);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-faint);
+  letter-spacing: 0.04em;
+}
+
+/* The download line in a released cell. Ink for the figure, faint for the word after it, so the eye
+   lands on the count rather than on "downloads". */
+.nums {
+  color: var(--fg);
+}
+
+.nums b {
+  font-weight: 600;
+}
+
+/*
+ * The animated figure.
+ *
+ * `display: inline-block` so the tabular figures are honoured as a box rather than being broken across
+ * a line, and `min-width` is deliberately not set here: the width comes from the characters, and
+ * `tabular-nums` keeps that constant as digits change.
+ */
+.shuffle {
+  display: inline-block;
+}
+
+/*
+ * Fixed-width figures.
+ *
+ * A number that is being scrambled must not change width while it does, or the layout shifts under it
+ * on every frame -- which is the one real failure mode a shuffle effect has. Monospace already gets
+ * this most of the way; `tabular-nums` covers a proportional fallback font, where the digit advance
+ * widths would otherwise differ between "1" and "8".
+ */
+.nums b,
+.hero-total b,
+.shuffle {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The cell's own destination, and the only link here that is not in the footer row.
+ *
+ * The figure is ink and the word after it is faint, so the eye lands on the count rather than on
+ * "downloads". `.grid-cell:hover` carries no element qualifier — see the note on the hover block above.
+ */
+.grid-cell:hover .nums {
+  color: var(--inv-fg);
+}
+
+/*
+ * The one big number on the page, and the loudest thing on it by a wide margin.
+ *
+ * It is the first thing a visitor should see, and it is the only figure that is allowed to be this
+ * large -- everything else on the site is 10.5px to 16px. Size carries the emphasis rather than colour
+ * or weight, because those are spoken for: ink is already the strongest value available and the design
+ * has no second colour to reach for.
+ */
+.hero-total {
+  margin-top: var(--s6);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: baseline;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  width: fit-content;
+}
+
+.hero-total b {
+  font-family: var(--font-mono);
+  /* 88px at the top end. Roughly twice the page's h1, which is the largest other type here. */
+  font-size: clamp(44px, 8vw, 88px);
+  font-weight: 700;
+  /* Tighter than the rest of the site's tracking: at this size the default looks loose. */
+  letter-spacing: -0.05em;
+  line-height: 1;
+  /* Stated, not inherited. See the note on the label below -- this is the value that got lost. */
+  color: var(--fg);
+}
+
+/*
+ * The label beside the figure. **A direct child, and that is the fix.**
+ *
+ * This was `.hero-total span` -- a descendant selector -- which also matched the two spans
+ * `ShuffledNumber` renders *inside* the `<b>`: `.shuffle` for the animated copy and `.sr-only` for the
+ * static one. So the number itself was being painted in the faint grey meant for the word after it,
+ * and had been since the shuffle effect landed.
+ *
+ * The failure is worth recognising: the figure and its label were the same grey at 28px and 11px, so
+ * nothing looked *broken* -- the number just read as a caption instead of as the headline. A selector
+ * that matches more than intended rarely produces something obviously wrong; it produces something
+ * quietly worse than intended.
+ *
+ * `> span` cannot reach inside the `<b>`, and the colour is set on `b` as well, so neither rule can
+ * undo the other.
+ */
+.hero-total>span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+/* ------------------------------------------------------------------ */
+/* Elsewhere                                                           */
+/* ------------------------------------------------------------------ */
+
+.about {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.about>* {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: var(--s5) var(--s4);
+  min-width: 0;
+}
+
+.about p {
+  color: var(--fg-muted);
+  max-width: 52ch;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.about p+p {
+  margin-top: var(--s3);
+}
+
+/* Profile rows: label left, handle right, monospace, hairline separated. */
+.links {
+  display: flex;
+  flex-direction: column;
+}
+
+.links a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--line);
+  transition: color 0.12s linear;
+}
+
+.links a:first-child {
+  padding-top: 0;
+}
+
+.links a:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.links a:hover {
+  color: var(--fg);
+}
+
+.links .link-label {
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.links .link-handle {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-faint);
+}
+
+.links a:hover .link-handle {
+  color: var(--fg-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Prose -- rendered markdown                                          */
+/* ------------------------------------------------------------------ */
+
+.prose {
+  max-width: var(--measure);
+}
+
+.prose>*+* {
+  margin-top: var(--s3);
+}
+
+.prose h1 {
+  font-size: 24px;
+  letter-spacing: -0.03em;
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
+  margin-top: var(--s5);
+}
+
+.prose h2 {
+  font-size: 17px;
+  margin-top: var(--s6);
+  padding-bottom: var(--s1);
+  border-bottom: 1px solid var(--line);
+}
+
+.prose h3 {
+  font-size: 14px;
+  margin-top: var(--s5);
+}
+
+.prose p,
+.prose li {
+  color: var(--fg-muted);
+}
+
+.prose strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.prose a {
+  color: var(--fg);
+  border-bottom: 1px solid var(--line-ink);
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  padding: 1px 4px;
+}
+
+.prose pre {
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  padding: var(--s3);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: var(--s5);
+}
+
+.prose blockquote {
+  border-left: 2px solid var(--line-ink);
+  padding-left: var(--s3);
+  color: var(--fg-muted);
+}
+
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid var(--line);
+  padding: var(--s2) var(--s3);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  background: var(--bg-sunken);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Docs                                                                */
+/* ------------------------------------------------------------------ */
+
+.docs {
+  /*
+   * The air either side of the prose.
+   *
+   * One token, because it has to be equal on both sides and it is applied in two different places:
+   * `.docs-body` supplies the left, and the page grid's `column-gap` supplies the right. Two
+   * hardcoded values would drift — and the whole reason this exists is that they had: 32px of air on
+   * the left, and none at all on the right, so the prose and its callouts ran straight into the
+   * contents rail's border. `check.mjs` asserts both uses resolve to this one token.
+   *
+   * Declared here rather than higher up because this is the outermost element both users sit inside.
+   */
+  --docs-gutter: var(--s6);
+
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  flex: 1;
+  align-items: stretch;
+}
+
+/*
+ * The left rail pins to the masthead, exactly as the contents rail on the right does.
+ *
+ * It did not, and the symptom was a column of blank paper: the right rail stuck while the left scrolled
+ * away, so on any page taller than a screen the navigation had left before the reader wanted it. Two
+ * rails, two behaviours, and the one that moved was the one you navigate with.
+ *
+ * `align-self: start` is what makes it work. `.docs` stretches its children to full height by default,
+ * and a stretched grid item has no height to stick within — it is already as tall as the container, so
+ * `position: sticky` has nothing to scroll against. Shrinking it to its own content gives the sticky
+ * something to move inside, and the `max-height` then keeps a long list scrolling within the rail
+ * rather than pushing the page longer.
+ *
+ * **The rail scrolls independently AND shows no scrollbar**, which are two separate properties and both
+ * deliberate:
+ *
+ *   - `overflow-y: auto` with a `max-height` is what makes it scroll on its own rather than with the
+ *     page. The page's own scroll never moves this rail, and this rail's scroll never moves the page.
+ *   - The scrollbar is suppressed, so the rail reads as a clean column of links rather than as a second
+ *     scrollable region competing with the page's own.
+ *
+ * This is the *opposite* of the decision made for the page scrollbar, and the difference is worth being
+ * clear about. On the page, the scrollbar is the only affordance saying a long document continues past
+ * the fold, so it was redrawn rather than hidden — a design that hides its own scroll position is
+ * arguing against itself. Here the rail holds a handful of navigation links, the whole point is that it
+ * is uncluttered, and the list fits in one screen on every page that exists. When a rail is genuinely
+ * taller than the viewport the wheel still scrolls it; what is lost is only the indicator.
+ */
+.sidebar {
+  height: 100%;
+  border-right: 1px solid var(--line);
+  padding: var(--s5) 0;
+
+  position: sticky;
+  top: var(--masthead);
+  align-self: start;
+  max-height: calc(100vh - var(--masthead));
+  overflow-y: auto;
+
+  /*
+   * Both mechanisms, because they cover different engines — and here they cannot conflict.
+   *
+   * `scrollbar-width: none` is the standard property: Firefox and Chromium 121+ honour it.
+   *
+   * The `::-webkit-scrollbar` rule below is for older Chromium. It is worth knowing that on a *modern*
+   * Chromium this rule is dead code, because setting `scrollbar-width` makes Chromium discard every
+   * `::-webkit-scrollbar` rule — the trap that cost an afternoon when the page scrollbar was being
+   * drawn. That trap only bites when the two mechanisms disagree about *what* to draw. Here they both
+   * hide the bar, so whichever one wins the result is identical, and having both is just belt and
+   * braces rather than a conflict.
+   */
+  scrollbar-width: none;
+}
+
+/* The older-Chromium half of the pair above. See the note on the rule. */
+.sidebar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.sidebar-section {
+  padding: var(--s2) var(--s4) var(--s4);
+}
+
+.sidebar-section ul {
+  list-style: none;
+  margin-top: var(--s2);
+}
+
+.sidebar-section li a {
+  display: block;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--fg-muted);
+  transition: color 0.1s linear;
+}
+
+.sidebar-section li a:hover {
+  color: var(--fg);
+}
+
+/*
+ * Horizontal padding only, and no top padding, and that is load-bearing.
+ *
+ * The contents rail is sticky, so it is positioned from the viewport — while its *flow* position is
+ * whatever the layout puts it at. It only pins once scrolling brings the flow position across the
+ * sticky `top`, so if the two disagree the rail renders low on load and visibly slides upward as you
+ * scroll. A top padding here pushed both columns down while the sticky offset knew nothing about it.
+ *
+ * The top offset now lives on `.docs-page` as `--docs-top`, where the sticky position can see it. Any
+ * padding added here would reintroduce the jump.
+ *
+ * The horizontal value is the shared gutter token — the left half of a pair whose right half is the
+ * page grid's `column-gap`. See the note on `.docs`.
+ */
+.docs-body {
+  padding: 0 var(--docs-gutter) var(--s7);
+  min-width: 0;
+}
+
+.lede {
+  margin-top: var(--s2);
+  padding-bottom: var(--s4);
+  border-bottom: 1px solid var(--line);
+  max-width: var(--measure);
+}
+
+/*
+ * Next's dev-tools badge is switched off in next.config.mjs (`devIndicators: false`), not here.
+ *
+ * The tempting line is `nextjs-portal { display: none !important; }` -- the badge lives in a shadow
+ * root inside that element, so it does remove the badge. It also removes the error overlay, and a
+ * stylesheet cannot reach into a shadow root to hide one and keep the other. The config key turns off
+ * the badge alone, which is why it is the right tool despite being further away.
+ */
+
+/* ------------------------------------------------------------------ */
+/* The sponsor band                                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The host, and the second-to-last row on every page.
+ *
+ * **It was given its own band so it would not read as part of the site's colophon.** That colophon was
+ * the footer — the domain, then links to where else the work lives — and a paid arrangement dropped
+ * into that list would have been posing as one of those, which is the thing the disclosure exists to
+ * avoid. The footer has since gone as redundant, and the band stays a band regardless: it is plainly a
+ * separate row with a separate purpose, and it reads as one more hairline-separated row.
+ *
+ * **This comment used to say it was the last row on the page, and it no longer is.** The colophon follows
+ * it, which is the site's own voice rather than a paid one, and that is the better arrangement for both:
+ * the band is plainly its own band, and a paid row is nobody's last word. `check.mjs` asserts the order
+ * rather than each row's position, so adding something below the colophon later does not fail the build.
+ *
+ * **There is no head strip, and `check.mjs` asserts that.** There used to be one, carrying the host's name
+ * and its `Hosting partner` chip above the row. It cost a full band of vertical space to repeat a name that the
+ * mark's own wordmark already gives at the left of the row, and the chip belongs beside the thing it
+ * qualifies rather than above it — so the strip is gone and the chip sits inside, next to the tagline. The
+ * band is about half the height it was, and one assertion exists purely so a later edit cannot put the
+ * second bar back without saying so.
+ */
+.sponsor {
+  border-top: 1px solid var(--line);
+}
+
+/*
+ * The trust mark. Deliberately the quietest thing in the band.
+ *
+ * The same construction as `.maturity` and `.since` — hairline border, no fill, tiny uppercase mono — so
+ * it reads as one of the site's own chips rather than as a badge imported from somewhere else. It takes
+ * the faint colour and only 9px, which is smaller than anything else on the page: visible on inspection,
+ * invisible unless you look, which is what "subtle" has to mean for a mark that is also a claim.
+ *
+ * **It sits inside the link now, and it did not before.** It was in the head strip, deliberately outside
+ * the `<a>`, on the argument that a decoration the reader can click would behave like a destination. That
+ * argument was about a *head strip* — a place the reader was not already clicking. The chip is now part of
+ * the row that is one link to the host, so it adds no click target and no second destination: every pixel
+ * of that row already navigates there. What made the old placement worth the trouble is gone with the
+ * strip, and `check.mjs` records the reversal rather than quietly dropping the assertion.
+ *
+ * **And it follows the hover inversion**, which the old one had no reason to. The row inverts under it, so
+ * a colour that stayed put would be faint-on-ink against a near-black ground — *invisible*, not merely
+ * off — and that is easy to miss because the un-hovered state is correct.
+ */
+.sponsor-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.sponsor-link:hover .sponsor-badge {
+  color: var(--inv-faint);
+  border-color: var(--inv-line);
+}
+
+/*
+ * The tick.
+ *
+ * Slightly larger than the label, because a checkmark at 9px is a smudge — it needs a pixel more to read
+ * as a mark rather than as punctuation. `line-height: 1` so it cannot stretch the chip's own height.
+ */
+.sponsor-badge > [aria-hidden] {
+  font-size: 10px;
+  line-height: 1;
+}
+
+/*
+ * One row: the logo, what the offer is, where it goes.
+ *
+ * `flex-wrap` so the CTA drops to a second line on a narrow screen rather than squeezing the copy, and
+ * `align-items: center` because the logo is an image with its own baseline and would otherwise sit high.
+ */
+.sponsor-link {
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+  padding: var(--s4);
+  transition: background-color 0.12s linear, color 0.12s linear;
+}
+
+/*
+ * Hover inverts the whole row, like every other clickable surface here. An inversion is structure; a
+ * tint or a lift-off shadow would be decoration, and this design has neither.
+ */
+.sponsor-link:hover {
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+}
+
+/*
+ * THE HOST'S MARK, INLINE — the same treatment as the mod icons, and for the same reason.
+ *
+ * It takes its ink from `currentColor` and its knockouts from `var(--icon-ground)`. Both are page CSS, and
+ * an SVG inside an `<img>` is a separate document that cannot see any of it — the ink would fall back to
+ * black and the hexagon's interior would fill in solid. It would look right in light mode, which is
+ * exactly why it is not something to judge by eye.
+ *
+ * **This replaced two files and four rules.** There used to be a light and a dark SVG with
+ * `[data-theme='dark']` and `:hover` selectors switching between two `<img>` elements. Once the mark
+ * takes its colour from the page there is one file and nothing to switch.
+ */
+.brand-mark {
+  --icon-ground: var(--bg);
+  flex: none;
+  display: block;
+  color: inherit;
+}
+
+/* A hovered sponsor row inverts its ground, so the mark's knockouts move with it. */
+.sponsor-link:hover .brand-mark {
+  --icon-ground: var(--inv-bg);
+}
+
+.sponsor-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* A row rather than a line of text, because the `Hosting partner` chip sits in it beside the tagline. `center`
+   rather than `baseline`: the chip is a bordered box, and a box aligned on the text baseline sits visibly
+   low next to it. `wrap` so the chip drops to its own line on a narrow screen instead of squeezing the
+   tagline. */
+.sponsor-tagline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.sponsor-offer {
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+
+.sponsor-link:hover .sponsor-offer {
+  color: var(--inv-faint);
+}
+
+/*
+ * THE DISCLOSURE, WHERE IT APPLIES.
+ *
+ * It used to be an uppercase `SPONSORED` label in the band head — the same construction and the same
+ * place a section's label goes. That is the conventional spot, and it was still wrong here: the band head
+ * sits directly above the colophon's own `ENGINEERED & MAINTAINED BY` strip, and two small uppercase
+ * labels stacked at the foot of a page read as *one heading over both rows*. The studio's name ended up
+ * looking like part of the sponsorship.
+ *
+ * So it moved into the row it describes, at the same size and in the same faint mono as the band's other
+ * small print. It now reads as a footnote to *this offer* rather than as a heading — which is the whole
+ * difference, and it is not a downgrade in honesty: the offer and the code are right beside it, so the
+ * claim and the thing it is about are in one glance instead of two.
+ *
+ * `check.mjs` asserts it is present, that the section still names itself for a screen reader, and that no
+ * `>Sponsored<` element text is left above the row.
+ */
+.sponsor-disclosure {
+  margin-left: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--fg-faint);
+}
+
+.sponsor-link:hover .sponsor-disclosure {
+  color: var(--inv-faint);
+}
+
+/*
+ * The discount code.
+ *
+ * Mono and boxed, because it is an identifier rather than prose — the same rule that sets a path or a
+ * mod id in monospace, and the reason it reads as something to copy rather than as part of the sentence.
+ * The border is a hairline like everything else, and it goes faint-on-ink under the hover inversion.
+ */
+.sponsor-code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-ink);
+  color: var(--fg);
+  background: var(--bg-sunken);
+}
+
+.sponsor-link:hover .sponsor-code {
+  color: var(--inv-fg);
+  background: transparent;
+  border-color: var(--inv-line);
+}
+
+/* The host, sans-serif in the copy and mono in the URL — the destination is an identifier, so it is not
+   set as a sentence. */
+.sponsor-cta {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--fg-faint);
+}
+
+.sponsor-link:hover .sponsor-cta {
+  color: var(--inv-faint);
+}
+
+@media (max-width: 700px) {
+  .sponsor-link {
+    gap: var(--s4);
+    flex-wrap: wrap;
+  }
+
+  /* The CTA goes under the copy rather than squeezing it. */
+  .sponsor-cta {
+    width: 100%;
+    padding-top: var(--s2);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The colophon                                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The studio's signature: who publishes this site, at the very foot of every page.
+ *
+ * **It is the last row, and it is deliberately below the sponsor band.** The band was given its own row
+ * so it would not read as part of the site's colophon, and it used to be the last thing on the page
+ * because nothing followed it. Now the page ends the way most printed work does — with the colophon —
+ * rather than on a paid row. Both facts stay true: the band is still its own band, and it is no longer
+ * the last word on the page.
+ *
+ * **One row, hairline-separated, and nothing else.** The structure is the one the "Elsewhere" rows
+ * already use — a name at the left, a handle pushed to the right — because it is the same kind of fact:
+ * a label, and where it points. No head strip — and neither has the band above it any more, which is what
+ * keeps two small uppercase strips from stacking at the foot of the page and reading as one heading over
+ * both rows.
+ *
+ * **`.footer` is still retired and this class is not it.** What was wrong with the old footer was its
+ * contents: it repeated the masthead's own links, which is why it read as furniture. `check.mjs` asserts
+ * the platform domains appear nowhere in this row, so the thing that was removed cannot come back under a
+ * new name.
+ */
+.colophon {
+  border-top: 1px solid var(--line);
+}
+
+/*
+ * A clickable surface, so it inverts on hover — the same rule the rest of the site follows, and the
+ * reason the mark inside it needs the pair of rules near `.site-mark`. Without those it would be a mark
+ * the same colour as the ground it had just flipped to.
+ */
+.colophon-link {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4);
+  transition: background-color 0.12s linear, color 0.12s linear;
+}
+
+.colophon-link:hover {
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+}
+
+/*
+ * The sentence, and the name in the prose face against the micro-label — the same construction as the
+ * band head's `Sponsored` + host, so the two rows at the foot of the page read as the same kind of thing
+ * even though one is paid and one is the site's own voice.
+ *
+ * `align-items: baseline` because the two halves are 11px and 14px, and centring them would sit the small
+ * caps off the line the eye is reading along.
+ */
+.colophon-label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* `margin-left: auto` rather than `justify-content: space-between`, so the gap stays put if the sentence
+   ever wraps — the domain stays at the end rather than the two halves spreading apart. */
+.colophon-domain {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--fg-faint);
+}
+
+/* The two faded halves of the inverted row, exactly as the band's offer and CTA do it. */
+.colophon-link:hover .label,
+.colophon-link:hover .colophon-domain {
+  color: var(--inv-faint);
+}
+
+/* ------------------------------------------------------------------ */
+/* Narrow screens                                                      */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+  .about {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding: var(--s8) var(--s4) var(--s7);
+  }
+}
+
+@media (max-width: 700px) {
+  .shell {
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-filler {
+    display: none;
+  }
+
+  .masthead nav a,
+  .masthead nav button {
+    padding: 0 var(--s3);
+  }
+
+  .masthead .nav-secondary {
+    display: none;
+  }
+
+  .docs {
+    grid-template-columns: 1fr;
+    /* The prose keeps its own top offset on narrow screens too, so this must not add one. */
+    --docs-gutter: var(--s4);
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    /* One column, so there is nothing to stick beside. A pinned nav would eat the whole viewport. */
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+    /* And with nothing to scroll there is no bar to suppress; the earlier rule is inert here. */
+  }
+
+  .docs-body {
+    padding: 0 var(--docs-gutter) var(--s5);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Motion, for readers who asked for less of it                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Every transition on this site is CSS — the 0.12s of colour on a hover, on a link, on the theme
+ * switch — and none of them read `prefers-reduced-motion` until this rule.
+ *
+ * The two animated components (`ShuffledNumber`, and the contents rail's scroll) already honour the
+ * preference in JavaScript, because their motion is script and a media query cannot reach it. This
+ * is the other half: the half that is stylesheet, which is most of it.
+ *
+ * `0.01ms` rather than `transition: none`, and `!important` rather than a selector list. Zero can
+ * skip a `transitionend` event entirely; the shorter duration keeps the event and removes the wait,
+ * and nothing here is relying on it either way. The list of selectors that transition would be the
+ * alternative to `!important`, and it is a list that goes stale the first time somebody adds a
+ * hover state without reading this far.
+ *
+ * There is no CSS `animation` on the site today. `animation-duration` is here so the first one that
+ * arrives is covered by this rule rather than being a bug report from a reader who asked for less
+ * motion and watched something move anyway.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
