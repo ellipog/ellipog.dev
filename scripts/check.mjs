@@ -386,7 +386,7 @@ if (docsIndex) {
    */
   const from = docsIndex.indexOf('class="contents"');
   const contents = from === -1 ? '' : docsIndex.slice(from, docsIndex.indexOf('</article>', from));
-  for (const title of ['Tasked documentation', 'Design preview', 'Armature documentation']) {
+  for (const title of ['Tasked documentation', 'KubeJS scripting', 'Armature documentation']) {
     check(`/docs/ lists "${title}"`, contents.includes(title));
   }
 }
@@ -807,7 +807,7 @@ console.log('\n== the tab title ==');
  */
 const homeTitle = titleOf(home);
 const docsTitle = titleOf(read(`${OUT}/docs/tasked/index.html`));
-const subPageTitle = titleOf(read(`${OUT}/docs/tasked/design-preview/index.html`));
+const subPageTitle = titleOf(read(`${OUT}/docs/tasked/kubejs/index.html`));
 const docsIndexTitle = titleOf(read(`${OUT}/docs/index.html`));
 const glossaryTitle = titleOf(read(`${OUT}/docs/glossary/index.html`));
 
@@ -823,14 +823,14 @@ check('the docs index names itself', docsIndexTitle === 'ellipog.dev | Documenta
 check('a reference page still gets the pipe', glossaryTitle === 'ellipog.dev | Glossary', glossaryTitle ?? '');
 
 /*
- * A sub-page is qualified with its mod because its own title names nothing: `Design preview` alone is a
+ * A sub-page is qualified with its mod because its own title names nothing: `KubeJS scripting` alone is a
  * tab that could belong to any site. A section front page is not, because it is already titled `Tasked
  * documentation` and qualifying it again would read as `Tasked — Tasked documentation`. Both halves are
  * asserted, since either one passing alone is consistent with the rule being wrong in one direction.
  */
 check(
   'a sub-page names the mod it belongs to',
-  subPageTitle === 'ellipog.dev | Tasked — Design preview',
+  subPageTitle === 'ellipog.dev | Tasked — KubeJS scripting',
   subPageTitle ?? 'no <title>',
 );
 check('a section front page is not qualified twice', !/Tasked — Tasked/.test(docsTitle ?? ''), 'no repeated mod name');

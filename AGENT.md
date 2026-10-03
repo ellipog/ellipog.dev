@@ -177,7 +177,10 @@ Three properties, and each is the reason to use it over a URL:
 - **A link to a page that does not exist fails the build**, naming the file it was found in. The error
   distinguishes "no such mod" from "that mod has no such page", because those are different mistakes.
 - **`index` is how you reach a section's front page.** `[[armature:index]]`, or `[[armature:]]`, which
-  reads more naturally when the link *is* the section.
+  reads more naturally when the link *is* the section. A subfolder's own `index.md` is reached by its
+  folder name — `[[armature:toolkit]]` — and the root's `index` stays the root: every index used to
+  claim `mod:index`, so a nested index silently replaced the mod's front page rather than being
+  addressable at all.
 
 A colon means a cross-mod link. No colon means a glossary term — the two can never be confused.
 

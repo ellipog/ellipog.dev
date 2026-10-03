@@ -277,10 +277,13 @@ function discover(mod) {
     const page = { file, raw, slugged, isIndex, parts, slugPath, title, url };
 
     pages.push(page);
-    // `mod:index` for a section root, and `mod:guides/tasks` for a nested page. A section's own index
-    // is also addressable by its bare mod id, since that reads more naturally for a whole section.
-    pageIndex.set(`${mod.id}:${isIndex ? 'index' : slugPath.join('/')}`, page);
-    if (isIndex) pageIndex.set(`${mod.id}:`, page);
+    // Keys: the root index answers to `mod:index` and to the bare mod id, because that reads more
+    // naturally for a whole section. A nested index answers to its own folder path -- `mod:toolkit` --
+    // which is what keeps it addressable. Before this, every `index.md` claimed `mod:index`, so a
+    // subfolder's front page silently replaced the mod's own: the link resolved, to the wrong page.
+    const key = isIndex ? slugPath.join('/') || 'index' : slugPath.join('/');
+    pageIndex.set(`${mod.id}:${key}`, page);
+    if (isIndex && slugPath.length === 0) pageIndex.set(`${mod.id}:`, page);
   }
 
   return { mod, status: 'synced', pages, repoDir: where.dir, source: where.source };
@@ -427,11 +430,16 @@ function writeMod(section) {
     const body = transformBody(stripLeadingHeading(sourceBody), where);
     // Only `maturity` is read from the source's own frontmatter; the rest is generated. See declaredKey.
     const maturity = declaredKey(page.raw, 'maturity');
-    const target = page.isIndex ? [out, 'index.mdx'] : [out, ...page.parts.map((p) => p.toLowerCase()), `${page.slugged}.mdx`];
+    // The folder is the URL for an index too: `toolkit/index.md` writes `toolkit/index.mdx`. Every
+    // index used to write the mod's root `index.mdx`, so a subfolder's front page replaced the mod's
+    // own -- the landing page vanished from the site with nothing in the log to say so.
+    const target = [out, ...page.parts.map((p) => p.toLowerCase()), `${page.slugged}.mdx`];
     write(join(...target), frontmatter(page.title, '', maturity ? { maturity } : {}) + body);
   }
 
-  if (!pages.some((p) => p.isIndex)) {
+  // A section's own front page, not a subfolder's: a mod whose only index is `guides/index.md`
+  // still needs the generated one at its root.
+  if (!pages.some((p) => p.isIndex && p.parts.length === 0)) {
     write(
       join(out, 'index.mdx'),
       frontmatter(mod.name, mod.summary) +
