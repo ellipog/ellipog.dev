@@ -15,14 +15,11 @@ next-env.d.ts
 # Fumadocs' generated MDX index. Rebuilt from source.config.ts on every build.
 .source/
 
-# The docs copied out of each mod repository by scripts/sync.mjs.
-#
-# GENERATED, AND DELIBERATELY NOT COMMITTED. Every page here exists in the repository
-# that owns it. A committed copy is a second home for a document, and a second home is
-# a thing that can disagree with the first -- which is the entire failure this site is
-# built to avoid. sync.mjs wipes this tree before it rebuilds it, so nothing stale can
-# survive a build even if it was committed by accident.
-apps/docs/content/
+# The docs copied out of each mod repository by scripts/sync.mjs are NOT ignored -- see the note
+# under `apps/docs/content/` in AGENT.md. It is the one generated tree this repository carries, so
+# that the documentation is readable here as well as on the site. The mods are still the only place
+# a page is written: the sync wipes the tree and rebuilds it on every build, and `check.mjs` refuses
+# a build whose regenerated tree differs from what is committed. Do not add a rule for it here.
 
 # Copied out of the root by sync.mjs, because Next cannot import from outside its own directory.
 apps/docs/manifest.json

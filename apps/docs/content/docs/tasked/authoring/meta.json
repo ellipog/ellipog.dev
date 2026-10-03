@@ -1,0 +1,12 @@
+{
+  "title": "Authoring",
+  "pages": [
+    "conditions",
+    "kubejs",
+    "quest-files",
+    "quests",
+    "rewards",
+    "tasks",
+    "validation"
+  ]
+}
