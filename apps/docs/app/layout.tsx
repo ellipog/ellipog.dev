@@ -98,12 +98,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <div className="shell">
           <header className="masthead">
             <a className="brand" href="/">
-              {/* The mark, as a background image rather than an `<img>`: two files, one per theme, chosen
-                  by CSS, which is the only way to fetch one of them. `.site-mark` in `global.css` carries
-                  the whole of that reasoning. Nothing to write an `alt` for either way — the wordmark
-                  beside it already says who this is — and the element has no content to hide, so the
-                  `aria-hidden` is there to say "decorative" rather than to hide anything. */}
-              <span className="site-mark" aria-hidden="true" />
+              {/* The portrait, as a background image rather than an `<img>`: one committed file with a
+                  transparent ground, drawn on either theme, which `.site-portrait` in `global.css`
+                  carries the whole of. Nothing to write an `alt` for either way — the wordmark beside it
+                  already says who this is — and the element has no content to hide, so the `aria-hidden`
+                  is there to say "decorative" rather than to hide anything. */}
+              <span className="site-portrait" aria-hidden="true" />
               ellipog
             </a>
             {/* Named, because a page can carry more than one navigation region and "Primary" is the

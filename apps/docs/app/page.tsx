@@ -11,6 +11,12 @@ import { source } from '@/lib/source';
 type SuiteMod = {
   id: string;
   name: string;
+  /**
+   * Which brand the mod belongs to: `stellar` for the developer suite, `ellipog` for the gameplay
+   * portfolio. The catalog's bands group by it, so a mod without one renders in neither band and
+   * disappears from the page without an error — which is why `check.mjs` asserts every entry has it.
+   */
+  brand?: string;
   status?: string;
   summary: string;
   /**
@@ -254,8 +260,18 @@ function SelectedCell({ item, index }: { item: Selected; index: number }) {
 
 export default function Home() {
   const suite = manifest.suite as SuiteMod[];
-  const active = suite.filter((m) => m.status === 'active');
-  const planned = suite.filter((m) => m.status !== 'active');
+  /*
+   * Brand first, and the status stays on the cell.
+   *
+   * The bands used to be status-first — "In development" and "Planned" — which answered *how far along*
+   * before *whose is this*. The architecture says whose first: Stellar is the developer suite, ellipog is
+   * the gameplay portfolio, and a reader who arrives for one mod should see which family it belongs to.
+   * Nothing about progress is lost: every cell still states `in development` or `planned` in its own
+   * footer, which is where a reader looks after the name. `check.mjs` asserts every entry declares a
+   * brand, because one without it would render in neither band — and AGENT.md carries the reasoning.
+   */
+  const stellar = suite.filter((m) => m.brand === 'stellar');
+  const gameplay = suite.filter((m) => m.brand === 'ellipog');
   const selected = manifest.selected as Selected[];
 
   const total = s.totals?.all ?? 0;
@@ -288,30 +304,30 @@ export default function Home() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">In development</span>
-          <span className="faint mono">1.21.1</span>
+          <span className="label">Stellar</span>
+          <span className="faint mono">the developer suite</span>
         </div>
-        <div className="grid" style={{ ['--cols' as string]: '2' }}>
-          {active.map((mod) => (
+        <div className="grid" style={{ ['--cols' as string]: '3' }}>
+          {stellar.map((mod) => (
             <SuiteCell key={mod.id} mod={mod} />
           ))}
-          {Array.from({ length: fillers(active.length, 2) }, (_, i) => (
-            <Filler key={`a${i}`} />
+          {Array.from({ length: fillers(stellar.length, 3) }, (_, i) => (
+            <Filler key={`st${i}`} />
           ))}
         </div>
       </section>
 
       <section className="band">
         <div className="band-head">
-          <span className="label">Planned</span>
-          <span className="faint mono">after the 26.x port</span>
+          <span className="label">ellipog</span>
+          <span className="faint mono">gameplay</span>
         </div>
-        <div className="grid" style={{ ['--cols' as string]: '4' }}>
-          {planned.map((mod) => (
+        <div className="grid" style={{ ['--cols' as string]: '3' }}>
+          {gameplay.map((mod) => (
             <SuiteCell key={mod.id} mod={mod} />
           ))}
-          {Array.from({ length: fillers(planned.length, 4) }, (_, i) => (
-            <Filler key={`p${i}`} />
+          {Array.from({ length: fillers(gameplay.length, 3) }, (_, i) => (
+            <Filler key={`el${i}`} />
           ))}
         </div>
       </section>
@@ -344,8 +360,8 @@ export default function Home() {
           <div>
             <p>{manifest.author.bio}</p>
             <p>
-              Download counts are fetched from both platform APIs when this site builds, so they are
-              whatever those APIs said that day rather than a number typed into a file.
+              Download counts are fetched from both platform APIs at build time, and the site rebuilds
+              automatically on a schedule.
             </p>
           </div>
           <div className="links">

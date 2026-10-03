@@ -237,6 +237,9 @@ function show(needle) {
  *
  *     [data-theme=dark] .site-mark,.colophon-link:hover .site-mark{background-image:url(...)}
  *
+ * (`.site-mark` is the class that was later split into `.site-portrait` and `.colophon-mark`; the merge
+ * is the point of the story, and the same shape still exists between the two colophon rules below.)
+ *
  * which is semantically identical and broke the assertion written before it, because that assertion
  * wanted `]` immediately followed by `.site-mark{` and found a comma. **The check was wrong, not the
  * CSS** — and the failure read as `"[data-theme=dark] .site-mark{" absent`, which is the kind of message
@@ -290,8 +293,8 @@ function topLevelRules(css) {
  * Everything declared for one selector, however the minifier chose to write it.
  *
  * The selector list is split on commas, so a merged rule answers for each of its selectors — while a
- * *descendant* like `.colophon-link:hover .site-mark` is one selector and cannot be mistaken for
- * `.site-mark`. That distinction is the whole reason this is a split rather than a substring search.
+ * *descendant* like `.colophon-link:hover .colophon-mark` is one selector and cannot be mistaken for
+ * `.colophon-mark`. That distinction is the whole reason this is a split rather than a substring search.
  */
 function declarationsFor(css, selector) {
   const wanted = normaliseSelector(selector);
@@ -894,6 +897,28 @@ if (home) {
    * day a mod gains a repository.
    */
   const visibleHome = withoutScripts(home);
+  /*
+   * EVERY SUITE MOD DECLARES ITS BRAND, AND THE PAGE NAMES BOTH BANDS.
+   *
+   * The catalog groups by brand first — Stellar's developer suite, then ellipog's gameplay — with each
+   * cell keeping its own status word. A mod with no `brand` renders in neither band: it disappears from
+   * the page with no error, no warning and no visual clue, which is the class of failure this file
+   * exists for. The band heads are asserted too, so the page cannot quietly stop naming the suite it
+   * groups by.
+   */
+  const brands = new Set(['stellar', 'ellipog']);
+  const unbranded = manifest.suite.filter((m) => !brands.has(m.brand));
+  check(
+    'every suite mod declares a brand',
+    unbranded.length === 0,
+    unbranded.map((m) => m.id).join(', ') || 'stellar / ellipog',
+  );
+  check(
+    'the catalog names the suite and the portfolio',
+    visibleHome.includes('<span class="label">Stellar</span>') &&
+      visibleHome.includes('<span class="label">ellipog</span>'),
+    'both band heads render',
+  );
   const repoMods = manifest.suite.filter((m) => m.repo);
 
   /*
@@ -1321,16 +1346,16 @@ if (studio) {
   /*
    * The mark, and the one thing about it that is easy to get wrong.
    *
-   * It is the same element the masthead uses, so it follows the theme with no second rule — and the row
-   * inverts on hover, which means the *file* has to change for the duration. A raster cannot follow an
-   * inverting ground by itself, and getting it wrong is invisible rather than merely off: the ink and the
-   * ground become the same colour. Both halves are asserted because a single rule would be right in one
-   * theme and wrong in the other.
+   * It is the colophon's own element and its own pair — the site's pair draws the tab, and the masthead's
+   * image is the portrait — and the row inverts on hover, which means the *file* has to change for the
+   * duration. A raster cannot follow an inverting ground by itself, and getting it wrong is invisible
+   * rather than merely off: the ink and the ground become the same colour. Both halves are asserted
+   * because a single rule would be right in one theme and wrong in the other.
    */
   check(
     'the colophon carries the studio mark',
     /class="colophon"[\s\S]{0,220}<span class="colophon-mark"/.test(visible),
-    'the aaen pair, not the stellar one the masthead draws',
+    'the aaen pair, and the colophon\'s own',
   );
   const hoverRule = declarationsFor(allCss, '.colophon-link:hover .colophon-mark');
   const darkHoverRule = declarationsFor(allCss, '[data-theme="dark"] .colophon-link:hover .colophon-mark');
@@ -1519,7 +1544,7 @@ for (const item of manifest.selected) {
 }
 check('totals sum', stats.totals.all === stats.totals.modrinth + stats.totals.curseforge);
 
-console.log('\n== the site mark, and the two jobs it does ==');
+console.log('\n== the site mark, and the jobs it still does ==');
 /*
  * THE IDENTITY HERE IS COPIED FROM ANOTHER REPOSITORY THIS BUILD CANNOT REACH.
  *
@@ -1529,13 +1554,15 @@ console.log('\n== the site mark, and the two jobs it does ==');
  * copies are the one arrangement on this site with no guard behind them — and no assertion can invent one.
  * Change a file there and change it here.
  *
- * **Both jobs on the site draw from this one pair**: the mark beside the wordmark, and the tab icon. There
- * used to be a third file for the tab — `public/favicon.svg`, the same drawing at a heavier weight with a
- * paper plate — and the assertions below are partly what keep it from coming back.
+ * **The mark's callers are the tab icon and the OG card now.** It used to be drawn in the masthead too;
+ * that slot carries the author's portrait (a committed file, asserted as its own block below), so no CSS
+ * rule fetches this pair any more and an assertion keeps it that way. There used to be a third file for
+ * the tab — `public/favicon.svg`, the same drawing at a heavier weight with a paper plate — and the
+ * assertions below are partly what keep it from coming back.
  *
  * What CAN be asserted is everything short of the copy itself: that both files are committed, that the
  * build copied each through **unchanged** — the only thing standing between "the two repositories agree"
- * and "they agreed the day this was written" — that both rules and both `<link>`s reference them, and
+ * and "they agreed the day this was written" — that the tab's two `<link>`s reference them, and
  * everything about the drawing that is invisible when it is wrong. See the note below on the ink.
  */
 
@@ -1544,16 +1571,16 @@ console.log('\n== the site mark, and the two jobs it does ==');
  * WHEN THEY ARE WRONG.
  *
  * `mark-on-light.png` is the studio's mark in dark ink, shown on a light ground; `mark-on-dark.png` is
- * the same drawing in light ink for the dark theme. `.site-mark` in `global.css` picks between them with
- * `[data-theme='dark']`, so one file is fetched per visitor and no JavaScript is involved — and the tab
- * names both with a `media` query each, because a `<link>` cannot read that attribute.
+ * the same drawing in light ink for the dark theme. The tab names both with a `media` query each, because
+ * a `<link>` cannot read the `data-theme` attribute the page paints with — and that is the pair's only
+ * caller on the page now, since the masthead draws the portrait.
  *
  *   - **A swap.** Dark ink on the dark ground is a mark the same colour as the page behind it. It does
  *     not read as broken; it reads as *absent*, and the natural response is to add a fallback for a mark
  *     that is already there. This is the one worth the decoder below: the names are the opposite way
  *     round from the studio's, so the swap is a rename away at all times.
  *   - **A plate.** A file exported with its background baked in puts a rectangle of a second paper colour
- *     in the masthead. It looks like the page behind is slightly the wrong colour, not like a mistake —
+ *     behind the glyph. It looks like the page behind is slightly the wrong colour, not like a mistake —
  *     and the two SVG marks in this repository need a transform that exists purely to strip that.
  *   - **A size change in one file only.** Half of a two-file theme switch resizing shifts the wordmark
  *     sideways, and only for readers in one theme.
@@ -1680,36 +1707,91 @@ check('no page asks for it any more', !(home ?? '').includes('favicon.svg'), 'no
  * document that cannot see the page's CSS. **A raster cannot take `currentColor` at all**, so neither
  * applies, and inlining one would gain nothing while costing a third more bytes again.
  *
- * So this is a `<span>` with a background image, which is what makes one file per visitor possible: an
- * `<img>` would need two elements with one `display: none`, and a `display: none` image is still fetched
- * — 49KB of PNG for a 28px mark on every page. Asserted because it reverses a rule stated everywhere
- * else in this repository, and a reader will want to know that it was decided rather than overlooked.
+ * So this is a `<span>` with a background image, the same construction the colophon's mark uses. With one
+ * committed file and no theme switch the fetch is one image either way — the background is kept because
+ * the element stays contentless (nothing to write an `alt` for; `aria-hidden` says decorative) and
+ * because "no mark is an `<img>`" is a rule this repository states everywhere else and asserts below.
  */
 check(
-  'the site mark is a styled span in the masthead, not an <img>',
-  (withoutScripts(home ?? '').match(/<span class="site-mark"/g) ?? []).length === 1,
-  'the stellar pair, and the masthead only',
+  'the portrait is a styled span in the masthead, not an <img>',
+  (withoutScripts(home ?? '').match(/<span class="site-portrait"/g) ?? []).length === 1,
+  'and the masthead only',
 );
 check(
   'and the colophon carries the studio mark the same way, from its own pair',
   (withoutScripts(home ?? '').match(/<span class="colophon-mark"/g) ?? []).length === 1,
-  'the aaen pair, not the stellar one the masthead draws',
+  'the aaen pair, and the colophon\'s own',
 );
 check('no mark is loaded as an <img>', !/<img[^>]*site\//.test(home ?? ''));
-check(
-  'both rules are in the built CSS',
-  /site\/mark-on-light\.png/.test(allCss) && /site\/mark-on-dark\.png/.test(allCss),
-);
-const baseRule = declarationsFor(allCss, '.site-mark');
-const darkRule = declarationsFor(allCss, '[data-theme="dark"] .site-mark');
 
-check('the un-overridden rule is the one for a light ground', baseRule.includes('mark-on-light'), baseRule || 'no rule');
-check('the dark rule overrides it, rather than the other way round', darkRule.includes('mark-on-dark'), darkRule || 'no rule');
+/*
+ * THE PORTRAIT RESTS ON ITS TRANSPARENT GROUND, AND THAT IS THE PROPERTY WORTH DECODING FOR.
+ *
+ * `apps/docs/public/site/portrait.png` is exported by `scripts/portrait.mjs` from the matte in
+ * `design/portrait-source/`. It is the one raster here that does **not** come in a theme pair: a portrait
+ * carries its own colours, so no file swap can help it on the other ground — the transparent ground is
+ * what does, and a plate would put a rectangle of a second paper colour beside the wordmark (a white one
+ * in dark mode). The geometry is asserted too, because it is what the CSS assumes: one square file whose
+ * drawing fills the 95% footprint the script fits, so a re-export at another size fails here instead of
+ * sitting subtly wrong beside the wordmark.
+ */
+const PORTRAIT = 'apps/docs/public/site/portrait.png';
+const portrait = existsSync(PORTRAIT) ? readInk(PORTRAIT) : null;
+const portraitRule = declarationsFor(allCss, '.site-portrait');
+const portraitDarkRule = declarationsFor(allCss, '[data-theme="dark"] .site-portrait');
+
+check('the portrait is committed', Boolean(portrait), PORTRAIT);
+check(
+  'and its matte is committed, the way every generated file has a source',
+  existsSync('design/portrait-source/rei-ayanami-cutout.png'),
+  'design/portrait-source/',
+);
+if (portrait) {
+  check(
+    'the portrait is square, so a `contain` fit cannot letterbox it',
+    portrait.width === portrait.height,
+    `${portrait.width}x${portrait.height}`,
+  );
+  check(
+    'the portrait has no plate — every corner is transparent',
+    portrait.cornerAlphas.every((a) => a === 0),
+    portrait.cornerAlphas.join('/'),
+  );
+  const drawn = portrait.bbox
+    ? Math.max(portrait.bbox.maxX - portrait.bbox.minX, portrait.bbox.maxY - portrait.bbox.minY) + 1
+    : 0;
+  const expected = Math.round(portrait.width * 0.95);
+  check(
+    'the drawing fills the footprint the export script fits',
+    Math.abs(drawn - expected) <= 4,
+    `${drawn}px of ${portrait.width}, expected ~${expected}`,
+  );
+  check('the built site carries the portrait', existsSync(`${OUT}/site/portrait.png`));
+  check(
+    'the build copied it through unchanged',
+    readFileSync(PORTRAIT).equals(readFileSync(`${OUT}/site/portrait.png`)),
+  );
+}
+check(
+  'the portrait rule is in the built CSS and names the one file',
+  portraitRule.includes('portrait.png'),
+  portraitRule || 'no rule',
+);
+check(
+  'no theme rule reaches for the portrait, because one file covers both grounds',
+  portraitDarkRule === '',
+  portraitDarkRule || 'and none may',
+);
 // Both dimensions, so the box is reserved before the image loads and nothing shifts under the name.
 check(
-  'the mark box is reserved',
-  /width:28px/.test(baseRule) && /height:28px/.test(baseRule),
-  baseRule || 'no rule',
+  'the portrait box is reserved',
+  /width:28px/.test(portraitRule) && /height:28px/.test(portraitRule),
+  portraitRule || 'no rule',
+);
+check(
+  'the mark pair is fetched by no rule any more — the tab links are its only callers',
+  !/site\/mark-on-light\.png/.test(allCss) && !/site\/mark-on-dark\.png/.test(allCss),
+  show('mark-on-light.png'),
 );
 
 /*
@@ -1719,6 +1801,11 @@ check(
  * the site, the only mark on the page with no dark variant, and the only one that could disappear when a
  * fetch failed. A committed file cannot go missing the way a fetched `avatar.webp` could, so the failure
  * mode went with it — and this is what keeps it from drifting back in as a "fallback".
+ *
+ * **The masthead carries a portrait again, and it is a different arrangement on purpose.** It is a
+ * committed file under `public/site/`, drawn beside the name it belongs to and nowhere else, with a
+ * transparent ground instead of a theme pair — so the fetched-file failure this check exists for is still
+ * retired. Both names it retires stay retired: the portrait answers to `portrait.png`.
  */
 check(
   'the Modrinth avatar is retired',

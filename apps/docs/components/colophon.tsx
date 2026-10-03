@@ -21,11 +21,12 @@ type Studio = {
  * nothing else. Now the site signs off in its own voice instead of ending on a paid row, which is the
  * better arrangement for both: the band is still plainly its own band, and it is no longer the last word.
  *
- * **The mark is the masthead's, not a second copy of it.** It renders the same `<span class="site-mark">`,
- * so the studio's mark appears at the top and the foot of every page and follows the theme in both places
- * from the one pair of files. On hover the row inverts like every other clickable surface here, and the
- * mark swaps to the other file for it — `global.css` has that reasoning, since the swap is the one part
- * of this that is easy to get wrong.
+ * **The mark is the studio's, and it is the colophon's own pair.** It renders `<span class="colophon-mark">`
+ * from the `aaen` files, not the pair the tab icon names: the colophon signs the studio, and the studio's
+ * logo is the eye over the A-frame. On hover the row inverts like every other clickable surface here, and
+ * the mark swaps to the other file for it — `global.css` has that reasoning, since the swap is the one
+ * part of this that is easy to get wrong. The masthead's image is the author's portrait and does not
+ * follow the theme this way; one transparent file covers both grounds there.
  *
  * **A `<footer>`, while the class `.footer` stays retired.** The element is the right one: it is the
  * page's footer and it becomes the `contentinfo` landmark, so a screen reader can jump to it. What was
@@ -42,8 +43,8 @@ export function Colophon() {
   return (
     <footer className="colophon" aria-label={`${s.label} ${s.name}`}>
       <a className="colophon-link" href={s.url} target="_blank" rel="noreferrer noopener">
-        {/* Same element, same class as the masthead's mark: one pair of files, two places, and the theme
-            switch in `global.css` covers both without a second rule. */}
+        {/* The studio's mark, from the aaen pair: own class, own files, and the theme switch in
+            `global.css` covers it without touching the masthead's portrait. */}
         <span className="colophon-mark" aria-hidden="true" />
 
         {/*

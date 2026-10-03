@@ -59,7 +59,7 @@ and no fallback.
 | `apps/docs/content/` | **committed** | The docs, copied from each mod's repository. Generated — never authored here — and committed so the documentation is readable in the repository as well as on the site. |
 | `apps/docs/manifest.json` | gitignored | Copied from the root by `sync.mjs`. |
 | `apps/docs/stats.json` | gitignored | Download counts from both platform APIs, by `stats.mjs`. |
-| `apps/docs/public/site/*.png` | **committed** | The site's two marks, one per theme — **the tab icon, the masthead mark and the colophon all draw from this pair**. Copied by hand from the studio repository; see below. |
+| `apps/docs/public/site/*.png` | **committed** | The site's two marks, one per theme — **the tab icon and the OG card draw this pair** — plus `portrait.png`, the masthead's image. The marks are copied by hand from the studio repository; the portrait is exported by `bun run portrait`. See below. |
 | `apps/docs/.source/`, `.next/`, `out/` | gitignored | Build output. |
 | `.cache/` | gitignored | Reserved for git checkouts of mod repositories. See the gap below. |
 
@@ -110,6 +110,10 @@ If `docs/` exists but has no `index.md`, the sync writes one from the manifest s
 
 `scripts/stats.mjs` runs before every build and writes `apps/docs/stats.json`. Nothing on the site is
 a number typed into a file.
+
+**And the build runs on a schedule, not when somebody remembers.** A GitHub workflow triggers a Vercel
+rebuild, which re-runs the fetch — *Freshness of the numbers, and why not in the browser* below has the
+cadence, the Deploy Hook, and the measured reason the fetch is not in the visitor's browser.
 
 **Modrinth** needs nothing: `/search?facets=[["author:Ellipog"]]` returns downloads, followers and the
 URL for every project in one request.
@@ -491,6 +495,33 @@ the way to settle it is to load the catalog page and look at it.
 
 ---
 
+## The catalog's bands, and what they group by
+
+The home page's catalog is grouped by **brand first, and status inside the cell**. Two brand bands —
+`Stellar`, the developer suite, and `ellipog`, the gameplay portfolio — plus `Earlier work`, which is the
+released addons and packs.
+
+**Brand first, because that is what the architecture says the site is.** Aaen Studios is the parent
+engineering mark, Stellar is the developer suite, ellipog is the creator identity the gameplay content
+ships under. A reader who arrives for Tasked should see that it belongs to a suite with five siblings; a
+reader who arrives for Kindred should not find it filed among developer tools. The bands were
+status-first before this ("In development" / "Planned"), and **status did not disappear**: every cell
+still states `in development` or `planned` in its own footer, which is where a reader looks after the
+name. What changed is which question the band answers — *whose is this* before *how far along is it*.
+
+**Every suite mod declares its `brand` in the manifest, and `check.mjs` asserts it.** A mod without one
+renders in neither band and vanishes from the page without an error — the same class of silent failure as
+the `a.grid-cell` selector below, and the reason the assertion exists rather than a convention. The two
+band heads are asserted too, so the page cannot quietly stop naming the suite it groups by.
+
+**The six Stellar cells sit three-up**, two rows; the gameplay band holds one cell and closes its row
+with fillers. The 2-up band the in-development mods used to get existed for the wide summary, and losing
+it is this arrangement's one cost — at three-up those two summaries wrap a line or two further. The trade
+was taken because the suite is the thing being shown, and six cells in two rows say that better than two
+bands of two and four ever did.
+
+---
+
 ## The catalog cell, and why it is not one link any more
 
 A cell in the catalog's first band used to be a single `<a>` wrapping everything in it — the cleanest
@@ -734,26 +765,26 @@ that no icon reached the page as an `<img>`.
 
 ---
 
-## The site's own mark, and the three jobs it does
+## The site's own mark, and the jobs it still does
 
-The site's mark is the stellar drawing, committed in `design/brand-source/` and exported to
-`apps/docs/public/site/` by `scripts/mark.mjs` (`bun run mark`) — two PNGs, one per theme, and **three
-places on the site draw from the same pair**: the mark beside the wordmark, the colophon at the foot of
-every page, and the tab icon.
+The pair in `apps/docs/public/site/` — `mark-on-light.png` and `mark-on-dark.png` — is the studio's mark:
+two PNGs, one per ground, hand-supplied and copied here from the studio's own repository, which this build
+has no route into. **Two callers on the site draw it**: the tab icon, which names both files with a `media`
+query each, and the OG card, which is always drawn on a light ground and so reads the light one. The
+masthead used to draw the pair beside the wordmark; that slot carries the author's portrait now, and the
+colophon signs the studio with the studio's other pair. Both have their own sections below.
 
 | File here | Ink | Luminance | Is the mark for |
 |---|---|---|---|
 | `apps/docs/public/site/mark-on-light.png` | `#000000` | 0.0000 | a **light** ground |
 | `apps/docs/public/site/mark-on-dark.png` | `#ffffff` | 1.0000 | a **dark** ground |
 
-**The names describe the ground, and since the stellar sources arrived they do in both places.** The
-sources are `stellar-logo-on-light.png` (dark ink) and `stellar-logo-on-dark.png` (light ink) — the same
-convention `mark-on-light.png` speaks, because "the mark shown **on** a light ground" is what the CSS rule
-has to say. This is not pedantry: a swap is invisible. Dark ink on the dark ground is a mark the same
+**The names describe the ground, and a swap is invisible.** Dark ink on the dark ground is a mark the same
 colour as the page behind it, so it reads as *absent* rather than as wrong, and the natural response is to
-add a fallback for a mark that is already there.
+add a fallback for a mark that is already there. That is why `check.mjs` decodes both files and asserts
+which ink each one is drawn in.
 
-### Why two files, and why a background image
+### Why two files, when every other mark is one
 
 **A raster cannot take `currentColor`, so the arrangement the other marks use is not available.** Every
 other mark on this site is a vector mapped to `currentColor` at build time and inlined, which is exactly
@@ -762,33 +793,24 @@ what lets *one* file work on either ground — and inlining is also the only way
 colour in its pixels and no CSS reaches into them. Two files is the honest consequence, and inlining a
 base64 PNG would gain nothing while costing a third more bytes again.
 
-**So it is a background image on a `<span>`, not an `<img>`, and that is a measured decision.** An `<img>`
-needs one element per theme with the other `display: none` — and a `display: none` image is still fetched,
-so the masthead would carry **49KB of PNG for a 28px mark on every page load**. Two CSS rules fetch exactly
-one file, because a browser fetches the background a rule *resolves to* and not the one it overrides.
-
-**`[data-theme='dark']` is the switch, and `<picture media="...">` cannot be.** The theme is an attribute
-the toggle sets, not a media query, so a `<source media="(prefers-color-scheme: dark)">` would be wrong for
-every reader who overrode their OS preference — the same reasoning that retired the host logo's light/dark
-pair. And because the attribute is set by the inline script in `<head>`, the right file is chosen before
-first paint: no flash, no JavaScript, no second choice.
-
-**`28px`, and the number comes from the artwork.** The exported files are 879×879 with the mark fitted to
-684×688 — 77.8% of the box — so a 28px box draws the mark itself at about 21.8px, the footprint the
-previous mark had and the weight the wordmark beside it is cut to. Sizing the box to 22px would draw the
-mark at 17px. A `contain` fit cannot distort it, since the file is square.
+**A favicon cannot read `[data-theme]`, so the pair is also the tab's only possible switch.** `layout.tsx`
+names both files under `icons.icon`, each with a `media` query, resolved before first paint from the same
+OS preference the theme toggle falls back to — a `<link>` has no styles and cannot be told which file to
+fetch. That it does not follow the toggle is a small permanent inconsistency, stated in the tab section
+below rather than left to be found as a bug.
 
 **Neither file has a plate, and neither was given one by a transform.** They are exported on a transparent
 ground — all four corners fully transparent, which `check.mjs` asserts rather than assumes. That is worth
 noting because it is the one thing the *other* SVGs here need handling for: the host's logo and every one of
 the mod marks are drawn on a full-bleed tile, and there is a transform whose job is to strip exactly that. A
-file re-exported with its background baked in puts a rectangle of a second paper colour in the masthead,
+file re-exported with its background baked in puts a rectangle of a second paper colour behind the glyph,
 which reads as the page behind being slightly the wrong colour rather than as a mistake.
 
-**It replaced the Modrinth avatar, and the three things wrong with that are worth keeping.** The mark used
-to be a build-time download of the account's profile picture. The reasoning for fetching rather than
-hotlinking was sound — a page rendering your face from somebody else's server breaks the day that server
-moves the file — but the arrangement was wrong for three other reasons, and each was a real defect:
+### The masthead slot: what it has carried, and what it carries now
+
+Its first occupant was a build-time download of the account's profile picture — the Modrinth avatar — and a
+mark pair took the slot after that. The three things wrong with the download are worth keeping, because
+each was a real defect and each shaped what replaced it:
 
 | What was wrong | Why it mattered |
 |---|---|
@@ -796,11 +818,40 @@ moves the file — but the arrangement was wrong for three other reasons, and ea
 | No dark variant | It was the only mark on the page that did not adapt, because a photograph cannot. |
 | It could *go missing* | A failed fetch produced a **different masthead**, silently, on that build only. Every other mark here is a committed file that cannot fail to download. |
 
+The slot carries the author's portrait now — the drawing that is the profile picture on every platform, on
+the argument that it is what the name looks like. On each of the three counts above it is a different
+arrangement rather than the old one, and that is the point:
+
+- **It stands beside the name, not in for the site.** The marks still do the site's jobs — the tab, the
+  link card, the studio's signature in the colophon — and the portrait appears nowhere else.
+- **It needs no dark variant, because its variant is transparency.** The colours are the drawing, so no
+  file swap can help it on the other ground; the background was cut away instead, and the one file reads on
+  either paper. Both halves of that are asserted: the export's four corners are transparent, and no
+  `[data-theme]` rule reaches for it.
+- **It is committed under `public/site/`**, exported by `bun run portrait`, so it cannot fail to download.
+
+**One property of the artwork, stated rather than discovered:** the drawing is pale — a white plugsuit on
+the white it was supplied on — so the lower half of the figure sits soft on the light ground. It is legible,
+and it is the drawing the author chose; the alternative was a plate, and no mark on this site has one.
+
+### The portrait's chain: the matte, the export, the guards
+
+`apps/docs/public/site/portrait.png` is exported by `scripts/portrait.mjs` (`bun run portrait`) from
+`design/portrait-source/rei-ayanami-cutout.png` — the artwork with its background removed, committed as the
+source. The matte was made once, by hand, with `rembg`'s `isnet-anime` model; the command is recorded in the
+script's header, and the supplied JPEG stays wherever it came from. That is the same shape as every source
+chain here: one hand-supplied step at the top, everything below it reproducible.
+
+The export is a 168px square — six times the 28px box — with the drawing trimmed to its ink, fitted to
+**95% of the canvas** and centred. The mark's 78% was cut to the weight of the wordmark; an avatar fills its
+slot, and this is one. `check.mjs` asserts the squareness, the transparent corners, the footprint, that the
+source is committed, and that the build copied the export through unchanged.
+
 ### The tab icon is the same pair, and it got lighter
 
 `layout.tsx` names both files under `icons.icon`, each with a `media` query — `(prefers-color-scheme: light)`
 for the dark-ink file, `(prefers-color-scheme: dark)` for the light-ink one. **A favicon cannot read the
-`data-theme` attribute the masthead switches on**, so a media query is the only lever a `<link>` has. It is
+`data-theme` attribute the page paints with**, so a media query is the only lever a `<link>` has. It is
 resolved before first paint, from the same OS preference the theme toggle falls back to.
 
 **It does not follow the toggle.** A reader who has overridden their OS preference gets a tab matching their
@@ -822,31 +873,26 @@ stellar mark (mean ink coverage 9.0% of the box), and the trade is the same one,
 So on a 1x display the tab reads as a light grey glyph rather than a solid tile. At 32px — a 2x display,
 which is most of them — the drawing resolves cleanly. The shape was checked by rendering the alpha channel
 to ASCII at both sizes rather than by eye, because no screenshot in this session can produce a 16px favicon
-to look at. **The trade is one drawing for the tab and the masthead instead of two, at the cost of a thinner
-line in the tab.** The plate is no loss: every other mark on this site is drawn on whatever it stands on,
-so a plated favicon was the one that did not match.
+to look at. **The trade was one drawing for the tab and the masthead instead of two, at the cost of a
+thinner line in the tab** — the masthead has since moved to the portrait, and the tab keeps the drawing.
+The plate is no loss: every other mark on this site is drawn on whatever it stands on, so a plated favicon
+was the one that did not match.
 
-### These two copies have a guard now: the sources are committed
+### What is guarded, and what is not
 
-`apps/docs/public/site/mark-on-light.png` and `mark-on-dark.png` are exported by `scripts/mark.mjs` from
-`design/brand-source/stellar-logo-on-light.png` and `stellar-logo-on-dark.png` — the stellar drawing,
-committed here. `bun run mark` regenerates the pair, and `check.mjs` asserts everything short of the
-bytes: same size, no plate, dark ink under 0.2 luminance, light ink over 0.8, one shared bounding box,
-and the build copying both through unchanged.
-
-**The one thing still without an assertion is the sources themselves.** That the committed PNGs are the
-studio's originals, byte for byte, is a diff against wherever they were supplied from — a checkout this
-build has no route into. Every other generated file here can be checked against its source in this
-repository; these now can too, and what remains outside every guard is the one hand-supplied step at the
-top of the chain.
+**The copies' source is the one thing without an assertion.** The pair is copied by hand from the studio's
+repository — a checkout this build has no route into — so there is nothing to regenerate them from and
+nothing to diff them against. (The stellar sources in `design/brand-source/` belong to a *different* mark,
+the Stellar modpack's, exported by `scripts/mark.mjs` to `public/brand/` and not drawn on the site yet, so
+they are not this pair's guard.)
 
 What `check.mjs` proves is everything short of that:
 
 - both files are committed, and the build copied each through **unchanged** — the only thing standing
   between "the two repositories agree" and "they agreed the day this was written"
-- the masthead's two rules are in the built CSS, the colophon's hover pair is too, and the tab names both
-  files with a `media` query each, in the order that leaves the visible one as the fallback for a consumer
-  that ignores `media`
+- the tab names both files with a `media` query each, in the order that leaves the visible one as the
+  fallback for a consumer that ignores `media` — and no CSS rule fetches the pair any more, which is the
+  assertion that keeps the masthead from drifting back into a rule for it
 - nothing is left at `/favicon.svg`, which a browser asks for by itself — a leftover there would win the
   tab in some browsers and lose it in others, depending on the reader
 - the geometry: both marks are one size, draw the same shape in the same place, and neither carries a plate
@@ -854,11 +900,13 @@ What `check.mjs` proves is everything short of that:
 
 **`scripts/lib/png-ink.mjs` is what makes the last two possible** — ~170 lines that decode a PNG's header
 and scanlines to report its size, its ink colour and its corners. It is the only thing in this repository
-that parses an image rather than an SVG, and it is a **reader, not a transform**: nothing here rewrites the
-art, because the files are used exactly as the studio exports them. That is deliberate — it is what keeps
-the copies diffable against that repository by eye, and it is why the 90px inset is *not* cropped away
-despite making the box sizing arithmetic unavoidable. A crop would buy a tidier number at the price of a
-file that is no longer the studio's.
+that parses an image rather than an SVG, and for this pair it is a **reader, not a transform**: nothing here
+rewrites the art, because the files are used exactly as the studio exports them. That is deliberate — it is
+what keeps the copies diffable against that repository by eye, and it is why the 90px inset is *not* cropped
+away despite making the box sizing arithmetic unavoidable. A crop would buy a tidier number at the price of
+a file that is no longer the studio's. (The portrait is read by the same reader for the same class of
+invisible properties — its corners and its footprint — but it *is* a derived export; `scripts/portrait.mjs`
+is its transform, and the source it reads is committed.)
 
 It is also why no hash of the files is recorded. A SHA would catch the swap in two lines, but it would
 fail on a harmless re-encode and would say *changed* rather than *what* changed. The assertions are about
@@ -1014,10 +1062,12 @@ names that landmark. What was wrong with the old row was its contents, not its s
 
 ### The mark in it follows the ground, and that needs two rules
 
-It renders the same `<span class="site-mark">` as the masthead, so it needs no rule of its own for the
-theme: `[data-theme='dark']` already switches the file. **The hover is where it gets interesting.** The row
-is a link, and a link inverts here rather than tinting — so the ground beneath the mark flips for the
-duration, and a raster cannot follow that on its own because its ink is in the pixels.
+It renders `<span class="colophon-mark">` from the studio's `aaen` pair rather than the pair the tab names,
+and its theme comes from the `[data-theme='dark']` rule beside its own base rule. (The masthead's portrait
+sidesteps all of this: one transparent file covers both grounds, and the masthead does not hover.) **The
+hover is where it gets interesting.** The row is a link, and a link inverts here rather than tinting — so
+the ground beneath the mark flips for the duration, and a raster cannot follow that on its own because its
+ink is in the pixels.
 
 That is the same problem `--icon-ground` solves for the vector marks, which have knockouts the page has to
 know the colour of. This is the same move by a different mechanism: the *file* changes.
@@ -1026,8 +1076,13 @@ know the colour of. This is the same move by a different mechanism: the *file* c
 page the hovered ground is near-black, so the mark goes light; on a dark page it is near-white, so the mark
 goes dark. A single rule would be correct in one theme and wrong in the other — and wrong here means
 *invisible*, because the ink and the ground would be the same colour. Both halves are asserted, and the
-second selector is deliberately more specific than `[data-theme='dark'] .site-mark` so it wins where it
+second selector is deliberately more specific than `[data-theme='dark'] .colophon-mark` so it wins where it
 should.
+
+**A 28px box, and the number still comes from the artwork.** `aaen-mark-*.png` are 879×879 with the mark
+fitted to 698×688 — 79% of the box — so the box draws the mark itself at about 22.2px: the weight the row's
+14px label is cut against, and the footprint the masthead's mark had before the portrait arrived. A
+`contain` fit cannot distort it, since the file is square.
 
 **One thing this is not:** the mark in the masthead does not have this problem, because the masthead does
 not hover. If the brand link ever gains a hover inversion, it needs the same pair.
@@ -1236,6 +1291,7 @@ bun run sync       :: just the sync, with a log of what it copied
 bun run stats      :: just the platform fetch, printing both totals
 bun run icons      :: regenerate the mod marks from design/icons-source/
 bun run brand      :: regenerate the host's logo from design/brand-source/
+bun run portrait   :: export the masthead portrait from design/portrait-source/
 ```
 
 `bun run build` always syncs first and checks last, so there is no way to build a site from stale

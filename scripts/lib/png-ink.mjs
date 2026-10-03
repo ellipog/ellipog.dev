@@ -3,9 +3,11 @@
  *
  * WHY THIS EXISTS
  *
- * The masthead mark is two hand-supplied PNGs from the studio repository — one drawn in dark ink for a
- * light ground, one in light ink for a dark ground — and `.site-mark` picks between them with
- * `[data-theme='dark']`. Three of the properties that matter are **invisible when they are wrong**:
+ * The site's mark is two hand-supplied PNGs from the studio repository — one drawn in dark ink for a
+ * light ground, one in light ink for a dark ground — and the tab names both with a `media` query each.
+ * The portrait beside the wordmark is read by the same decoder for its own invisible properties, its
+ * transparent ground and its footprint. Three of the properties that matter are **invisible when they are
+ * wrong**:
  *
  *   1. **A swap.** The dark-ink file rendering on the dark ground is a mark the same colour as the page
  *      behind it. It does not look broken; it looks *absent*, and the natural response is to add a
@@ -30,8 +32,10 @@
  *
  * Nothing here writes an image. The files are used exactly as the studio exports them, which is what
  * keeps the copies under `public/` diffable against that repository by eye — the same argument the rest of
- * the studio's files here rest on. So the crop that the 90px inset invites (see `.site-mark`) is
+ * the studio's files here rest on. So the crop that the 90px inset invites (see `.colophon-mark`) is
  * deliberately not taken: it would buy a tidier box size at the price of a file that is no longer theirs.
+ * (The portrait *is* a derived export — `scripts/portrait.mjs` is its transform, and its source is
+ * committed — and it is read here for the same class of invisible properties, not for byte fidelity.)
  *
  * WHAT IT SUPPORTS, AND WHAT IT REFUSES
  *

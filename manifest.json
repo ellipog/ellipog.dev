@@ -50,8 +50,9 @@
     {
       "id": "tasked",
       "name": "Tasked",
+      "brand": "stellar",
       "status": "active",
-      "summary": "A questing engine. JSON files in, a pannable canvas out, and the server decides what counts as done.",
+      "summary": "A visual questing engine that ships no questlines of its own. JSON files in, a pannable canvas out, and the server, not the client, decides what counts as done.",
       "repo": "https://github.com/ellipog/tasked",
       "issues": "https://github.com/ellipog/tasked/issues",
       "version": "0.1.0",
@@ -67,8 +68,9 @@
     {
       "id": "armature",
       "name": "Armature",
+      "brand": "stellar",
       "status": "active",
-      "summary": "The library under it. Layout, themes, shapes, a graph canvas, and one seam between the code and the game's renderer.",
+      "summary": "A shared library mod. One loader seam, a strict JSON reader, and a client UI toolkit for layout, text, shapes, themes and widgets.",
       "repo": "https://github.com/ellipog/armature",
       "issues": "https://github.com/ellipog/armature/issues",
       "version": "0.1.0",
@@ -84,6 +86,7 @@
     {
       "id": "kindred",
       "name": "Kindred",
+      "brand": "ellipog",
       "status": "planned",
       "summary": "Kin and lineages.",
       "localPath": "../kindred",
@@ -92,6 +95,7 @@
     {
       "id": "kith",
       "name": "Kith",
+      "brand": "stellar",
       "status": "planned",
       "summary": "Traits and abilities.",
       "localPath": "../kith",
@@ -100,6 +104,7 @@
     {
       "id": "stature",
       "name": "Stature",
+      "brand": "stellar",
       "status": "planned",
       "summary": "Scale and hitboxes.",
       "localPath": "../stature",
@@ -108,9 +113,19 @@
     {
       "id": "folio",
       "name": "Folio",
+      "brand": "stellar",
       "status": "planned",
       "summary": "Documentation, in game.",
       "localPath": "../folio",
+      "minecraft": "26.3"
+    },
+    {
+      "id": "writ",
+      "name": "Writ",
+      "brand": "stellar",
+      "status": "planned",
+      "summary": "Sandboxed TypeScript scripting for Minecraft — events, stages, recipes, content.",
+      "localPath": "../writ",
       "minecraft": "26.3"
     }
   ],

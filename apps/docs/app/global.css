@@ -393,60 +393,41 @@ main {
 }
 
 /*
- * The site's mark, beside the name it belongs to.
+ * The portrait, beside the name it belongs to.
  *
- * **Two files, one per theme, and the CSS is the switch.** `mark-on-light.png` is the site's mark drawn
- * in dark ink, which is what a light ground shows; `mark-on-dark.png` is the same drawing in light ink for
- * a dark one. `[data-theme='dark']` picks between them — the attribute the toggle sets, so there is no
- * JavaScript and no flash.
+ * **One file, and no theme switch, because the ground is transparent.** Every other raster here is a
+ * two-file pair: a mark's ink has to flip with the paper under it, and a raster cannot take
+ * `currentColor`, so the file has to change. A portrait cannot flip — the colours are the drawing — so
+ * the transparent ground does the work instead: one file, drawn on whatever ground the page happens to
+ * have. That is the property the whole arrangement rests on, so `check.mjs` decodes the file and asserts
+ * its corners are fully transparent and that no `[data-theme]` rule reaches for it. There used to be a
+ * second rule here switching the site's mark with the theme; the portrait replaced that pair in the
+ * masthead, and the pair itself still draws the tab and the card a link to this site shows.
  *
- * **It is used in two places, and that is deliberate**: the masthead, and the colophon at the foot of the
- * page. Both are the site's mark doing the site's job, so both draw from this one pair rather than
- * from a copy — which is the same argument that made the tab icon name these files too.
+ * **A background image rather than an `<img>`, the same measured decision the mark pair carried.** An
+ * `<img>` would add markup for no benefit; a background is a rule the browser resolves to one URL, and
+ * the box is reserved by width and height either way.
  *
- * **The names describe the GROUND, and the sources do too.** The stellar sources in
- * `design/brand-source/` are `stellar-logo-on-light.png` (dark ink) and `stellar-logo-on-dark.png`
- * (light ink) — the same convention the rule below speaks, exported to `public/site/` by
- * `scripts/mark.mjs`. A swap is still invisible — dark ink on the dark ground is a mark the same colour
- * as the page, which reads as absent rather than as wrong — so `check.mjs` decodes both files and
- * asserts which ink each one is drawn in.
+ * **28px box, and the drawing fills 95% of it.** `scripts/portrait.mjs` trims the art to its ink, fits
+ * it to the canvas at that footprint and centres it — an avatar fills its slot, unlike the mark before
+ * it, whose 78% was cut to the weight of the wordmark. `contain` cannot distort it, since the file is
+ * square.
  *
- * **A background image rather than an `<img>` and this is a measured decision, not a style one.** An
- * `<img>` needs one element per theme with the other `display: none`, and a `display: none` image is
- * still fetched: 49KB of PNG for a 28px mark, on every page. Two rules fetch exactly one file, because a
- * browser fetches the background a rule *resolves to* and not the one it overrides. `<picture
- * media="...">` is not an option either — it cannot see the `data-theme` attribute, which is the same
- * reason the host's light/dark logo pair was retired.
- *
- * **And a raster cannot take `currentColor`, which is why this is not inlined like every other mark
- * here.** The mod icons and the host's logo are vector shapes mapped to `currentColor` at build time, so
- * one file works on either ground. That is not available for a PNG — the colour is in the pixels and no
- * amount of CSS reaches into them. Two files is the honest consequence; inlining a base64 PNG would gain
- * nothing and cost a third more bytes again.
- *
- * **28px, and the number comes from the artwork.** The exported files are 879x879 with the mark fitted
- * to 684x688 — 77.8% of the box — so a 28px box draws the mark itself at about 21.8px, the footprint the
- * previous mark had and the weight the wordmark beside it is cut to. Sizing this to 22px would draw the
- * mark at 17px. `contain` cannot distort it, since the file is square.
- *
- * This replaced a 9px filled square, and before that the Modrinth profile picture — a downloaded
- * photograph with no dark variant, and the only mark on the page that could go missing.
+ * It is the author's portrait, not the site's mark. The site's jobs — the tab icon, the link-preview
+ * card, the studio's signature in the colophon — are still done by the marks; this element only ever
+ * says what the name beside it looks like.
  */
-.site-mark {
+.site-portrait {
   width: 28px;
   height: 28px;
   flex: none;
   display: block;
-  background: center / contain no-repeat url("/site/mark-on-light.png");
-}
-
-/* The other half of the pair above. `background-image` alone, so the shorthand's other properties stand. */
-[data-theme="dark"] .site-mark {
-  background-image: url("/site/mark-on-dark.png");
+  background: center / contain no-repeat url("/site/portrait.png");
 }
 /* The studio's own mark, drawing from the aaen pair rather than the site's: the colophon signs
-   the studio, and the studio's logo is the eye over the A-frame, not the stellar drawing the
-   masthead carries. Same size and mechanism as .site-mark, own pair of files. */
+   the studio, and the studio's logo is the eye over the A-frame, not the stellar drawing the tab
+   draws. Same 28px box and the same background-image construction as .site-portrait; its own pair
+   of files, and the theme rules below that the portrait does not need. */
 .colophon-mark {
   width: 28px;
   height: 28px;
@@ -1600,8 +1581,8 @@ main {
 
 /*
  * A clickable surface, so it inverts on hover — the same rule the rest of the site follows, and the
- * reason the mark inside it needs the pair of rules near `.site-mark`. Without those it would be a mark
- * the same colour as the ground it had just flipped to.
+ * reason the mark inside it needs the pair of rules near `.colophon-mark`. Without those it would be a
+ * mark the same colour as the ground it had just flipped to.
  */
 .colophon-link {
   display: flex;

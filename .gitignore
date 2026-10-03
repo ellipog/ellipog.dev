@@ -27,11 +27,13 @@ apps/docs/glossary.json
 
 # NOT ignored, deliberately, and there are two different reasons in this folder.
 #
-# apps/docs/public/site/ holds the site's two marks — one per theme, and the source for BOTH the tab icon
-# and the mark beside the wordmark. They are copied BY HAND from aaenz/public/assets/logo-mark*.png,
-# because no build step can fetch them and no transform could reproduce them: the files ARE the drawing.
-# check.mjs asserts their geometry, their ink, that both the CSS rules and the <link>s name them, and that
-# the build copied each one through unchanged — everything short of reaching that other repository.
+# apps/docs/public/site/ holds the site's two marks — one per theme, and the source for the tab icon and
+# the OG card. They are copied BY HAND from aaenz/public/assets/logo-mark*.png, because no build step can
+# fetch them and no transform could reproduce them: the files ARE the drawing. The folder also holds
+# portrait.png, the masthead's image, which IS generated — by `bun run portrait` from
+# design/portrait-source/. check.mjs asserts the marks' geometry and ink, the portrait's transparent
+# ground and footprint, that the tab's <link>s name the pair, and that the build copied each through
+# unchanged — everything short of reaching that other repository.
 #
 # apps/docs/public/icons/ and apps/docs/public/brand/ ARE generated — by `bun run icons` from
 # design/icons-source/ and `bun run brand` from design/brand-source/ — and committed anyway, because the
@@ -43,9 +45,9 @@ apps/docs/glossary.json
 # committed -- a committed copy is a download count that was true on the day somebody built.
 apps/docs/stats.json
 
-# THERE WAS AN `apps/docs/public/avatar.*` LINE HERE. It is gone with the avatar itself: the masthead
-# mark is now derived from the committed favicon rather than downloaded from Modrinth at build time, so
-# nothing writes that file any more and an ignore rule for it would be the only thing left of it.
+# THERE WAS AN `apps/docs/public/avatar.*` LINE HERE. It is gone with the avatar it retired: the
+# masthead's image is a committed file now — the portrait under public/site/ — nothing downloads a profile
+# picture at build time, and an ignore rule for that name would be the only thing left of it.
 
 
 # The pinned-commit checkouts sync.mjs makes when a mod's folder is not present. One per mod, each a
