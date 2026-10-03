@@ -1451,7 +1451,6 @@ const GENERATED = [
   'apps/docs/manifest.json',
   'apps/docs/glossary.json',
   'apps/docs/stats.json',
-  'apps/docs/content',
   '.cache',
 ];
 
@@ -1481,6 +1480,31 @@ for (const path of GENERATED) {
     untracked.length === 0 ? '' : `git would commit ${untracked.join(', ')}`,
   );
 }
+
+/*
+ * The docs copy is committed, so it has to be in step.
+ *
+ * `content/` is the one generated tree this repository carries -- the documentation is readable in
+ * the repository as well as on the site, and the mods are still the only place a page is written.
+ * The sync has just wiped and rebuilt it, so anything `git status` reports here is a page the
+ * committed copy does not have: a manual that disagrees with the repository it is in, which is the
+ * failure this site exists to prevent, one level down. The fix is always the same -- commit the
+ * regenerated copy -- and this is the assertion that makes sure somebody does.
+ */
+let contentStatus = '';
+try {
+  contentStatus = execFileSync('git', ['status', '--porcelain', '--', 'apps/docs/content'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  }).trim();
+} catch {
+  // Not a git checkout -- nothing to assert, and not a failure of the site.
+}
+check(
+  'the committed docs match the sync that just ran',
+  contentStatus === '',
+  contentStatus === '' ? '' : contentStatus.split('\n').slice(0, 4).join(' | '),
+);
 
 console.log('\n== the manifest and the numbers agree ==');
 // `manifest` and `stats` are read at the top of the file; see the note there.
@@ -1758,12 +1782,30 @@ if (home) {
  */
 const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
 const strayVercelKeys = Object.keys(vercel).filter((k) => k.startsWith('/'));
-const allowedVercelKeys = ['$schema', 'framework', 'installCommand', 'buildCommand', 'outputDirectory'];
+const allowedVercelKeys = ['$schema', 'framework', 'installCommand', 'buildCommand', 'outputDirectory', 'redirects'];
 check('vercel.json carries no comment keys', strayVercelKeys.length === 0, strayVercelKeys.join(', ') || 'none');
 check(
   'vercel.json is exactly the keys the deploy needs',
   allowedVercelKeys.every((k) => k in vercel) && Object.keys(vercel).length === allowedVercelKeys.length,
   Object.keys(vercel).join(', '),
+);
+
+/*
+ * Every redirect lands on a page that exists.
+ *
+ * A redirect is a promise that an old address still means something, and it rots like any other
+ * link: move the target and the rule still "works" -- a 301 to a 404 is worse than the 404 was,
+ * because a crawler follows it and a reader is told the page moved to nowhere. The destination is a
+ * URL in the built tree, so that is what it is checked against.
+ */
+const redirects = vercel.redirects ?? [];
+const missingDestinations = redirects
+  .map((rule) => rule.destination)
+  .filter((destination) => !existsSync(`${OUT}${destination}index.html`));
+check(
+  'every redirect lands on a page that exists',
+  missingDestinations.length === 0,
+  `${redirects.length} rule(s)` + (missingDestinations.length ? `, missing: ${missingDestinations.join(', ')}` : ''),
 );
 
 console.log('\n== the crawler files, and the card a link shows ==');

@@ -8,8 +8,9 @@ Conventions for this repository. Read this before changing anything.
 
 Every documentation page on this site is written in the repository that owns the mod, and copied in
 at build time by `scripts/sync.mjs`. **Do not edit anything under `apps/docs/content/`.** It is
-deleted and rebuilt on every build, so an edit there is not lost so much as never applied — and worse,
-it is a document that exists in two places, which is the exact failure this site was built to avoid.
+deleted and rebuilt on every build, so an edit there is not lost so much as never applied — and the
+copy is committed (see the table below), so the next build puts the repository's version straight
+back.
 
 If a page on the site says something wrong, the fix is in the mod's repository. The site is a mirror.
 
@@ -55,8 +56,7 @@ and no fallback.
 | `scripts/stats.mjs` | **committed** | Fetches both platforms' download counts. |
 | `scripts/check.mjs` | **committed** | Asserts the built site contains what it should. Run by `bun run build`. |
 | `apps/docs/**` | **committed** | The site itself. |
-| `apps/docs/content/docs/**` | gitignored | The docs, copied from each mod's repository. Never authored here. |
-| `apps/docs/content/` | gitignored | Generated. Wiped and rebuilt every build. |
+| `apps/docs/content/` | **committed** | The docs, copied from each mod's repository. Generated — never authored here — and committed so the documentation is readable in the repository as well as on the site. |
 | `apps/docs/manifest.json` | gitignored | Copied from the root by `sync.mjs`. |
 | `apps/docs/stats.json` | gitignored | Download counts from both platform APIs, by `stats.mjs`. |
 | `apps/docs/public/site/*.png` | **committed** | The site's two marks, one per theme — **the tab icon, the masthead mark and the colophon all draw from this pair**. Copied by hand from the studio repository; see below. |
@@ -67,6 +67,15 @@ and no fallback.
 it writes anything. If that ever becomes a merge, a document deleted from a mod's repository will
 survive on the site forever — and a stale page is worse than a missing one, because nothing about it
 looks wrong.
+
+**`content/` is committed, and that is the one place the repository and the site can disagree.** The
+mods are still the only place a page is *written* — an edit under `content/` is wiped by the next
+build — but a committed copy can be read on GitHub, and a copy that is out of step is exactly the
+stale manual this site exists to prevent, one level down. So the sync rebuilds it on every build and
+`check.mjs` refuses to pass when the rebuilt tree differs from what is committed: a pin bump and the
+regenerated pages are one commit, not two. Nothing else generated is committed — `manifest.json`,
+`stats.json` and `out/` are the same copies nobody would read and everybody would have to keep in
+step.
 
 ---
 
@@ -1147,7 +1156,7 @@ for a local annoyance, but worth knowing before it costs an hour.
 
 ## Deploying to Vercel
 
-`vercel.json` carries five keys and nothing else:
+`vercel.json` carries six keys and nothing else:
 
 ```json
 {
@@ -1155,7 +1164,10 @@ for a local annoyance, but worth knowing before it costs an hour.
   "framework": null,
   "installCommand": "bun install --frozen-lockfile",
   "buildCommand": "bun run build",
-  "outputDirectory": "apps/docs/out"
+  "outputDirectory": "apps/docs/out",
+  "redirects": [
+    { "source": "/docs/tasked/quests", "destination": "/docs/tasked/authoring/quests/", "permanent": true }
+  ]
 }
 ```
 
@@ -1175,6 +1187,19 @@ function and no ISR here, just files.
 **`installCommand`.** `bun install --frozen-lockfile`, so the deploy uses the committed `bun.lock` and
 fails loudly if it has drifted from `package.json`. An install that silently resolves different
 versions is a build that cannot be reproduced.
+
+**`redirects`.** Every page that has ever moved, kept alive at its old address — with **both slash
+forms**, because Vercel matches the path as written and `/docs/tasked/quests` and
+`/docs/tasked/quests/` are two different requests. The list is short and written by hand; the moment
+it stops being short, it belongs in a generated file instead. A redirect is a promise that an old
+address still means something, so `check.mjs` asserts every destination is a page that exists: a 301
+to a 404 is worse than the 404 was, because a crawler follows it and a reader is told the page moved
+to nowhere.
+
+**Moving a page is therefore two edits, not one**: the page itself, and a redirect from where it was.
+The URL is the one thing about a page that a reader can hold on to — a bookmark, a Discord link, a
+search result — and a folder reorganisation that breaks all of them is a reorganisation that cost
+more than it bought.
 
 ### Node is pinned, and deliberately not to a range
 
@@ -1196,7 +1221,7 @@ about the deploy belong in this section, where prose is allowed and nobody's bui
 parser tolerating them.
 
 `check.mjs` asserts both halves of this — that `vercel.json` carries no comment key, and that the
-five keys above are the whole file — so the mistake fails locally rather than in Washington.
+six keys above are the whole file — so the mistake fails locally rather than in Washington.
 
 ---
 

@@ -3,5 +3,23 @@
   "framework": null,
   "installCommand": "bun install --frozen-lockfile",
   "buildCommand": "bun run build",
-  "outputDirectory": "apps/docs/out"
+  "outputDirectory": "apps/docs/out",
+  "redirects": [
+    { "source": "/docs/tasked/quest-files", "destination": "/docs/tasked/authoring/quest-files/", "permanent": true },
+    { "source": "/docs/tasked/quest-files/", "destination": "/docs/tasked/authoring/quest-files/", "permanent": true },
+    { "source": "/docs/tasked/quests", "destination": "/docs/tasked/authoring/quests/", "permanent": true },
+    { "source": "/docs/tasked/quests/", "destination": "/docs/tasked/authoring/quests/", "permanent": true },
+    { "source": "/docs/tasked/tasks", "destination": "/docs/tasked/authoring/tasks/", "permanent": true },
+    { "source": "/docs/tasked/tasks/", "destination": "/docs/tasked/authoring/tasks/", "permanent": true },
+    { "source": "/docs/tasked/rewards", "destination": "/docs/tasked/authoring/rewards/", "permanent": true },
+    { "source": "/docs/tasked/rewards/", "destination": "/docs/tasked/authoring/rewards/", "permanent": true },
+    { "source": "/docs/tasked/validation", "destination": "/docs/tasked/authoring/validation/", "permanent": true },
+    { "source": "/docs/tasked/validation/", "destination": "/docs/tasked/authoring/validation/", "permanent": true },
+    { "source": "/docs/tasked/kubejs", "destination": "/docs/tasked/authoring/kubejs/", "permanent": true },
+    { "source": "/docs/tasked/kubejs/", "destination": "/docs/tasked/authoring/kubejs/", "permanent": true },
+    { "source": "/docs/armature/data", "destination": "/docs/armature/api/data/", "permanent": true },
+    { "source": "/docs/armature/data/", "destination": "/docs/armature/api/data/", "permanent": true },
+    { "source": "/docs/armature/teams", "destination": "/docs/armature/api/teams/", "permanent": true },
+    { "source": "/docs/armature/teams/", "destination": "/docs/armature/api/teams/", "permanent": true }
+  ]
 }
