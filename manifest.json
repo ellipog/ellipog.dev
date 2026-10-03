@@ -57,7 +57,7 @@
       "issues": "https://github.com/ellipog/tasked/issues",
       "version": "0.1.0",
       "localPath": "../tasked",
-      "pin": "96607c3be5cac7387946ea5a4bd5feaeab8cb42d",
+      "pin": "e58cebeab1f0191d466078d6f23e16cfb635855b",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [
@@ -75,7 +75,7 @@
       "issues": "https://github.com/ellipog/armature/issues",
       "version": "0.1.0",
       "localPath": "../armature",
-      "pin": "3493f916e9ba91f29936fa8cb9fbde8f10327a0d",
+      "pin": "ca3932a920cceea5bc02ce73e1eef3d120055345",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [

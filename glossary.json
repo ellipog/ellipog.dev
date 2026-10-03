@@ -58,6 +58,11 @@
       "id": "declared-path",
       "term": "Declared path",
       "definition": "A folder whose contents the mod reads by name rather than by scanning, so a stray file cannot be mistaken for content. A path segment beginning with an underscore is skipped by convention."
+    },
+    {
+      "id": "rotated",
+      "term": "Rotated",
+      "definition": "A shape turned by an angle. The turn rotates the shape's own definition — not the drawn pixels — and fits it to the node with one uniform scale, so a curved shape at 41 degrees is the curve at 41 degrees."
     }
   ]
 }
