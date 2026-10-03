@@ -3,14 +3,14 @@
   <!-- Flat, solid background with zero radius and zero shadows -->
   <rect width="256" height="256" fill="#FFFFFF" />
   <g stroke-linecap="round" stroke-linejoin="round">
-                <rect x="46" y="46" width="164" height="164" rx="18" fill="#D97706" opacity="0.08" />
-                <rect x="46" y="46" width="164" height="164" rx="18" fill="none" stroke="#D97706" stroke-width="11" stroke-dasharray="16 12" />
-                <line x1="68" y1="68" x2="94" y2="94" stroke="#D97706" stroke-width="10" stroke-linecap="round" />
-                <line x1="188" y1="68" x2="162" y2="94" stroke="#D97706" stroke-width="10" stroke-linecap="round" />
-                <line x1="68" y1="188" x2="94" y2="162" stroke="#D97706" stroke-width="10" stroke-linecap="round" />
-                <line x1="188" y1="188" x2="162" y2="162" stroke="#D97706" stroke-width="10" stroke-linecap="round" />
-                <rect x="94" y="94" width="68" height="68" rx="12" fill="#D97706" />
-                <rect x="106" y="106" width="44" height="44" rx="8" fill="#F59E0B" />
-                <circle cx="128" cy="128" r="6" fill="#FFFFFF" />
+                <rect x="46" y="46" width="164" height="164" rx="18" fill="#000000" opacity="0.08" />
+                <rect x="46" y="46" width="164" height="164" rx="18" fill="none" stroke="#000000" stroke-width="7" stroke-dasharray="16 12" />
+                <line x1="68" y1="68" x2="94" y2="94" stroke="#000000" stroke-width="6.5" stroke-linecap="round" />
+                <line x1="188" y1="68" x2="162" y2="94" stroke="#000000" stroke-width="6.5" stroke-linecap="round" />
+                <line x1="68" y1="188" x2="94" y2="162" stroke="#000000" stroke-width="6.5" stroke-linecap="round" />
+                <line x1="188" y1="188" x2="162" y2="162" stroke="#000000" stroke-width="6.5" stroke-linecap="round" />
+                <rect x="94" y="94" width="68" height="68" rx="12" fill="#000000" />
+                <rect x="106" y="106" width="44" height="44" rx="8" fill="#A6A6A6" />
+                <circle cx="128" cy="128" r="5" fill="#FFFFFF" />
               </g>
 </svg>
