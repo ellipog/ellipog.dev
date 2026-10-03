@@ -1256,18 +1256,30 @@ main {
  * A folder inside a section: `<details>`, so the disclosure is native, keyboard-operable and needs no
  * JavaScript, with the browser's marker replaced by the same mono glyph the prose disclosure uses.
  *
- * The default state is closed, and that is the point of the grouping: one open group — the one the
- * reader is in, opened by the rail component — is what keeps a twelve-page manual to a readable
- * column. The pages inside hang off their label so the nesting reads at a glance.
+ * **A folder is inside the mod above it, and this is the whole of what says so.** The first cut gave
+ * the summary the same `.label` treatment the mod names get, and the result read as a list of
+ * sibling sections -- "AUTHORING" looked like a third mod rather than a drawer in Tasked. So the name
+ * keeps its own case (the sync gives it "The API", not "THE API"), stays quieter than the links, and
+ * the whole group is indented behind a hairline: the same containment the contents list draws, at the
+ * smaller scale a rail needs.
+ *
+ * The default state is closed, and that is the point of the grouping: one open group -- the one the
+ * reader is in, opened by the rail component -- is what keeps a twelve-page manual to a readable
+ * column.
  */
 .sidebar-group {
-  margin-top: var(--s3);
+  margin: var(--s3) 0 0 var(--s1);
+  padding-left: var(--s3);
+  border-left: 1px solid var(--line);
 }
 
 .sidebar-group > summary {
   cursor: pointer;
   list-style: none;
   padding: 2px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-faint);
   transition: color 0.1s linear;
 }
 
@@ -1285,10 +1297,6 @@ main {
 
 .sidebar-group > summary:hover {
   color: var(--fg-muted);
-}
-
-.sidebar-group li a {
-  padding-left: var(--s3);
 }
 
 /*

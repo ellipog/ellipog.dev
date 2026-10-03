@@ -51,7 +51,7 @@ function Group({ group, pathname }: { group: RailGroup; pathname: string }) {
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary className="label">{group.label}</summary>
+      <summary>{group.label}</summary>
       <ul>
         {group.pages.map((page) => (
           <li key={page.url}>
