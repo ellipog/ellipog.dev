@@ -626,6 +626,37 @@
   color: var(--fg);
 }
 
+/*
+ * A folder inside a mod's band.
+ *
+ * The label is the same 11px caps the rail uses, so the two lists agree about what a folder looks
+ * like, and the folder's pages hang off a hairline rather than a second band -- a rule that says
+ * "these belong to the thing above" without pretending to be a section of their own.
+ */
+.contents-folder {
+  margin-top: var(--s3);
+}
+
+.contents-folder .label {
+  margin: 0;
+}
+
+/* A folder with a page of its own says so by being clickable; the label's own ink on hover. */
+.contents-folder .label a {
+  border-bottom: 0;
+  color: inherit;
+}
+
+.contents-folder .label a:hover {
+  color: var(--fg);
+}
+
+.contents-folder .contents-pages {
+  margin-top: var(--s2);
+  padding-left: var(--s3);
+  border-left: 1px solid var(--line);
+}
+
 /* ------------------------------------------------------------------ */
 /* Prose corrections                                                   */
 /* ------------------------------------------------------------------ */

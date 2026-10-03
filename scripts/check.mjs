@@ -186,6 +186,26 @@ for (const id of ['tasked', 'armature']) {
   check(`${id}: masthead still links to the docs index`, html.includes('<a href="/docs/">Docs</a>'));
 }
 
+console.log('\n== folders are groups, closed until the reader is in one ==');
+/*
+ * The rail's links are a client component, because the group holding the reader's page has to be open
+ * and only the browser knows where the reader is -- but it is prerendered, so what these read is what
+ * ships: a native `<details>` per folder, labelled with the name the sync gave it, and the group
+ * holding the current page carrying `open` before any JavaScript has run. The two pages below are the
+ * two interesting states: a page in no folder, and a page inside one.
+ */
+const overviewRail = sidebar(read(`${OUT}/docs/tasked/index.html`) ?? '') ?? '';
+const folderRail = sidebar(read(`${OUT}/docs/armature/api/data/index.html`) ?? '') ?? '';
+check('folders render as native details', overviewRail.includes('<details class="sidebar-group"'));
+check('a folder is labelled with the name the sync gave it', overviewRail.includes('>Authoring<'));
+check('a folder the reader is not in stays closed', /<details class="sidebar-group">/.test(overviewRail));
+check(
+  'the folder holding the reader is open',
+  /<details class="sidebar-group" open[^>]*>\s*<summary[^>]*>The API</.test(folderRail),
+  'the API group on /docs/armature/api/data/',
+);
+check('the reader is marked in the rail', folderRail.includes('aria-current="page"'));
+
 console.log('\n== the scrollbar is drawn, not inherited ==');
 const cssFiles = existsSync(CHUNKS) ? readdirSync(CHUNKS).filter((f) => f.endsWith('.css')) : [];
 const css = cssFiles.map((f) => readFileSync(`${CHUNKS}/${f}`, 'utf8')).join('\n');
@@ -389,6 +409,11 @@ if (docsIndex) {
   for (const title of ['Tasked documentation', 'KubeJS scripting', 'Armature documentation']) {
     check(`/docs/ lists "${title}"`, contents.includes(title));
   }
+  // A folder in the rail is a folder here: the same grouping, under the name the sync gave it.
+  check(
+    '/docs/ shows a folder on its own row',
+    contents.includes('contents-folder') && contents.includes('>Authoring<'),
+  );
 }
 
 console.log('\n== the README is not documentation ==');
@@ -807,7 +832,7 @@ console.log('\n== the tab title ==');
  */
 const homeTitle = titleOf(home);
 const docsTitle = titleOf(read(`${OUT}/docs/tasked/index.html`));
-const subPageTitle = titleOf(read(`${OUT}/docs/tasked/kubejs/index.html`));
+const subPageTitle = titleOf(read(`${OUT}/docs/tasked/authoring/kubejs/index.html`));
 const docsIndexTitle = titleOf(read(`${OUT}/docs/index.html`));
 const glossaryTitle = titleOf(read(`${OUT}/docs/glossary/index.html`));
 

@@ -1253,6 +1253,45 @@ main {
 }
 
 /*
+ * A folder inside a section: `<details>`, so the disclosure is native, keyboard-operable and needs no
+ * JavaScript, with the browser's marker replaced by the same mono glyph the prose disclosure uses.
+ *
+ * The default state is closed, and that is the point of the grouping: one open group — the one the
+ * reader is in, opened by the rail component — is what keeps a twelve-page manual to a readable
+ * column. The pages inside hang off their label so the nesting reads at a glance.
+ */
+.sidebar-group {
+  margin-top: var(--s3);
+}
+
+.sidebar-group > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 2px 0;
+  transition: color 0.1s linear;
+}
+
+.sidebar-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-group > summary::before {
+  content: "+ ";
+}
+
+.sidebar-group[open] > summary::before {
+  content: "− ";
+}
+
+.sidebar-group > summary:hover {
+  color: var(--fg-muted);
+}
+
+.sidebar-group li a {
+  padding-left: var(--s3);
+}
+
+/*
  * Horizontal padding only, and no top padding, and that is load-bearing.
  *
  * The contents rail is sticky, so it is positioned from the viewport — while its *flow* position is

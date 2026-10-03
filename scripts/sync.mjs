@@ -16,6 +16,14 @@
  * Because only docs sync, `docs/` may be full MDX: nothing there is rendered by GitHub, so there is no
  * compatibility to preserve.
  *
+ * THE GLOSSARY
+ *
+ * The shared vocabulary is `glossary.json` at the site root, read first; a mod may add
+ * `docs/glossary.json` for the terms it coined. The union is what `[[term]]` resolves against, and what
+ * the generated page and hover cards read. A duplicate id, or one visible word from two sources, fails
+ * the build naming both files -- see `lib/glossary.mjs` for why that is a failure rather than a
+ * precedence rule. `bun run glossary` prints the union without building anything.
+ *
  * THE LINK SYNTAX
  *
  * Two forms, distinguished by the colon, resolved in one pass after every page is known:
@@ -36,7 +44,9 @@
  *
  * 1. THE COPY IS WIPED BEFORE IT IS REBUILT. `apps/docs/content/docs/` is deleted outright, not merged
  *    into. A stale file surviving a re-sync is the drift this exists to prevent.
- * 2. THE FOLDER NESTING IS THE URL. `docs/guides/tasks.md` becomes `/docs/tasked/guides/tasks/`.
+ * 2. THE FOLDER NESTING IS THE URL. `docs/guides/tasks.md` becomes `/docs/tasked/guides/tasks/`, and
+ *    the rail renders each one-level folder as a collapsible group. A folder's `index.md` is the
+ *    folder's own page, and it names the group.
  * 3. A DOCUMENT'S OWN TITLE IS CONSUMED, NOT REPEATED. The first `# heading` sets the page title and is
  *    removed from the body, because the template renders the title. Otherwise the same words appear
  *    twice, once at 24px and again immediately below.
@@ -46,7 +56,6 @@
  *    so the sync is two passes: discover everything, then write with the index in hand.
  */
 
-import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -57,26 +66,16 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const SITE = resolve(HERE, '..');
+import { SITE, USE_PINS, materialise } from './lib/repos.mjs';
+import { generatedGlossary, glossarySources, mergeGlossaries } from './lib/glossary.mjs';
+
 const CONTENT = join(SITE, 'apps', 'docs', 'content', 'docs');
 
-/** Where a pinned checkout lands. Gitignored, and safe to delete. */
-const CACHE = join(SITE, '.cache');
-
-/**
- * Force the pinned commit even when the repository is present beside this one.
- *
- * Off by default, because a local build should show local edits — that is the whole reason the sibling
- * read exists. On in CI, where there are no siblings to read. It is also how the pin path is tested on
- * a machine that *does* have the repos, which otherwise could not exercise it at all.
- */
-const USE_PINS = process.env.ELLIPOG_USE_PINS === '1';
-
 const manifest = JSON.parse(readFileSync(join(SITE, 'manifest.json'), 'utf8'));
-const glossary = JSON.parse(readFileSync(join(SITE, 'glossary.json'), 'utf8'));
+
+/** The merged vocabulary: filled in by `mergeGlossary()` once every checkout is known. */
+let glossary = { terms: [] };
 
 const problems = [];
 const usedTerms = new Set();
@@ -170,80 +169,13 @@ function markdownFiles(dir) {
 const pageIndex = new Map();
 const sections = [];
 
-function repoPath(mod) {
-  return resolve(SITE, mod.localPath);
-}
-
-/**
- * A checkout of one commit, into `.cache/<mod>`.
- *
- * **Why this exists, in one sentence: on a build server there are no sibling folders.** A clone of this
- * repository contains `.gitignore`, `AGENT.md`, `apps`, `manifest.json`, `package.json` and `scripts` —
- * and nothing else. `../tasked` does not exist, so the sibling read finds nothing, every mod is skipped
- * and the sync exits non-zero. The site cannot be deployed at all without this.
- *
- * The shallow single-commit fetch is deliberate. `git clone --depth 1` cannot check out an arbitrary
- * commit — depth limits you to a branch tip — but fetching one commit *by SHA* is supported and pulls
- * exactly the one snapshot, with none of the history. For a docs build that is the whole repository we
- * need.
- *
- * The `.pin` stamp is a marker rather than bookkeeping: a re-build with the same pin skips the network
- * entirely, which matters because a Vercel build runs this on every deploy.
+/*
+ * `repoPath`, `checkoutPin` and `materialise` live in `lib/repos.mjs` now: `glossary.mjs` has to answer
+ * the same "where is this mod's checkout" question, and one definition is what keeps the two honest.
  */
-function checkoutPin(mod) {
-  const dir = join(CACHE, mod.id);
-  const stamp = join(dir, '.pin');
-
-  if (existsSync(stamp) && readFileSync(stamp, 'utf8').trim() === mod.pin) {
-    return { dir, cached: true };
-  }
-
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(dir, { recursive: true });
-
-  const git = (...args) =>
-    execFileSync('git', args, { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
-
-  git('init', '--quiet');
-  git('remote', 'add', 'origin', mod.repo);
-  git('fetch', '--quiet', '--depth', '1', 'origin', mod.pin);
-  git('checkout', '--quiet', 'FETCH_HEAD');
-  writeFileSync(stamp, mod.pin, 'utf8');
-
-  return { dir, cached: false };
-}
-
-/**
- * Where a mod's documentation comes from: the sibling folder if it is there, otherwise the pin.
- *
- * **The sibling wins, and that ordering is a reversal worth stating.** `AGENT.md` originally said the pin
- * should be preferred when one is set. That would mean a local build silently showing pushed code and
- * hiding the edit you are in the middle of making, which is the opposite of useful — and it would make
- * `bun run dev` lie about what you are working on. So a local folder wins by default, and
- * `ELLIPOG_USE_PINS=1` forces the pin for anyone who wants to reproduce a deploy or test the CI path.
- */
-function materialise(mod) {
-  const local = repoPath(mod);
-  const hasLocal = existsSync(local);
-
-  if (mod.pin && (!hasLocal || USE_PINS)) {
-    try {
-      const { dir, cached } = checkoutPin(mod);
-      return { dir, source: `${mod.pin.slice(0, 7)}${cached ? ' (cached)' : ''}` };
-    } catch (err) {
-      const detail = (err.stderr ?? err.message ?? '').toString().trim().split('\n').slice(-3).join(' / ');
-      problems.push(`${mod.id}: could not fetch pin ${mod.pin.slice(0, 7)} -- ${detail}`);
-      return { dir: null, source: null };
-    }
-  }
-
-  if (hasLocal) return { dir: local, source: mod.localPath };
-
-  return { dir: null, source: null };
-}
 
 function discover(mod) {
-  const where = materialise(mod);
+  const where = materialise(mod, problems);
 
   if (!where.dir) {
     return {
@@ -420,6 +352,19 @@ function writeMeta(dir, targetDir, title) {
   );
 }
 
+/**
+ * What the generated tree calls a folder.
+ *
+ * A folder with an `index.md` is called whatever that page calls itself: `api/index.md` titled "The API"
+ * is the section "The API", where humanising the folder name would print "Api". A folder with no index
+ * page has nothing to borrow a name from, and its folder name is all there is.
+ */
+function folderTitle(section, dir, docsDir) {
+  if (dir === docsDir) return section.mod.name;
+  const index = section.pages.find((page) => page.isIndex && dirname(page.file) === dir);
+  return index?.title ?? humanise(relative(docsDir, dir).split(sep).pop());
+}
+
 function writeMod(section) {
   const { mod, pages } = section;
   const out = join(CONTENT, mod.id);
@@ -453,7 +398,7 @@ function writeMod(section) {
     const rel = relative(docsDir, dir);
     const target = rel ? join(out, rel) : out;
     mkdirSync(target, { recursive: true });
-    writeMeta(dir, target, rel ? humanise(rel.split(sep).pop()) : mod.name);
+    writeMeta(dir, target, folderTitle(section, dir, docsDir));
   }
 
   return pages.length;
@@ -492,7 +437,7 @@ function writeDocsIndex(mods) {
 function writeGlossaryPage() {
   write(
     join(CONTENT, 'glossary.mdx'),
-    frontmatter('Glossary', 'Terms used across the mods, defined once.') +
+    frontmatter('Glossary', 'Terms used across the mods, each defined in the file that owns it.') +
       'Every term here is also available in any page as a hover definition: write `[[quest]]`.\n\n' +
       '<Glossary />\n',
   );
@@ -504,9 +449,9 @@ function main() {
   rmSync(CONTENT, { recursive: true, force: true });
   mkdirSync(CONTENT, { recursive: true });
 
-  // Next cannot import a module from outside its own project directory, so these are copied in.
+  // Next cannot import a module from outside its own project directory, so the manifest is copied in.
+  // The glossary is written later, merged from every source once the checkouts are known.
   writeFileSync(join(SITE, 'apps', 'docs', 'manifest.json'), readFileSync(join(SITE, 'manifest.json'), 'utf8'));
-  writeFileSync(join(SITE, 'apps', 'docs', 'glossary.json'), readFileSync(join(SITE, 'glossary.json'), 'utf8'));
 
   // Pass 1: discover. Nothing is written until every page is known, because a cross-mod link needs the
   // list of targets to resolve against.
@@ -537,21 +482,37 @@ function main() {
     return;
   }
 
-  // Pass 2: write, with the whole page index in hand.
+  // Pass 2: write, with the whole page index in hand. The vocabulary is merged first, because every
+  // page resolves its `[[term]]`s against it and the generated copy is what the components import.
+  glossary = { terms: mergeGlossaries(glossarySources(sections), problems) };
+  write(join(SITE, 'apps', 'docs', 'glossary.json'), generatedGlossary(glossary.terms));
+
   for (const section of sections) writeMod(section);
 
   writeDocsIndex(sections.map((s) => s.mod));
   writeGlossaryPage();
 
+  // Where the vocabulary came from, in one line: the shared file and then each mod that defines terms.
+  if (glossary.terms.length > 0) {
+    const counts = new Map();
+    for (const term of glossary.terms) counts.set(term.source, (counts.get(term.source) ?? 0) + 1);
+    console.log(`sync: glossary -- ${[...counts].map(([label, n]) => `${n} ${label}`).join(', ')}`);
+  }
+
   // Terms defined but never used are reported, not failed: the glossary is partly a reference in its
-  // own right, and a term may be waiting for the page that needs it.
+  // own right, and a term may be waiting for the page that needs it. The source is named so the
+  // author knows which file to open.
   const unused = glossary.terms.filter((t) => !usedTerms.has(t.id));
   if (unused.length > 0) {
-    console.log(`sync: ${unused.length} glossary term(s) defined but not yet referenced: ${unused.map((t) => t.id).join(', ')}`);
+    console.log(
+      `sync: ${unused.length} glossary term(s) defined but not yet referenced: ${unused.map((t) => `${t.id} (${t.source})`).join(', ')}`,
+    );
   }
 
   if (problems.length > 0) {
-    console.error(`\nsync: ${problems.length} unresolved link(s). A cross-mod link that cannot resolve is a build failure, because the author cannot see the target while writing it:\n`);
+    console.error(
+      `\nsync: ${problems.length} problem(s). A cross-mod link or a glossary term that cannot resolve is a build failure, because the author cannot see the other file while writing:\n`,
+    );
     for (const problem of problems) console.error(`  ${problem}`);
     process.exitCode = 1;
     return;

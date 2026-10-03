@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "sync": "bun scripts/sync.mjs",
+    "glossary": "bun scripts/glossary.mjs",
     "stats": "bun scripts/stats.mjs",
     "check": "bun scripts/check.mjs",
     "pins": "bun scripts/pins.mjs",
