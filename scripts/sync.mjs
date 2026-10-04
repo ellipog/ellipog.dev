@@ -71,6 +71,7 @@ import { SITE, USE_PINS, materialise } from './lib/repos.mjs';
 import { generatedGlossary, glossarySources, mergeGlossaries } from './lib/glossary.mjs';
 
 const CONTENT = join(SITE, 'apps', 'docs', 'content', 'docs');
+const PUBLIC = join(SITE, 'apps', 'docs', 'public');
 
 const manifest = JSON.parse(readFileSync(join(SITE, 'manifest.json'), 'utf8'));
 
@@ -443,6 +444,61 @@ function writeGlossaryPage() {
   );
 }
 
+/**
+ * A mod's published schemas, served from `public/`.
+ *
+ * A schema's `$id` is a promise that the URL answers -- a pack's `"$schema"` names it and an editor
+ * fetches it. The docs walker reads markdown only, deliberately, so `_schema/*.schema.json` can
+ * never reach the site through it; they are copied file-for-file instead, and the copy is asserted
+ * to be exactly the source set: a schema added upstream but not copied would 404 from every editor,
+ * and one deleted upstream but left here would answer forever.
+ *
+ * The target is `public/<mod>/_schema/`, because that is the path the `$id`s already name and Next
+ * copies `public/` wholesale into the build. `docs/*.schema.json` -- the one-file format's schema --
+ * lands under `_legacy/` for the same reason.
+ */
+function copySchemas(mod) {
+  const { dir, source } = materialise(mod, problems);
+  if (!dir) return;
+
+  const kindsDir = join(dir, 'tools', 'quests', '_schema');
+  const docsDir = join(dir, 'docs');
+  const kinds = existsSync(kindsDir)
+    ? readdirSync(kindsDir)
+        .filter((name) => name.endsWith('.schema.json'))
+        .sort()
+    : [];
+  const legacy = existsSync(docsDir)
+    ? readdirSync(docsDir)
+        .filter((name) => name.endsWith('.schema.json'))
+        .sort()
+    : [];
+  if (kinds.length === 0 && legacy.length === 0) return; // a mod with no schemas publishes none
+
+  // Rule 1 applies here too: the copy is wiped before it is rebuilt, or a schema deleted upstream
+  // survives as a URL that still answers.
+  const target = join(PUBLIC, mod.id);
+  rmSync(target, { recursive: true, force: true });
+
+  for (const name of kinds) {
+    write(join(target, '_schema', name), readFileSync(join(kindsDir, name), 'utf8'));
+  }
+  for (const name of legacy) {
+    write(join(target, '_legacy', name), readFileSync(join(docsDir, name), 'utf8'));
+  }
+
+  if (kinds.length > 0) {
+    const copied = readdirSync(join(target, '_schema')).sort();
+    if (copied.join('\n') !== kinds.join('\n')) {
+      problems.push(`${mod.id}: copied ${copied.length} schema(s) where the checkout has ${kinds.length}`);
+      return;
+    }
+  }
+  console.log(
+    `  + ${mod.id.padEnd(10)} ${kinds.length} schema(s) + ${legacy.length} legacy -> /${mod.id}/_schema/ (${source})`,
+  );
+}
+
 /* ------------------------------------------------------------------ */
 
 function main() {
@@ -488,6 +544,9 @@ function main() {
   write(join(SITE, 'apps', 'docs', 'glossary.json'), generatedGlossary(glossary.terms));
 
   for (const section of sections) writeMod(section);
+
+  // The schemas, beside the pages: the URLs a pack's `$schema` names have to answer.
+  for (const section of sections) copySchemas(section.mod);
 
   writeDocsIndex(sections.map((s) => s.mod));
   writeGlossaryPage();
