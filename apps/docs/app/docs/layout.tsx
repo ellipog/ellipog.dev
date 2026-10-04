@@ -36,6 +36,10 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
   const sections = sectionTrees().map((tree) => ({
     id: tree.mod.id,
     name: tree.mod.name,
+    // The section's own front page, so its name can be the way back to it. The contents list on
+    // `/docs/` already works this way -- a folder's name reaches the folder's page -- and the rail
+    // was the one place a section could be entered by URL only.
+    href: tree.overview?.url ?? null,
     section: {
       // The section's own front page is called "Overview" in the rail rather than by its page title.
       // It sits under a label that already names the mod, so "Tasked" above "Tasked documentation"
@@ -74,10 +78,12 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         {sections.map((section) => (
           <div className="sidebar-section" key={section.id}>
             {/* The mark on the section label. 16px, because the label itself is 11px uppercase — an icon
-                any larger than that would out-weigh the word it belongs to. */}
+                any larger than that would out-weigh the word it belongs to. The name stays the label's
+                own text so it sits in the same box as the Reference label below it, with the link
+                inside rather than around the whole thing. */}
             <span className="label sidebar-label">
               <ModIcon id={section.id} size="sm" />
-              {section.name}
+              {section.href ? <a href={section.href}>{section.name}</a> : section.name}
             </span>
             <SidebarLinks section={section.section} />
           </div>

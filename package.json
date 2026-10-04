@@ -20,9 +20,13 @@
     "brand": "bun scripts/brand.mjs",
     "portrait": "bun scripts/portrait.mjs",
     "reset": "bun scripts/reset.mjs",
+    "search": "pagefind --site apps/docs/out --glob \"docs/**/*.html\" --output-subdir _pagefind",
     "dev": "bun run sync && bun run stats && bun run --filter @ellipog/docs dev",
-    "build": "bun run sync && bun run stats && bun run --filter @ellipog/docs build && bun run check",
+    "build": "bun run sync && bun run stats && bun run --filter @ellipog/docs build && bun run search && bun run check",
     "start": "bun run --filter @ellipog/docs start",
     "types": "bun run --filter @ellipog/docs types"
+  },
+  "devDependencies": {
+    "pagefind": "^1.5.2"
   }
 }

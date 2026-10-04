@@ -197,14 +197,28 @@
   background: var(--bg-sunken);
 }
 
+/*
+ * The mark and the word, on one baseline.
+ *
+ * `align-items: center` is doing real work rather than tidying: flex items stretch by default, and a
+ * 12px box stretched to the line box of 10.5px uppercase mono grows past the cap height it is
+ * supposed to sit beside. The gap is 6px because the icon is narrow and the label's own letter
+ * spacing already adds air on its right.
+ */
 .callout-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--fg);
   margin-bottom: var(--s2);
+}
+
+.callout-icon {
+  flex: none;
 }
 
 .callout-body > * + * {
@@ -701,6 +715,94 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* "Where to start" — the index table, read as cards                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The one table on the site that is not data.
+ *
+ * "Where to start" is a list of pages with a sentence about each: two columns, one of which is
+ * nothing but a link. Rendered as a table it read as a grid of cells with a striped header, which is
+ * the shape of a reference table and the opposite of what it is -- an invitation. It is the first
+ * thing a new reader meets on a mod's front page, and it was the least inviting thing on it.
+ *
+ * **This is a plain `<table>` being restyled, not a list, and that is deliberate.** The markup comes
+ * from the mod repository's markdown by way of `scripts/sync.mjs`, which wipes and rebuilds
+ * `content/` -- so the shape of the table is not this site's to change. `display: grid` on the table
+ * plus `display: contents` on the body makes the rows the grid's items, which is the only way to
+ * turn cells into cards without touching a byte of the source.
+ *
+ * **`+`, not `~`, and the difference is a bug rather than a style.** `~` has no boundary: it would
+ * match every `.table-wrap` that appears anywhere after this heading on the page, so a second
+ * heading's data table would silently turn into cards too. The table is the heading's immediate
+ * sibling -- verified in the built HTML, not assumed -- so `+` says exactly what is meant.
+ *
+ * Nothing here is a card in the sense the design language forbids: no radius, no shadow, no fill
+ * beyond the sunken hover every other interactable surface on this site already uses.
+ */
+#where-to-start + .table-wrap table {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s3);
+}
+
+/* The column headings are "Page" and "What it is" -- true of the table and useless on a card. */
+#where-to-start + .table-wrap thead {
+  display: none;
+}
+
+/* Lets the rows become the grid's children rather than the body's. */
+#where-to-start + .table-wrap tbody {
+  display: contents;
+}
+
+#where-to-start + .table-wrap tr {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  padding: var(--s4);
+  transition: background-color 0.12s linear;
+}
+
+#where-to-start + .table-wrap tr:hover {
+  background: var(--bg-sunken);
+}
+
+#where-to-start + .table-wrap td {
+  border: 0;
+  padding: 0;
+}
+
+/* The title is the card's heading, so it takes the ink the prose headings take. */
+#where-to-start + .table-wrap td:first-child a {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+#where-to-start + .table-wrap td:last-child {
+  margin-top: var(--s2);
+  font-size: 12.5px;
+  color: var(--fg-muted);
+}
+
+/*
+ * The wrapper keeps its `tabindex="0"` -- see `table.tsx`, it is there so a keyboard can scroll a
+ * wide table -- but there is nothing to scroll here any more, so the tab stop lands on a box that
+ * does nothing and draws a focus ring around the whole grid. The stop is harmless; the ring around
+ * six cards is not, and reads as though the grid itself were the control.
+ */
+#where-to-start + .table-wrap:focus-visible {
+  outline: 0;
+}
+
+/* One column when two would be narrower than the sentences inside them. */
+@media (max-width: 640px) {
+  #where-to-start + .table-wrap table {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* The head of a page                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -759,16 +861,33 @@
 }
 
 /*
- * The one-line facts a reader needs before they start — from the manifest, so it cannot drift.
+ * The facts a reader needs before they start — from the manifest, so they cannot drift.
  *
- * Mono and faint, directly under the title with no rule of its own, so it reads as part of the heading
- * block rather than as the first sentence of the page.
+ * A row of chips directly under the title with no rule of its own, so it reads as part of the heading
+ * block rather than as the first sentence of the page. It was one monospace line with `·` between the
+ * facts, which is a sentence: you read it to find the version you wanted. Chipped, the eye lands on
+ * `Minecraft 1.21.1` without reading anything else, which is the only question this row is asked.
+ *
+ * `letter-spacing` is kept on the row rather than moved to the chips so the chips stay compact while
+ * the row keeps the tracking that ties it to the title above it.
  */
 .prereq {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
   margin-top: var(--s2);
   font-size: 11px;
   letter-spacing: 0.04em;
-  color: var(--fg-faint);
+}
+
+/* Square and hairline, the same construction as the maturity marker that sits on this row's line. */
+.fact {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-muted);
+  white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------ */

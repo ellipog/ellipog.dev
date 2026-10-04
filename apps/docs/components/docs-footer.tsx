@@ -17,6 +17,12 @@ type SuiteMod = {
  * this" -- without being in the way while they are reading.
  *
  * Prev and next are scoped to the section, which `lib/docs.ts` explains.
+ *
+ * `data-pagefind-ignore` keeps the whole row out of the search index. It sits inside the element
+ * Pagefind is told to index, so without this the words "Previous" and "Next" and two neighbouring
+ * page titles would be indexed as part of *this* page's text — and every page would be a near-duplicate
+ * of the two beside it, which is how a search for a page's own title starts returning the pages either
+ * side of it first.
  */
 export function DocsFooter({
   mod,
@@ -28,7 +34,7 @@ export function DocsFooter({
   next?: Neighbour;
 }) {
   return (
-    <footer className="docs-footer">
+    <footer className="docs-footer" data-pagefind-ignore>
       {mod?.repo ? (
         <div className="docs-source">
           <span className="label">Source</span>

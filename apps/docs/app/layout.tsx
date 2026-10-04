@@ -2,10 +2,13 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import './global.css';
+import { Arrow } from '@/components/arrow';
 import { Colophon } from '@/components/colophon';
+import { Search } from '@/components/search';
 import { SponsorBanner } from '@/components/sponsor';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { SITE } from '@/lib/metadata';
+import { sectionTrees } from '@/lib/docs';
 import manifest from '@/manifest.json';
 
 export const metadata: Metadata = {
@@ -109,11 +112,20 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             {/* Named, because a page can carry more than one navigation region and "Primary" is the
                 one thing a reader cannot work out from the links themselves. */}
             <nav aria-label="Primary">
+              {/* Search first, so it sits between the wordmark and the destinations rather than after
+                  them -- the one control here that is not a link to somewhere else. The mods offered
+                  as scopes are the ones with pages, from the same function that builds the rail: the
+                  manifest also carries mods that have no documentation yet, and a filter tab that can
+                  only ever return nothing is worse than no tab. */}
+              <Search mods={sectionTrees().map((tree) => ({ id: tree.mod.id, name: tree.mod.name }))} />
               <a href="/docs/">Docs</a>
-              {/* These two are the only external links on the site without the `↗` that says a link
-                  leaves and opens a tab, because the mark in the masthead is deliberately wordless —
-                  so the announcement is made to assistive tech instead of drawn. The accessible name
-                  contains the visible text, which is what label-in-name requires. */}
+              {/* The `↗` earns its place here, and the earlier reading of this row was wrong.
+                  The argument against it was that the masthead is deliberately wordless, so the
+                  announcement was made to assistive tech instead of drawn. But the mark is not
+                  decoration: the site's own reader is a developer deciding whether a click leaves
+                  the page, and a label that only a screen reader hears answers that question for
+                  the wrong audience. The accessible name still says it in words, so the two agree
+                  rather than one covering for the other. */}
               {manifest.author.links.map((link) => (
                 <a
                   key={link.id}
@@ -124,6 +136,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   aria-label={`${link.label} (opens in a new tab)`}
                 >
                   {link.label}
+                  <Arrow />
                 </a>
               ))}
               <ThemeToggle />

@@ -1929,12 +1929,19 @@ const locs = [...(sitemap ?? '').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[
  * This is what makes the sitemap a derived thing rather than an intended one: a page added to the
  * site and forgotten in the sitemap fails here, and so does a sitemap entry for a page that was
  * never built. `404` and `_not-found` are Next's own directories, not pages, and `_next` is assets.
+ *
+ * **`_pagefind` is the fourth of those, and it was not obvious until it broke the build.** Pagefind
+ * writes its index to `out/_pagefind/`, and this walk skips a directory only by naming it -- so the
+ * index arrived as a dozen new "pages" that the sitemap had never heard of, and the assertion below
+ * failed with a list of `.pf_fragment` files. It is generated furniture like `_next`, and it is named
+ * with a leading underscore for the same reason.
  */
 function pagesIn(dir, prefix = '') {
   const found = existsSync(`${dir}/index.html`) ? [`/${prefix}`] : [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     if (entry.name === '_next' || entry.name === '404' || entry.name === '_not-found') continue;
+    if (entry.name === '_pagefind') continue;
     found.push(...pagesIn(`${dir}/${entry.name}`, `${prefix}${entry.name}/`));
   }
   return found;
@@ -2044,7 +2051,7 @@ for (const link of manifest.author.links) {
   check(
     `the ${link.label} link announces its new tab`,
     (home ?? '').includes(`aria-label="${link.label} (opens in a new tab)"`),
-    'the masthead is the one place with no arrow to say it',
+    'the drawn arrow says it to the eye; this says it to everything else',
   );
 }
 check('the reduced-motion rule ships', /prefers-reduced-motion:\s*reduce/.test(allCss), show('prefers-reduced-motion'));

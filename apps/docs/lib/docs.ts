@@ -48,20 +48,25 @@ function loaderName(id: string): string {
 }
 
 /**
- * The one-line facts a page needs before it is read.
+ * The facts a page needs before it is read, one per chip.
  *
  * Nobody should read a page for a version they are not running, and today almost every page needs that
  * caveat. Built from the manifest, so it cannot go stale the way a hand-written "requires 1.21.1" in
  * prose would -- and it disappears entirely for a mod that has none of these fields.
+ *
+ * **Returned as a list rather than one joined string, because the three facts are three things.** They
+ * used to be run together with `·` separators and rendered as a single monospace line, which made a
+ * sentence of them -- something to read -- when the reader is scanning for one value. Split, each
+ * becomes a chip the eye can find without reading the row, and the loader list (which is genuinely one
+ * fact expressed with a `+`) stays whole.
  */
-export function prerequisitesOf(mod: SuiteMod | undefined): string | null {
-  if (!mod) return null;
-  const parts = [
+export function prerequisiteFacts(mod: SuiteMod | undefined): string[] {
+  if (!mod) return [];
+  return [
     mod.minecraft ? `Minecraft ${mod.minecraft}` : null,
     mod.loaders?.length ? mod.loaders.map(loaderName).join(' + ') : null,
     mod.version ? `${mod.name} ${mod.version}` : null,
   ].filter(Boolean) as string[];
-  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 /** The manifest entry a page belongs to, from the first slug segment. */
@@ -187,6 +192,26 @@ function folderLabel(modId: string, folder: string): string {
     // A folder the sync made always has one; a hand-made tree might not, and the name is the fallback.
   }
   return folder.replace(/[-_]+/g, ' ').replace(/^./, (char) => char.toUpperCase());
+}
+
+/**
+ * What the rail calls the folder a page sits in, or nothing when it sits in none.
+ *
+ * The label is the same string the rail shows -- both go through `folderLabel` -- so a search result's
+ * breadcrumb says "Authoring" exactly where the reader last saw that word, rather than a slug or a
+ * title-cased guess.
+ *
+ * **Returns `undefined` rather than an empty string, and callers must treat the two as different.**
+ * A section's front page and its top-level pages (`/docs/tasked/`, `/docs/tasked/commands/`) are in no
+ * folder, so there is no section to name. An empty string would be written into the markup as an
+ * attribute that exists and says nothing, which reads downstream as a section whose name is blank --
+ * and a search result then renders a breadcrumb separator with nothing after it.
+ */
+export function sectionLabelOf(slugs: string[]): string | undefined {
+  const [modId, segment] = slugs;
+  if (!modId || !segment) return undefined;
+  if (!foldersOf(modId).includes(segment)) return undefined;
+  return folderLabel(modId, segment);
 }
 
 /**

@@ -465,23 +465,51 @@ main {
   background-image: url("/site/aaen-mark-on-light.png");
 }
 
+/*
+ * Space, not pipework.
+ *
+ * The row is a run of cells divided by one hairline each, and every control is a cell.
+ *
+ * Every cell carries a `border-left`, so the row reads as compartments -- which is what this bar is:
+ * a wordmark, then a series of things that each go somewhere else. Taking those rules out and holding
+ * the cells apart with space instead left the two controls with no option but to become boxes of
+ * their own, because the search trigger and the theme switch need an edge to sit in; a row of plain
+ * links beside two small bordered buttons is two designs sharing a bar.
+ *
+ * So the lines are back and the boxes are gone. The trigger and the toggle are cells like every other
+ * cell -- same height, same padding, same single left edge -- and the only border left inside the row
+ * is the `<kbd>` badge, which is a key cap rather than a control.
+ *
+ * **The inversion comes back with the cells, and it could not come back before.** Inverting on hover is
+ * this site's way of saying "this is a surface you can act on", and it needs a surface to fill: with no
+ * boxes in the row there was nothing to invert, which is why the treatment had become an underline. A
+ * cell that runs the full height of the bar has a surface again.
+ */
+/*
+ * **The `>` is a bug fix, not a style preference, and the bug it fixes was invisible until it was not.**
+ *
+ * The search palette lives in this component, so its `<dialog>` is a DOM child of this `<nav>` even
+ * though a modal renders in the top layer and looks like it is somewhere else entirely. Written as a
+ * descendant selector, every rule below also matched the palette's own contents: `.masthead nav a`
+ * gave each search result `display: flex`, at a specificity of (0,2,1) that beat `.search-hit`'s
+ * (0,1,0) however the sheet was ordered. The results laid out as a row of fragments -- title, mod,
+ * breadcrumb and excerpt side by side -- and nothing in the CSS said so, because the rule that did it
+ * is forty lines away and about the masthead.
+ *
+ * A nav's rules are for the nav's own cells. `>` says that, and it is true of every element these
+ * rules are meant for: the wordmark's links, the trigger, the toggle.
+ */
 .masthead nav {
   gap: 0;
 }
 
-/*
- * One border, on one edge, for a link and a button alike.
- *
- * `border: 0` is not redundant with the `border-left` beneath it. A `<button>` carries a UA border on
- * all four sides; an `<a>` carries none. Without the reset the theme toggle renders as a boxed control
- * sitting in the middle of a row of plain cells, which is exactly what it did. The left edge is then
- * supplied explicitly so the row's vertical rule stays continuous across the toggle.
- */
-.masthead nav a,
-.masthead nav button {
+.masthead nav > a,
+.masthead nav > button {
+  /* Fills the bar so the hairline runs its whole height and there is a surface for the hover to fill. */
   height: 100%;
   display: flex;
   align-items: center;
+  gap: 5px;
   padding: 0 var(--s4);
   border: 0;
   border-left: 1px solid var(--line);
@@ -494,14 +522,336 @@ main {
   cursor: pointer;
 }
 
-.masthead nav a:hover,
-.masthead nav button:hover {
+.masthead nav > a:hover,
+.masthead nav > button:hover {
   background: var(--fg);
   color: var(--bg);
+  text-underline-offset: 4px;
+}
+
+/*
+ * The external-link mark.
+ *
+ * `display: inline-block` is not cosmetic and is the whole reason this rule exists. A `<span>` is a
+ * non-replaced inline box, and CSS Transforms do not apply to those -- the hover translation below
+ * would have been silently discarded by every browser, with the mark rendering perfectly and simply
+ * never moving. It has to be a block-ish box before it can be moved.
+ */
+.arrow {
+  display: inline-block;
+  font-size: 0.9em;
+  line-height: 1;
+  transition: transform 0.12s linear;
+}
+
+/* It leans out of its corner: the mark points away from the page, so it moves away on hover. */
+a:hover > .arrow,
+a:focus-visible > .arrow {
+  transform: translate(1px, -1px);
+}
+
+/*
+ * The theme switch.
+ *
+ * **The icon and the words are both chosen by CSS, and the component holds no state.** The theme is
+ * already an attribute on `<html>` set before first paint by the layout's inline script, so making
+ * React mirror it would be a second copy of the answer that can disagree with the first -- and the
+ * disagreement has a visible failure mode: a reader whose stored theme is dark would see the sun
+ * (drawn from the attribute) while a screen reader announced "switch to dark" (read from state that
+ * had not caught up yet). `theme-toggle.tsx` explains the same decision from the other side.
+ *
+ * The base rules are the light theme, including the case where the attribute is missing entirely
+ * because the script was blocked -- a moon is the right offer on an unknown ground.
+ */
+/*
+ * **The `button.theme-toggle` form is load-bearing, not tidiness.** `.masthead nav > button` above sets
+ * `border: 0` and a left hairline at (0,2,1); a plain `.theme-toggle` rule is (0,1,0) and would lose.
+ * Matching the element and the class takes it to (0,3,1), which is what lets this rule leave the
+ * `border-left` alone while stating the padding: the cell's own edge is the only line this control
+ * needs.
+ */
+.masthead nav > button.theme-toggle {
+  /* No box of its own: it is a cell in the row like the links beside it. `border-left` is inherited
+     from the cell rule above rather than restated, so the row's rules stay one continuous run. */
+  padding: 0 var(--s4);
+  line-height: 0;
+}
+
+/* The cell hover inverts; this only suppresses the underline the links get, which the icon has no use for. */
+.masthead nav > button.theme-toggle:hover {
+  text-decoration: none;
+}
+
+.theme-toggle svg {
+  display: block;
+}
+
+.theme-toggle .icon-sun,
+.theme-toggle .label-to-light {
+  display: none;
+}
+
+[data-theme="dark"] .theme-toggle .icon-sun,
+[data-theme="dark"] .theme-toggle .label-to-light {
+  display: block;
+}
+
+[data-theme="dark"] .theme-toggle .icon-moon,
+[data-theme="dark"] .theme-toggle .label-to-dark {
+  display: none;
 }
 
 .band {
   border-bottom: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------------ */
+/* Search                                                              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The trigger.
+ *
+ * Sized like the links beside it rather than like a search field, because that is what the masthead
+ * has room for -- a 56px bar holding a wordmark, four destinations and an input is a bar where one of
+ * them is always being squeezed. The `<kbd>` badge is what makes it read as a launcher rather than as
+ * a box you type into: the input lives in the dialog, and the badge says so.
+ *
+ * **The text collapses before the masthead runs out of room, and the breakpoint is measured rather
+ * than guessed.** At 860px the wordmark, this trigger with its words, four links and the toggle come
+ * to just under the shell's width; below it the words are the first thing to go, because the icon and
+ * the badge still say what the control is. `check.mjs` hides `.nav-secondary` at 700px, which is the
+ * next thing to go and is not this rule's business.
+ */
+/*
+ * **The `button.search-trigger` form is load-bearing, exactly as it is for `.theme-toggle` above.**
+ * `.masthead nav > button` sets the cell's padding, edge and hover at (0,2,1); a plain `.search-trigger`
+ * is (0,1,0) and would lose every one of them. Matching the element and the class takes this to
+ * (0,3,1), which is what lets it state the one thing it does differently -- the gap between the mark,
+ * the words and the key cap, which is wider than the 5px a plain link wants.
+ */
+.masthead nav > button.search-trigger {
+  gap: var(--s3);
+}
+
+/* The cell hover inverts; this only suppresses the underline the links get. */
+.masthead nav > button.search-trigger:hover {
+  text-decoration: none;
+}
+
+/* The one border left inside the row, and it is not a control: a key cap is a picture of a key. */
+.search-kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--fg-faint);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+
+/*
+ * On the inverted ground both the cap's ink and its edge have to come from the inverted pair.
+ *
+ * This is the one element in the row that cannot inherit its way through the hover: the cell's `color`
+ * flips, but `--line` is a border colour and borders do not follow text colour. Left as it was, the cap's
+ * edge would be a light grey rule on a near-black cell -- a key cap disappearing into the thing it is
+ * drawn on, at exactly the moment the reader is pointing at it.
+ */
+.masthead nav > button.search-trigger:hover .search-kbd {
+  color: var(--inv-faint);
+  border-color: var(--inv-line);
+}
+
+@media (max-width: 860px) {
+  .search-trigger-text,
+  .search-trigger .search-kbd {
+    display: none;
+  }
+}
+
+/*
+ * The palette.
+ *
+ * **Anchored near the top rather than centred, and it is not a style choice.** The UA centres a modal
+ * dialog with `margin: auto`, which on a phone puts the input exactly where the software keyboard is
+ * about to be -- the field ends up behind the keyboard that opened it. A dialog that starts at 12vh
+ * and grows downward keeps the input visible for as long as the reader is typing.
+ */
+.search-dialog {
+  width: min(640px, calc(100vw - var(--s5)));
+  margin: 12vh auto auto;
+  padding: 0;
+  border: 1px solid var(--line-ink);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.search-dialog::backdrop {
+  background: rgba(9, 9, 11, 0.4);
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--line);
+  color: var(--fg-muted);
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.search-input:focus {
+  outline: 0;
+}
+
+.search-input::placeholder {
+  color: var(--fg-faint);
+}
+
+/* The one place on the site a row of small buttons sits in a line rather than a column. */
+.search-scopes {
+  display: flex;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4) 0;
+}
+
+.search-scope {
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 2px 8px;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background-color 0.12s linear, color 0.12s linear, border-color 0.12s linear;
+}
+
+.search-scope:hover {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+/*
+ * The active scope is the one filled surface in the design, and it is earned: an unpressed toggle and
+ * a pressed one have to be told apart at a glance, and a hairline cannot do it -- every one of these
+ * already has a hairline. Inversion is how this site says "selected", in the same language the
+ * catalogue's cells use.
+ */
+.search-scope[aria-pressed="true"] {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+
+.search-results {
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  padding: var(--s3) var(--s2) var(--s3);
+}
+
+.search-group + .search-group {
+  margin-top: var(--s2);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line);
+}
+
+.search-group-label {
+  display: block;
+  padding: 0 var(--s2) var(--s1);
+}
+
+.search-hit {
+  display: block;
+  padding: var(--s2);
+  border: 0;
+  color: var(--fg-muted);
+  transition: background-color 0.1s linear, color 0.1s linear;
+}
+
+.search-hit[data-active] {
+  background: var(--bg-sunken);
+  color: var(--fg);
+}
+
+.search-hit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.search-hit-title {
+  font-size: 13.5px;
+  color: var(--fg);
+}
+
+.search-hit-mod {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.search-hit-path {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--fg-faint);
+}
+
+/* Two lines, clamped. A result is a signpost, not the destination. */
+.search-hit-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: var(--s1);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.search-hit-excerpt mark {
+  background: none;
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.search-note {
+  padding: var(--s3) var(--s2);
+  font-size: 12.5px;
+  color: var(--fg-muted);
+}
+
+.search-note code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.search-more {
+  padding-top: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--fg-faint);
 }
 
 .band-head {
@@ -804,11 +1154,29 @@ main {
   opacity: 0.6;
 }
 
-/* The section label in the docs rail, with its mark. */
+/*
+ * The section label in the docs rail, with its mark.
+ *
+ * `--fg-muted` rather than the `--fg-faint` the shared `.label` uses. That value is right for a label
+ * sitting inside a band that already has structure around it, but the rail's sections are the only
+ * headings in that column, and at `--fg-faint` they were quiet enough to read as a continuation of
+ * the list below rather than as the thing the list belongs to.
+ */
 .sidebar-label {
   display: flex;
   align-items: center;
   gap: var(--s2);
+  color: var(--fg-muted);
+}
+
+/* A section with a page of its own is reachable through its name, the way the contents list works.
+   The label is already a link's parent, so it only needs the ink to say when the pointer is on it. */
+.sidebar-label a {
+  color: inherit;
+}
+
+.sidebar-label a:hover {
+  color: var(--fg);
 }
 
 .pub-cell .summary {
@@ -1107,6 +1475,18 @@ main {
   color: var(--fg-muted);
 }
 
+/*
+ * A table is rows, not a grid.
+ *
+ * **The four-bordered cell is the one place this file broke its own rule.** Everything else here
+ * draws a line once, on the edge that owns it; a table drew all four borders on every cell, which
+ * makes a spreadsheet -- and a spreadsheet is a different design language, the one this site exists
+ * not to be. A rule under each row carries the same structure with a quarter of the ink, and the
+ * columns are held apart by the space between them rather than by a line down every seam.
+ *
+ * The header keeps its sunken ground and takes the one heavier line the palette allows, so the head
+ * of a table is still a band rather than another row.
+ */
 .prose table {
   border-collapse: collapse;
   width: 100%;
@@ -1115,16 +1495,39 @@ main {
 
 .prose th,
 .prose td {
-  border: 1px solid var(--line);
-  padding: var(--s2) var(--s3);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: var(--s3) var(--s4) var(--s3) 0;
   text-align: left;
   vertical-align: top;
 }
 
+/* The gap between columns is the gutter, because there is no longer a line doing the job. */
+.prose td + td,
+.prose th + th {
+  padding-left: var(--s4);
+}
+
 .prose th {
   background: var(--bg-sunken);
+  border-bottom-color: var(--line-ink);
   font-weight: 600;
   font-size: 12px;
+}
+
+/*
+ * A two-column table with no headings is a key/value list, and the key is written in the first
+ * column with nothing to say it is a key. Ink and weight do that.
+ *
+ * **The `:not(:has(…))` half is the load-bearing one.** `:has(thead th:empty)` alone also matches a
+ * matrix whose top-left cell happens to be blank, which would embolden the first column of a data
+ * table that has real headings in every other column. Requiring that *no* header cell has text
+ * narrows this to the one shape it is for: the `| | |` header GFM forces on a table that has none.
+ * See the matching rule in `docs.css`, which collapses that empty row.
+ */
+.prose table:has(thead th:empty):not(:has(thead th:not(:empty))) td:first-child {
+  color: var(--fg);
+  font-weight: 600;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1191,6 +1594,22 @@ main {
   overflow-y: auto;
 
   /*
+   * **There is deliberately no `overflow-x: hidden` here, and adding one breaks three things.**
+   *
+   * The current-page marker below reaches back into this rail's padding with a negative margin, and
+   * `overflow-y: auto` does resolve `overflow-x: visible` to `auto` — so the guard looks free. It is
+   * not:
+   *
+   *   - Lightning CSS folds the two longhands into `overflow: hidden auto`, so the literal
+   *     `overflow-y: auto` disappears from the built sheet and `check.mjs` fails an assertion about a
+   *     property that is still, semantically, doing exactly what it says.
+   *   - The narrow-screen rule further down sets `overflow-y: visible`, which with an inherited
+   *     `overflow-x: hidden` computes back to `auto` — so the rail silently becomes a scroll container
+   *     on phones, where it was explicitly made not to be one.
+   *   - It is guarding nothing. The marker's negative margin and its compensating padding sum to zero,
+   *     so the link box is exactly the column's width and there is no overflow to clip. The guard was
+   *     for a failure that the arithmetic already prevents, and it cost two real ones.
+   *
    * Both mechanisms, because they cover different engines — and here they cannot conflict.
    *
    * `scrollbar-width: none` is the standard property: Firefox and Chromium 121+ honour it.
@@ -1216,6 +1635,20 @@ main {
   padding: var(--s2) var(--s4) var(--s4);
 }
 
+/*
+ * The two mods are two documents, not one list that happens to be long.
+ *
+ * A rail holding Tasked's tree directly above Armature's reads as a single twelve-page manual, which
+ * is the one thing it is not -- the reader is in one mod's documentation, and the other is a
+ * neighbour rather than a continuation. A hairline between sections is the same statement the whole
+ * site makes with lines: here is where one thing stops.
+ */
+.sidebar-section + .sidebar-section {
+  margin-top: var(--s2);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+}
+
 .sidebar-section ul {
   list-style: none;
   margin-top: var(--s2);
@@ -1234,8 +1667,39 @@ main {
 }
 
 /*
+ * The page being read.
+ *
+ * `aria-current="page"` was already being set and had no rule anywhere, so the rail announced the
+ * reader's position to assistive tech and showed nothing to anybody else -- the current page was
+ * identifiable only by the fact that its link had been clicked.
+ *
+ * **The three numbers below have to sum to zero, and the two that cancel are not the two you would
+ * guess.** The links sit inside a `<ul>` that carries the browser's default 40px inline padding --
+ * nothing in this file resets it -- so an anchor's box starts 40px right of the section's own
+ * padding edge, which is where the negative margin bites. `margin-left: -var(--s4)` pulls the box 16px
+ * left, to the *list's* padding edge; `padding-left: calc(var(--s4) - 2px)` and the 2px border then
+ * push the text back to exactly where every other link's text sits. Get either wrong and the result is
+ * not a broken bar but a column with one link indented by 16px on one page, which reads as a rendering
+ * glitch rather than as a bug.
+ *
+ * The bar lands beside the label rather than against the rail's edge, and that is the honest
+ * description: reaching the edge would mean cancelling the browser's 40px, which is a value no rule
+ * in this file sets and so nothing here should depend on. Beside the label it reads the way a list
+ * marker reads, which is what it is.
+ *
+ * A block-level box with a negative `margin-left` grows to fill the space it moved into rather than
+ * overflowing, so this cannot produce a horizontal scrollbar in a rail that scrolls vertically.
+ */
+.sidebar-section li a[aria-current="page"] {
+  margin-left: calc(-1 * var(--s4));
+  padding-left: calc(var(--s4) - 2px);
+  border-left: 2px solid var(--line-ink);
+  color: var(--fg);
+}
+
+/*
  * A folder inside a section: `<details>`, so the disclosure is native, keyboard-operable and needs no
- * JavaScript, with the browser's marker replaced by the same mono glyph the prose disclosure uses.
+ * JavaScript, with the browser's marker replaced by a chevron drawn in CSS.
  *
  * **A folder is inside the mod above it, and this is the whole of what says so.** The first cut gave
  * the summary the same `.label` treatment the mod names get, and the result read as a list of
@@ -1254,6 +1718,19 @@ main {
   border-left: 1px solid var(--line);
 }
 
+/*
+ * The nested marker, against the group instead of against the section.
+ *
+ * The group is inset by its own `--s3` padding on top of the `--s1` margin, and its `<ul>` carries the
+ * same browser default as the section's, so the anchor needs back only the `--s3` to land on the
+ * group's hairline. The bar therefore sits *on* that line rather than beside it, which reads as the
+ * line thickening at the row the reader is on instead of as a second line drawn next to the first.
+ */
+.sidebar-group li a[aria-current="page"] {
+  margin-left: calc(-1 * var(--s3));
+  padding-left: calc(var(--s3) - 2px);
+}
+
 .sidebar-group > summary {
   cursor: pointer;
   list-style: none;
@@ -1268,12 +1745,36 @@ main {
   display: none;
 }
 
+/*
+ * The chevron, drawn rather than typed.
+ *
+ * It was `content: "+ "` and `content: "− "` -- two glyphs from different parts of the type
+ * specimen, at a weight nothing else on the page uses, saying "box" where the control is a
+ * disclosure. Two borders on a rotated box is the same triangle at the row's own weight, and unlike
+ * a font glyph it turns.
+ *
+ * **`display: inline-block` is required, not tidiness.** A `::before` box is `display: inline` by
+ * default and CSS Transforms do not apply to non-replaced inline boxes -- the rotation below would
+ * be silently dropped and the chevron would point right forever, with the open state changing
+ * nothing at all.
+ *
+ * It must stay a pseudo-element: `check.mjs` asserts the summary's own content begins with the
+ * folder name, so an SVG child would change what the element says it is.
+ */
 .sidebar-group > summary::before {
-  content: "+ ";
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: var(--s2);
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg) translate(-1px, -1px);
+  transition: transform 0.15s linear;
 }
 
 .sidebar-group[open] > summary::before {
-  content: "− ";
+  transform: rotate(45deg) translate(-1px, -1px);
 }
 
 .sidebar-group > summary:hover {
@@ -1661,8 +2162,8 @@ main {
     display: none;
   }
 
-  .masthead nav a,
-  .masthead nav button {
+  .masthead nav > a,
+  .masthead nav > button {
     padding: 0 var(--s3);
   }
 

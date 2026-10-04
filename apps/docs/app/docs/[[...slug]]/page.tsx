@@ -5,7 +5,7 @@ import { DocsContents } from '@/components/docs-contents';
 import { DocsFooter } from '@/components/docs-footer';
 import { TableOfContents } from '@/components/toc';
 import { mdxComponents } from '@/components/mdx';
-import { maturityOf, neighboursOf, prerequisitesOf, sectionOf, tocOf } from '@/lib/docs';
+import { maturityOf, neighboursOf, prerequisiteFacts, sectionLabelOf, sectionOf, tocOf } from '@/lib/docs';
 import { SITE, social } from '@/lib/metadata';
 import { source } from '@/lib/source';
 
@@ -34,7 +34,33 @@ export default async function DocsPage({ params }: Props) {
   const isIndex = resolved.length === 0;
   const mod = sectionOf(resolved);
   const { prev, next } = neighboursOf(resolved);
-  const prereq = prerequisitesOf(mod);
+  const facts = prerequisiteFacts(mod);
+  const sectionLabel = sectionLabelOf(resolved);
+
+  /*
+   * What the search index is allowed to see, and what it should call it.
+   *
+   * `data-pagefind-body` is the boundary: Pagefind indexes this element and ignores everything outside
+   * it, which is what keeps the rail, the masthead and the "On this page" list out of the results. The
+   * alternative is not "index a bit more" -- a page with no such element is indexed *whole*, so the
+   * rail's every link would be a search hit on every page.
+   *
+   * **Every attribute is built here rather than written into the JSX, because `mod` is optional.**
+   * `sectionOf` is a lookup by first slug, so it returns nothing for `/docs/` and `/docs/glossary/` --
+   * pages that are real, built, and would have thrown on `mod.id` during the build. The two keys are
+   * also not always both present: a section's front page sits in no folder, so there is no `section`
+   * to name, and `sectionLabelOf` returns nothing rather than an empty string so no attribute is
+   * written at all. A result with no section renders a plain breadcrumb rather than a dangling one.
+   */
+  const searchMeta: Record<string, string> = {
+    'data-pagefind-body': '',
+    'data-pagefind-meta': mod ? 'mod[data-mod], section[data-section]' : 'section[data-section]',
+  };
+  if (mod) {
+    searchMeta['data-pagefind-filter'] = `mod:${mod.id}`;
+    searchMeta['data-mod'] = mod.name;
+  }
+  if (sectionLabel) searchMeta['data-section'] = sectionLabel;
 
   // The one frontmatter key a document may set for itself. Read from the file rather than from
   // `page.data` because the page schema strips unknown keys — see `maturityOf`.
@@ -46,13 +72,22 @@ export default async function DocsPage({ params }: Props) {
 
   return (
     <div className={rail.length >= 2 ? 'docs-page docs-page-with-rail' : 'docs-page'}>
-      <article className="prose">
+      <article className="prose" {...searchMeta}>
         <div className="page-head">
           <h1>{page.data.title}</h1>
           {maturity ? <span className={`maturity maturity-${maturity}`}>{maturity}</span> : null}
         </div>
-        {/* The one-line facts, before the prose. From the manifest, so it cannot drift. */}
-        {prereq ? <p className="prereq mono">{prereq}</p> : null}
+        {/* The facts, before the prose. From the manifest, so they cannot drift. One chip each,
+            because a reader is looking for a version rather than reading a sentence. */}
+        {facts.length > 0 ? (
+          <p className="prereq">
+            {facts.map((fact) => (
+              <span className="fact" key={fact}>
+                {fact}
+              </span>
+            ))}
+          </p>
+        ) : null}
         {page.data.description ? <p className="lede">{page.data.description}</p> : null}
 
         {/* The contents list, on the docs index only. Rendered rather than authored, so it cannot

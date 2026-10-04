@@ -20,6 +20,24 @@ const BY_ID = new Map(TERMS.map((entry) => [entry.id, entry]));
  * `tabIndex={0}` so the definition is reachable by keyboard. Without it the only way to a definition
  * would be a mouse, which is the usual reason tooltips are useless.
  */
+/**
+ * How the term reads *inside a sentence*.
+ *
+ * **The entry's own `term` is a heading, and this is not.** `Quest`, `Canvas` and `Chapter group` are
+ * written that way in the glossary list and in the tooltip's title, where they are the name of an
+ * entry and a capital is right. Inline, in the middle of a sentence, the capital made the prose
+ * disagree with itself: the same page said "a pannable Canvas" and, two paragraphs later, "a pannable
+ * canvas". The lowercase form was already winning everywhere it was not a glossary term.
+ *
+ * It is derived from the `id` rather than stored, so there is nothing to keep in step. Every entry's
+ * id is required to be lowercase letters, digits and hyphens -- both glossary sources state that as
+ * the rule -- so `chapter-group` becomes `chapter group`, which is the form the prose already used.
+ * `term` remains the fallback for the case the contract does not cover.
+ */
+function inlineForm(entry: Entry): string {
+  return entry.id ? entry.id.replace(/-/g, ' ') : entry.term;
+}
+
 export function GlossaryTerm({ term, children }: { term: string; children?: React.ReactNode }) {
   const entry = BY_ID.get(term) as Entry | undefined;
   if (!entry) return <>{children ?? term}</>;
@@ -28,7 +46,7 @@ export function GlossaryTerm({ term, children }: { term: string; children?: Reac
 
   return (
     <span className="term" tabIndex={0} aria-describedby={id}>
-      {children ?? entry.term}
+      {children ?? inlineForm(entry)}
       <span className="term-def" id={id}>
         <span className="term-def-name">{entry.term}</span>
         {entry.definition}
