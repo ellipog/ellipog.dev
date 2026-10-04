@@ -10,8 +10,8 @@ format: a <GlossaryTerm term="chapter-group" /> is a folder with a manifest, a <
 config/tasked/quests/
 ├── index.json                  the root: what exists, and in what order
 ├── reward_tables/              rolls a reward can name
-│   └── bell_toll.json
-├── first_light/                a chapter group
+│   └── dungeon.json
+├── getting_started/            a chapter group
 │   ├── group.json
 │   └── first_steps/            a chapter
 │       ├── chapter.json
@@ -26,8 +26,8 @@ order they should appear — that list is the only place the order is expressed:
 
 ```json
 {
-  "id": "first_light",
-  "title": "First Light",
+  "id": "getting_started",
+  "title": "Getting Started",
   "chapters": ["first_steps"]
 }
 ```
@@ -56,7 +56,7 @@ same fields a quest inherits from them: `defaultPrerequisiteMode`, `defaultConsu
 
 <Callout kind="warning">
 
-**A folder's name is its id, and that is checked.** A folder called `first_light` whose manifest
+**A folder's name is its id, and that is checked.** A folder called `getting_started` whose manifest
 says `"id": "first_steps"` is reported, naming both sides — and the folder name wins, because every
 path in the tree is built from it. The same goes for the name lists: a chapter named in `chapters`
 that is not on disk is reported, and a chapter folder that no manifest names is reported too.
@@ -77,7 +77,7 @@ holds the tree's own settings.
     "detectionDelay": 20
   },
   "entries": [
-    { "group": "first_light" },
+    { "group": "getting_started" },
     { "chapter": "a_lone_chapter" },
     { "file": "stuck_in_the_past.json" }
   ]
@@ -132,24 +132,6 @@ schema folder, a note, or a draft sit beside the content without being loaded. I
 <GlossaryTerm term="declared-path" />: the mod reads its directories by name rather than scanning them, so a stray file
 cannot be mistaken for content. `tools/quests/_schema/` in the repository is the worked example.
 
-## Editor schemas
-
-Each kind has a published JSON Schema, and a file that names it gets autocomplete and
-error-underlining in any editor that speaks JSON Schema. Tasked ignores the key entirely; it is
-there for the editor.
-
-| File | `$schema` |
-|---|---|
-| `group.json` | `https://ellipog.dev/tasked/_schema/group.schema.json` |
-| `chapter.json` | `https://ellipog.dev/tasked/_schema/chapter.schema.json` |
-| a quest file | `https://ellipog.dev/tasked/_schema/quest.schema.json` |
-| `index.json` | `https://ellipog.dev/tasked/_schema/index.schema.json` |
-| `reward_tables/<name>.json` | `https://ellipog.dev/tasked/_schema/reward_table.schema.json` |
-
-The same five files are checked into the repository under `tools/quests/_schema/`, so a copy works
-offline. [Validation](/docs/tasked/authoring/validation/) is what Tasked itself checks; the schema is what your
-editor checks before a file ever reaches the game, and the two are held in step by a test.
-
 ## The older, single-file format
 
 <details>
@@ -161,8 +143,7 @@ is recognised by *position*, not by a `version` field, so an old file needs no e
 
 The two formats describe the same objects, so a flat file may carry the same fields a `group.json`
 does. New packs should use the folder format; the flat one is kept so old ones do not have to be
-rewritten. Its schema is published at
-`https://ellipog.dev/tasked/_legacy/tasked-quests.schema.json`.
+rewritten.
 
 </details>
 

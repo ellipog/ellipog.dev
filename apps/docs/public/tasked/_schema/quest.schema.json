@@ -48,7 +48,7 @@
     "x": { "type": "integer", "default": 0, "description": "Canvas position. Grid spacing is 32." },
     "y": { "type": "integer", "default": 0 },
     "shape": {
-      "enum": ["rounded", "square", "circle", "diamond", "hexagon", "octagon", "pentagon", "gear", "heart", "tome", "star", "none"],
+      "enum": ["rounded", "square", "circle", "diamond", "hexagon", "octagon", "pentagon", "gear", "heart", "tome", "none"],
       "default": "rounded",
       "description": "The node's outline, each drawn at its own true proportions. `rounded` packs into a grid best; `none` draws no panel at all - the icon alone - and is still clickable, its hit area being the square."
     },
@@ -76,10 +76,6 @@
       "type": "boolean",
       "default": false,
       "description": "Tasks must be done in order: the second cannot be handed in until the first is."
-    },
-    "autoClaim": {
-      "enum": ["default", "disabled", "enabled", "no_toast", "invisible"],
-      "description": "Whether this quest's rewards are handed over the moment it completes, overriding the chapter's own `autoClaim` (which in turn defers to the pack setting in index.json). A reward's own `auto` still wins over this. `enabled` pays with a notification, `no_toast` silently, `invisible` with no trace; `disabled` waits for a claim. Rewards that need a decision - a choice reward - are never auto-granted whatever this says."
     },
     "repeatable": {
       "type": "boolean",
@@ -190,37 +186,25 @@
     },
 
     "dependencyStyle": {
-      "description": "One line's style. Only the axes it names override anything; the axes it omits fall back to the chapter's default, and then to the built-ins (orthogonal, chevron at the target, solid, thin).",
+      "description": "One line's style. Only the axes it names override anything; the axes it omits fall back to the chapter's default, and then to the built-ins (orthogonal, one, solid, thin).",
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "form": {
-          "enum": ["orthogonal", "chamfered", "straight", "stepped", "curved", "radial"],
-          "description": "The route's shape. Orthogonal is the three-segment step, chamfered the same step with 45-degree corner cuts, straight a direct line, stepped a Z broken at the chord's midpoint, curved a smooth bow, and radial a circular arc. Curved and radial read `bend`."
-        },
-        "arrowHead": {
-          "enum": ["chevron", "triangle", "dot", "diamond", "none"],
-          "description": "The glyph an arrowhead is drawn as. Chevron is the built-in; none is a blunt line end."
-        },
-        "arrowPlace": {
-          "enum": ["target", "both", "mid", "stream"],
-          "description": "Where the heads sit: one at the dependent end (the built-in), one at each end, one in the middle of the route, or a repeating run."
-        },
-        "arrowDensity": {
-          "enum": ["low", "medium", "high"],
-          "description": "How far apart a stream repeats: 64, 32 or 16 pixels. Ignored by the other placements."
+          "enum": ["orthogonal", "straight", "curved"],
+          "description": "The route's shape. Orthogonal is the three-segment step, straight a direct line, and curved a smooth bow so parallel routes through a crowded graph can be told apart."
         },
         "arrows": {
           "enum": ["none", "one", "both", "many"],
-          "description": "Legacy, read but no longer written: the single axis the three arrow axes replaced. None is a blunt end, one a chevron at the target, both one at each end, and many a stream at its old 24-pixel spacing."
+          "description": "Where arrowheads are drawn. One, at the dependent end, is what an unconfigured line gets."
         },
         "dash": {
-          "enum": ["solid", "dashed", "dotted", "dash_dot", "double", "hazard"],
-          "description": "The line's pattern. Double is two hairlines either side of the route and ignores `weight`; hazard is the run plus diagonal hatch marks."
+          "enum": ["solid", "dashed"],
+          "description": "Whether the line is drawn in runs or unbroken."
         },
         "weight": {
-          "enum": ["thin", "thick", "bold", "conduit"],
-          "description": "How many pixels wide: 1, 2, 3, or a 6-pixel conduit with dark borders around a lighter core."
+          "enum": ["thin", "thick"],
+          "description": "How many pixels wide."
         },
         "bend": {
           "type": "number",
@@ -305,7 +289,7 @@
               },
               "reward": {
                 "allOf": [ { "$ref": "#/definitions/anyType" } ],
-                "not": { "type": "object", "required": ["conditions"] },
+                "not": { "required": ["conditions"] },
                 "description": "The reward this entry grants. All of anyType except `conditions`, which cannot mean anything here: an entry is handed out by the roll rather than claimed, so a gate on it would be validated and then ignored. Put conditions on the table reward itself."
               }
             }
