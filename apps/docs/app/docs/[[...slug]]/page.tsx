@@ -118,8 +118,8 @@ export default async function DocsPage({ params }: Props) {
  * from the outside: the fallback is a plausible title for every page at once.
  *
  * **A sub-page is qualified with its mod; a section front page is not.** `Design preview` on its own is a
- * tab that could belong to any site, so it becomes `Tasked — Design preview`. `Tasked documentation`
- * already names Tasked, so prefixing it would give `Tasked — Tasked documentation`.
+ * tab that could belong to any site, so it becomes `Tenet — Design preview`. `Tenet documentation`
+ * already names Tenet, so prefixing it would give `Tenet — Tenet documentation`.
  *
  * The test is whether the title *already contains* the mod's name, rather than whether the page is a
  * section index. That way a section front page retitled `Overview` picks up its mod automatically instead

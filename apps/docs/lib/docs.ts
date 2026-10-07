@@ -83,8 +83,8 @@ export function sectionOf(slugs: string[]): SuiteMod | undefined {
  * Fumadocs to derive the contents from it -- the same code path that assigns the heading ids in the
  * first place, which is what keeps the links and the headings in agreement.
  *
- * **A section's front page is `index.mdx`, not `<slug>.mdx`.** `/docs/tasked/` has slugs `['tasked']`,
- * which naively resolves to `tasked.mdx` -- a file that does not exist. This cost a silent failure:
+ * **A section's front page is `index.mdx`, not `<slug>.mdx`.** `/docs/tenet/` has slugs `['tenet']`,
+ * which naively resolves to `tenet.mdx` -- a file that does not exist. This cost a silent failure:
  * every section landing page got an empty contents list and therefore no rail, while every ordinary
  * page worked, so it looked like a styling rule rather than a path bug. The fallback is the same
  * resolution Fumadocs does internally.
@@ -169,7 +169,7 @@ const byUrl = (a: DocPage, b: DocPage) => a.url.localeCompare(b.url);
  *
  * **Why the filesystem and not the page list.** Fumadocs reports a folder's front page and an ordinary
  * top-level page with the same shape: `/docs/armature/api/` is `['armature','api']` and
- * `/docs/tasked/commands/` is `['tasked','commands']`, so the pages alone cannot say which second
+ * `/docs/tenet/commands/` is `['tenet','commands']`, so the pages alone cannot say which second
  * segment is a folder and which is a page. The generated content directory can, and it is the same tree
  * the rail is describing -- `sync.mjs` writes it, and writes a `meta.json` into every folder it makes.
  */
@@ -202,7 +202,7 @@ function folderLabel(modId: string, folder: string): string {
  * title-cased guess.
  *
  * **Returns `undefined` rather than an empty string, and callers must treat the two as different.**
- * A section's front page and its top-level pages (`/docs/tasked/`, `/docs/tasked/commands/`) are in no
+ * A section's front page and its top-level pages (`/docs/tenet/`, `/docs/tenet/commands/`) are in no
  * folder, so there is no section to name. An empty string would be written into the markup as an
  * attribute that exists and says nothing, which reads downstream as a section whose name is blank --
  * and a search result then renders a breadcrumb separator with nothing after it.
@@ -260,7 +260,7 @@ export function sectionTrees(): SectionTree[] {
 /**
  * The previous and next page *within the same mod*.
  *
- * Scoped to the section on purpose: jumping from the last Tasked page into Armature's docs reads as
+ * Scoped to the section on purpose: jumping from the last Tenet page into Armature's docs reads as
  * having fallen out of the manual rather than reached the end of it. The order is the one the rail
  * shows, from the same function, so a reader stepping through the pages walks the same path the rail
  * draws.

@@ -30,7 +30,7 @@
  *
  *   [[armature:layout]]           link to Armature's `layout` page, text taken from its title
  *   [[armature:layout|the seam]]  the same link with your own text
- *   [[tasked:guides/tasks#ids]]   a section within a page, with an optional anchor
+ *   [[tenet:guides/tasks#ids]]   a section within a page, with an optional anchor
  *   [[term]]                      a glossary term: hover definition, and listed on /docs/glossary
  *
  * A link to a page that does not exist **fails the build**, with the file it was found in. That is the
@@ -44,7 +44,7 @@
  *
  * 1. THE COPY IS WIPED BEFORE IT IS REBUILT. `apps/docs/content/docs/` is deleted outright, not merged
  *    into. A stale file surviving a re-sync is the drift this exists to prevent.
- * 2. THE FOLDER NESTING IS THE URL. `docs/guides/tasks.md` becomes `/docs/tasked/guides/tasks/`, and
+ * 2. THE FOLDER NESTING IS THE URL. `docs/guides/tasks.md` becomes `/docs/tenet/guides/tasks/`, and
  *    the rail renders each one-level folder as a collapsible group. A folder's `index.md` is the
  *    folder's own page, and it names the group.
  * 3. A DOCUMENT'S OWN TITLE IS CONSUMED, NOT REPEATED. The first `# heading` sets the page title and is

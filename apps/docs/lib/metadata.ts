@@ -40,7 +40,7 @@ export const CARD = {
 /**
  * A route's absolute URL, with the trailing slash the export actually serves.
  *
- * `trailingSlash: true` in `next.config.mjs` means `/docs/tasked/` is the address and `/docs/tasked`
+ * `trailingSlash: true` in `next.config.mjs` means `/docs/tenet/` is the address and `/docs/tenet`
  * is a redirect — which a static host cannot perform, so the slashless form is simply a different
  * URL. The canonical link, the sitemap entry and the share card each need the same answer to "what
  * is this page's URL", so they all ask this function rather than each appending their own slash.

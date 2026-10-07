@@ -201,7 +201,7 @@ def block(sh, d, x0, x1, y, theme, hero_size=52, fig_size=88, compact=False):
     # two cells
     cw = (x1 - x0) / 2
     for i, (name, summary) in enumerate([
-        ('Tasked', 'A questing engine. JSON files in, a pannable canvas out, and the server decides what counts as done.'),
+        ('Tenet', 'A questing engine. JSON files in, a pannable canvas out, and the server decides what counts as done.'),
         ('Armature', 'The library under it. Layout, themes, shapes, a graph canvas, and one seam between the code and the game\u2019s renderer.'),
     ]):
         cx = x0 + i * cw
@@ -220,7 +220,7 @@ def block(sh, d, x0, x1, y, theme, hero_size=52, fig_size=88, compact=False):
 
     # code strip
     sh.fillrect(x0, y2 + 1, x1, y2 + 52, t['sunken'])
-    sh.text(x, y2 + 32, '{"id": "tasked", "version": "0.1.0", "environment": "*"}', faces(d, 'code', 12.5), t['muted'], tracking=0.02)
+    sh.text(x, y2 + 32, '{"id": "tenet", "version": "0.1.0", "environment": "*"}', faces(d, 'code', 12.5), t['muted'], tracking=0.02)
     sh.text(x + 500, y2 + 32, './gradlew runDatagen', faces(d, 'code', 12.5), t['muted'], tracking=0.02)
     y2 += 52
     sh.hair(y2, x0, x1)
@@ -310,9 +310,9 @@ def sheet_compare():
         sh.text(cx + pad, cy + 152, 'Minecraft mods.', faces(d, 'display', 46), t['fg'], tracking=-0.02)
         sh.text(cx + pad, cy + 180, 'Some released, some still being built.', faces(d, 'sans', 13.5), t['muted'])
         sh.text(cx + pad, cy + 262, '2,637,299', faces(d, 'figure', 54), t['fg'], tracking=-0.03)
-        sh.text(cx + pad + 340, cy + 262, 'downloads ' + DOT + ' 1.21.1 ' + DOT + ' tasked', mono(d, 400, 10.5), t['faint'], tracking=0.06, fallback=FALLBACK)
+        sh.text(cx + pad + 340, cy + 262, 'downloads ' + DOT + ' 1.21.1 ' + DOT + ' tenet', mono(d, 400, 10.5), t['faint'], tracking=0.06, fallback=FALLBACK)
         sh.hair(cy + 292, cx + pad, cx + W / 2 - pad)
-        sh.text(cx + pad, cy + 320, '{"id": "tasked", "version": "0.1.0"}  ./gradlew build', faces(d, 'code', 12), t['muted'])
+        sh.text(cx + pad, cy + 320, '{"id": "tenet", "version": "0.1.0"}  ./gradlew build', faces(d, 'code', 12), t['muted'])
         for j, note_line in enumerate(wrap(d['note'], faces(d, 'sans', 12), W / 2 - 2 * pad)[:2]):
             sh.text(cx + pad, cy + 352 + j * 17, note_line, faces(d, 'sans', 12), t['faint'])
     sh.hair(96 + rows * rh, 0, W)
@@ -349,7 +349,7 @@ def sheet_axes():
     sh.text(16, y + 30, '06 ' + DOT + ' MORPH ' + DOT + ' SONO, THE MONO AXIS', mono(D['plex'], 600, 11), t['fg'], tracking=0.1)
     sh.text(16, y + 50, 'The site\'s rule -- prose is sans, identifiers are mono -- as one continuous axis. The boundary is a number.', faces(D['plex'], 'sans', 12.5), t['muted'])
     y += 64
-    line = 'Some released, some still being built ' + DOT + ' tasked ' + DOT + ' 1.21.1 ' + DOT + ' fabric + neoforge'
+    line = 'Some released, some still being built ' + DOT + ' tenet ' + DOT + ' 1.21.1 ' + DOT + ' fabric + neoforge'
     for v in [0, 0.25, 0.5, 0.75, 1]:
         sh.hair(y, 0, W)
         sh.text(16, y + 44, f'MONO {v:g}', mono(D['plex'], 400, 10.5), t['faint'], tracking=0.06)

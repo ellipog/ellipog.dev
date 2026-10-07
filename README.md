@@ -106,7 +106,7 @@ JavaScript runs and unchanged when JavaScript is off — see `AGENT.md` → *The
 1. `sync.mjs` reads `manifest.json` and wipes `apps/docs/content/docs/`.
 2. For each mod with `status: "active"` and a `docs/` folder, it copies **every markdown file under
    `docs/`, at any depth**. The folder structure becomes the URL structure: `docs/guides/tasks.md`
-   becomes `/docs/tasked/guides/tasks/`. Frontmatter is prepended and GFM alerts become callouts, so
+   becomes `/docs/tenet/guides/tasks/`. Frontmatter is prepended and GFM alerts become callouts, so
    the source stays plain markdown. **The README is not copied** — it is a front door for the
    repository, and its reader is not this site's reader.
 3. `stats.mjs` fetches download counts from Modrinth and CurseForge and downloads the profile picture
@@ -138,8 +138,8 @@ in **`AGENT.md` → Writing documentation**.
 ## Deploying
 
 `apps/docs/out/` is the whole site. Upload it to any static host; there is nothing to configure and
-no rewrite rules are needed, because `trailingSlash` makes Next emit `docs/tasked/index.html` rather
-than `docs/tasked.html`.
+no rewrite rules are needed, because `trailingSlash` makes Next emit `docs/tenet/index.html` rather
+than `docs/tenet.html`.
 
 `apps/docs/out/` is what gets uploaded. Nothing in it calls an API at runtime: every download count is
 already in the HTML, which is why a visitor costs zero requests.
@@ -187,8 +187,8 @@ bun run brand     :: regenerate the host's mark from design/brand-source/
 
 ## The tab title
 
-`ellipog.dev` on the home page, and `ellipog.dev | Tasked documentation` on a docs page — the site first,
-then the page. A sub-page whose own title names no mod gets qualified with one: `ellipog.dev | Tasked —
+`ellipog.dev` on the home page, and `ellipog.dev | Tenet documentation` on a docs page — the site first,
+then the page. A sub-page whose own title names no mod gets qualified with one: `ellipog.dev | Tenet —
 Design preview`.
 
 The template in `app/layout.tsx` was **dead code** until this was wired up: no page set a title, so every

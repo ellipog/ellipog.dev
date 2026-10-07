@@ -1643,7 +1643,7 @@ a:focus-visible > .arrow {
 /*
  * The two mods are two documents, not one list that happens to be long.
  *
- * A rail holding Tasked's tree directly above Armature's reads as a single twelve-page manual, which
+ * A rail holding Tenet's tree directly above Armature's reads as a single twelve-page manual, which
  * is the one thing it is not -- the reader is in one mod's documentation, and the other is a
  * neighbour rather than a continuation. A hairline between sections is the same statement the whole
  * site makes with lines: here is where one thing stops.
@@ -1708,7 +1708,7 @@ a:focus-visible > .arrow {
  *
  * **A folder is inside the mod above it, and this is the whole of what says so.** The first cut gave
  * the summary the same `.label` treatment the mod names get, and the result read as a list of
- * sibling sections -- "AUTHORING" looked like a third mod rather than a drawer in Tasked. So the name
+ * sibling sections -- "AUTHORING" looked like a third mod rather than a drawer in Tenet. So the name
  * keeps its own case (the sync gives it "The API", not "THE API"), stays quieter than the links, and
  * the whole group is indented behind a hairline: the same containment the contents list draws, at the
  * smaller scale a rail needs.

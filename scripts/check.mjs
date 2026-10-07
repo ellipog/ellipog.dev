@@ -49,7 +49,7 @@ const stats = JSON.parse(readFileSync('apps/docs/stats.json', 'utf8'));
  * `read` and `show` are function *declarations*, so they are hoisted and callable from this point.
  */
 const home = read(`${OUT}/index.html`);
-const docsPage = read(`${OUT}/docs/tasked/index.html`);
+const docsPage = read(`${OUT}/docs/tenet/index.html`);
 
 const failures = [];
 const notes = [];
@@ -140,7 +140,7 @@ console.log('\n== the build exists ==');
 for (const p of [
   `${OUT}/index.html`,
   `${OUT}/docs/index.html`,
-  `${OUT}/docs/tasked/index.html`,
+  `${OUT}/docs/tenet/index.html`,
   `${OUT}/docs/armature/index.html`,
   `${OUT}/404.html`,
 ]) {
@@ -148,7 +148,7 @@ for (const p of [
 }
 
 console.log('\n== the title renders exactly once ==');
-for (const id of ['tasked', 'armature']) {
+for (const id of ['tenet', 'armature']) {
   const html = read(`${OUT}/docs/${id}/index.html`);
   if (!html) {
     check(`${id} page`, false, 'missing');
@@ -161,13 +161,13 @@ for (const id of ['tasked', 'armature']) {
     h1s.length === 1,
     h1s.length === 1 ? JSON.stringify(h1s[0].text) : `${h1s.length} found: ${JSON.stringify(h1s.map((x) => x.text))}`,
   );
-  // The bug this guards: the README's own "# Tasked" rendering beneath the template's title.
+  // The bug this guards: the README's own "# Tenet" rendering beneath the template's title.
   const duplicated = h1s.length > 1 && h1s[0].text === h1s[1].text;
   check(`${id}: title not repeated`, !duplicated);
 }
 
 console.log('\n== the sidebar is content only ==');
-for (const id of ['tasked', 'armature']) {
+for (const id of ['tenet', 'armature']) {
   const html = read(`${OUT}/docs/${id}/index.html`);
   if (!html) continue;
 
@@ -181,7 +181,7 @@ for (const id of ['tasked', 'armature']) {
   check(`${id}: no home link in the rail`, !rail.includes('sidebar-home'));
   check(`${id}: no "Docs" heading in the rail`, !/>Docs</.test(rail));
   check(`${id}: sections present`, rail.includes('sidebar-section'));
-  check(`${id}: lists both mods`, rail.includes('>Tasked<') && rail.includes('>Armature<'));
+  check(`${id}: lists both mods`, rail.includes('>Tenet<') && rail.includes('>Armature<'));
   // The masthead keeps its Docs link -- removing that was not the request.
   check(`${id}: masthead still links to the docs index`, html.includes('<a href="/docs/">Docs</a>'));
 }
@@ -194,7 +194,7 @@ console.log('\n== folders are groups, closed until the reader is in one ==');
  * holding the current page carrying `open` before any JavaScript has run. The two pages below are the
  * two interesting states: a page in no folder, and a page inside one.
  */
-const overviewRail = sidebar(read(`${OUT}/docs/tasked/index.html`) ?? '') ?? '';
+const overviewRail = sidebar(read(`${OUT}/docs/tenet/index.html`) ?? '') ?? '';
 const folderRail = sidebar(read(`${OUT}/docs/armature/api/data/index.html`) ?? '') ?? '';
 check('folders render as native details', overviewRail.includes('<details class="sidebar-group"'));
 check('a folder is labelled with the name the sync gave it', overviewRail.includes('>Authoring<'));
@@ -325,7 +325,7 @@ console.log('\n== the documentation elements ==');
  * same ground. So it is asserted while it is there and skipped politely when it is not -- a check that
  * fails because somebody did the tidy thing is worse than no check.
  */
-const SHOWCASE = `${OUT}/docs/tasked/design-preview/index.html`;
+const SHOWCASE = `${OUT}/docs/tenet/design-preview/index.html`;
 if (existsSync(SHOWCASE)) {
   const html = readFileSync(SHOWCASE, 'utf8');
   check('callouts render with a kind', /class="callout callout-/.test(html));
@@ -376,22 +376,22 @@ if (existsSync(SHOWCASE)) {
 }
 
 /*
- * The real pages, which is where these matter. `tasked/docs/index.md` is authored content rather than
+ * The real pages, which is where these matter. `tenet/docs/index.md` is authored content rather than
  * a fixture, so an element failing here is a failure in something that is meant to stay.
  */
-const taskedIndex = read(`${OUT}/docs/tasked/index.html`);
-if (taskedIndex) {
-  check('authored page: callout from a GFM alert', taskedIndex.includes('callout-note'));
-  check('authored page: h2 carries an anchor', taskedIndex.includes('class="heading-anchor"'));
-  check('authored page: table renders', taskedIndex.includes('<table'));
+const tenetIndex = read(`${OUT}/docs/tenet/index.html`);
+if (tenetIndex) {
+  check('authored page: callout from a GFM alert', tenetIndex.includes('callout-note'));
+  check('authored page: h2 carries an anchor', tenetIndex.includes('class="heading-anchor"'));
+  check('authored page: table renders', tenetIndex.includes('<table'));
   // The wrapper is what keeps a wide table scrollable without breaking its column alignment.
-  check('authored page: table is wrapped for scrolling', taskedIndex.includes('class="table-wrap"'));
-  check('authored page: contents rail on a page with sections', taskedIndex.includes('docs-rail'));
-  check('authored page: footer names the repository', taskedIndex.includes('ellipog/tasked'));
-  check('authored page: footer carries page navigation', taskedIndex.includes('docs-nav'));
+  check('authored page: table is wrapped for scrolling', tenetIndex.includes('class="table-wrap"'));
+  check('authored page: contents rail on a page with sections', tenetIndex.includes('docs-rail'));
+  check('authored page: footer names the repository', tenetIndex.includes('ellipog/tenet'));
+  check('authored page: footer carries page navigation', tenetIndex.includes('docs-nav'));
   // The sidebar shows "Overview" for a section's front page rather than repeating the page title
   // under a label that already names the mod.
-  check('authored page: sidebar says Overview', taskedIndex.includes('>Overview<'));
+  check('authored page: sidebar says Overview', tenetIndex.includes('>Overview<'));
 }
 
 const docsIndex = read(`${OUT}/docs/index.html`);
@@ -401,15 +401,15 @@ if (docsIndex) {
   /*
    * Scoped to the contents block, and matched loosely.
    *
-   * The titles are checked inside the block rather than across the whole document, because "Tasked"
+   * The titles are checked inside the block rather than across the whole document, because "Tenet"
    * appears in the masthead, the sidebar and the prose -- an unscoped `includes` would pass even if
    * the contents list were empty. And the match is on the bare title rather than on `>Title<`, because
    * React inserts a comment between a text node and the element beside it, so the rendered markup is
-   * `Tasked documentation<!-- --><span class="arrow">` and no such pattern exists.
+   * `Tenet documentation<!-- --><span class="arrow">` and no such pattern exists.
    */
   const from = docsIndex.indexOf('class="contents"');
   const contents = from === -1 ? '' : docsIndex.slice(from, docsIndex.indexOf('</article>', from));
-  for (const title of ['Tasked documentation', 'KubeJS scripting', 'Armature documentation']) {
+  for (const title of ['Tenet documentation', 'KubeJS scripting', 'Armature documentation']) {
     check(`/docs/ lists "${title}"`, contents.includes(title));
   }
   // A folder in the rail is a folder here: the same grouping, under the name the sync gave it.
@@ -422,7 +422,7 @@ if (docsIndex) {
 console.log('\n== the README is not documentation ==');
 // The whole point of the docs refactor: a README is a front door for the repository, not a manual.
 // Neither README's build instructions should reach this site.
-for (const id of ['tasked', 'armature']) {
+for (const id of ['tenet', 'armature']) {
   const html = read(`${OUT}/docs/${id}/index.html`);
   if (!html) continue;
   check(`${id}: no README build section on the site`, !html.includes('Jars land in'));
@@ -441,7 +441,7 @@ console.log('\n== cross-mod links and the glossary ==');
  * The question is about visible content, so the check is too.
  */
 // `withoutScripts` is declared at the top of the file, as a hoisted function declaration.
-for (const path of [`${OUT}/docs/tasked/index.html`, `${OUT}/docs/tasked/design-preview/index.html`]) {
+for (const path of [`${OUT}/docs/tenet/index.html`, `${OUT}/docs/tenet/design-preview/index.html`]) {
   const html = read(path);
   if (!html) continue;
   const name = path.slice(OUT.length + 1);
@@ -459,7 +459,7 @@ if (existsSync(SHOWCASE)) {
   check('cross-mod link takes its text from the target title', html.includes('Armature documentation'));
   // Custom text and anchors.
   check('cross-mod link honours custom text', html.includes('the Armature manual'));
-  check('cross-mod link honours an anchor', /href="\/docs\/tasked\/#/.test(html));
+  check('cross-mod link honours an anchor', /href="\/docs\/tenet\/#/.test(html));
 
   // Terms: a span with the definition in the DOM, not injected.
   const terms = (html.match(/class="term"/g) ?? []).length;
@@ -692,7 +692,7 @@ console.log('\n== every mod can be built from a pin ==');
  *
  * On a build server there are no sibling folders. A clone of this repository is `.gitignore`, `AGENT.md`,
  * `apps`, `bun.lock`, `manifest.json`, `package.json`, `README.md` and `scripts` — and nothing else. So
- * `../tasked` does not exist, the sibling read finds nothing, every mod is skipped and the sync exits
+ * `../tenet` does not exist, the sibling read finds nothing, every mod is skipped and the sync exits
  * non-zero: **the site could not have been deployed at all.**
  *
  * These assertions cannot prove the fetch works — that needs the network, and `check.mjs` reads the
@@ -718,7 +718,7 @@ for (const mod of pinned) {
  *
  * A pinned commit is reproducible and *not* automatically fresh: the site describes the pin, not the
  * branch. Being able to read which commit the build used is what makes a stale pin visible instead of
- * silent, and it is why the sync prints its source on every run: `+ tasked  2 page(s) from f770a37`.
+ * silent, and it is why the sync prints its source on every run: `+ tenet  2 page(s) from f770a37`.
  */
 for (const mod of pinned) {
   console.log(`  .   ${mod.id.padEnd(10)} builds from ${mod.pin.slice(0, 7)}`);
@@ -888,8 +888,8 @@ console.log('\n== the tab title ==');
  * rest pin the format, since the format is the other half of what was asked for.
  */
 const homeTitle = titleOf(home);
-const docsTitle = titleOf(read(`${OUT}/docs/tasked/index.html`));
-const subPageTitle = titleOf(read(`${OUT}/docs/tasked/authoring/kubejs/index.html`));
+const docsTitle = titleOf(read(`${OUT}/docs/tenet/index.html`));
+const subPageTitle = titleOf(read(`${OUT}/docs/tenet/authoring/kubejs/index.html`));
 const docsIndexTitle = titleOf(read(`${OUT}/docs/index.html`));
 const glossaryTitle = titleOf(read(`${OUT}/docs/glossary/index.html`));
 
@@ -899,23 +899,23 @@ check(
   Boolean(docsTitle) && docsTitle !== homeTitle,
   docsTitle ?? 'no <title>',
 );
-check('the site comes first, then the page', docsTitle === 'ellipog.dev | Tasked documentation', docsTitle ?? '');
+check('the site comes first, then the page', docsTitle === 'ellipog.dev | Tenet documentation', docsTitle ?? '');
 check('the docs index names itself', docsIndexTitle === 'ellipog.dev | Documentation', docsIndexTitle ?? '');
 // A page belonging to no mod still gets the pipe -- it is on /docs/, so it is still a docs page.
 check('a reference page still gets the pipe', glossaryTitle === 'ellipog.dev | Glossary', glossaryTitle ?? '');
 
 /*
  * A sub-page is qualified with its mod because its own title names nothing: `KubeJS scripting` alone is a
- * tab that could belong to any site. A section front page is not, because it is already titled `Tasked
- * documentation` and qualifying it again would read as `Tasked — Tasked documentation`. Both halves are
+ * tab that could belong to any site. A section front page is not, because it is already titled `Tenet
+ * documentation` and qualifying it again would read as `Tenet — Tenet documentation`. Both halves are
  * asserted, since either one passing alone is consistent with the rule being wrong in one direction.
  */
 check(
   'a sub-page names the mod it belongs to',
-  subPageTitle === 'ellipog.dev | Tasked — KubeJS scripting',
+  subPageTitle === 'ellipog.dev | Tenet — KubeJS scripting',
   subPageTitle ?? 'no <title>',
 );
-check('a section front page is not qualified twice', !/Tasked — Tasked/.test(docsTitle ?? ''), 'no repeated mod name');
+check('a section front page is not qualified twice', !/Tenet — Tenet/.test(docsTitle ?? ''), 'no repeated mod name');
 
 console.log('\n== the catalog cell, and its two destinations ==');
 /*
@@ -1328,7 +1328,7 @@ if (sponsor) {
   // Every page, not just the home page -- it is in the root layout, and this is what proves it.
   check(
     'the band is on the docs pages too',
-    Boolean(read(`${OUT}/docs/tasked/index.html`)?.includes('class="sponsor"')),
+    Boolean(read(`${OUT}/docs/tenet/index.html`)?.includes('class="sponsor"')),
   );
 
   /*
@@ -1394,7 +1394,7 @@ if (studio) {
   const visible = withoutScripts(home ?? '');
   const at = visible.indexOf('class="colophon"');
   const colophon = at === -1 ? '' : visible.slice(at);
-  const docsWithColophon = read(`${OUT}/docs/tasked/index.html`) ?? '';
+  const docsWithColophon = read(`${OUT}/docs/tenet/index.html`) ?? '';
 
   check('the colophon renders', at !== -1);
   check('it says who engineers and maintains the site', home.includes(studio.name), studio.name);
@@ -1973,11 +1973,24 @@ check(
  * link: move the target and the rule still "works" -- a 301 to a 404 is worse than the 404 was,
  * because a crawler follows it and a reader is told the page moved to nowhere. The destination is a
  * URL in the built tree, so that is what it is checked against.
+ *
+ * A destination may be a *tree* rather than one page, and there are two shapes of that here. The
+ * rename left `/docs/tasked/:path*` -> `/docs/tenet/:path*`, so an old section address keeps meaning
+ * whatever its new counterpart means -- the whole point of a wildcard, and it has no single
+ * `index.html` to resolve. And `/tasked/_schema/quest.schema.json` is a *file* a published quest pack
+ * names in its `$schema`; it is an asset rather than a page, so no `index.html` will ever exist for
+ * it either. Both are still promises that something is there, so what is resolved is the prefix
+ * before any `:path*`, and it counts as present when it is a page **or** a path in the build.
+ * Anything that resolves to neither is the 301-to-a-404 this assertion exists to catch.
  */
 const redirects = vercel.redirects ?? [];
+const destinationExists = (destination) => {
+  const prefix = destination.replace(/\/:path\*$/, '/');
+  return existsSync(`${OUT}${prefix}index.html`) || existsSync(`${OUT}${prefix}`);
+};
 const missingDestinations = redirects
   .map((rule) => rule.destination)
-  .filter((destination) => !existsSync(`${OUT}${destination}index.html`));
+  .filter((destination) => !destinationExists(destination));
 check(
   'every redirect lands on a page that exists',
   missingDestinations.length === 0,

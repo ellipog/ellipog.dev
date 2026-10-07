@@ -38,7 +38,7 @@ They are different documents for different readers and they overlap only a littl
 
 A site that mirrors the README shows a build guide to a player. That is what this site did before the
 docs refactor — Armature's own README was telling people to edit
-`testModsDirFabric=…/profiles/Tasked Fabric/mods`, which is not just the wrong document, it is the
+`testModsDirFabric=…/profiles/Tenet Fabric/mods`, which is not just the wrong document, it is the
 wrong mod. Docs are now written once, for the reader who has the mod installed.
 
 **The consequence, and the reason it is worth the trouble:** because nothing in `docs/` is rendered by
@@ -237,7 +237,7 @@ an unresolvable one has to be a build failure rather than a broken link somebody
 ```markdown
 [[armature:index]]              -> [Armature documentation](/docs/armature/)
 [[armature:index|the seam]]     -> [the seam](/docs/armature/)
-[[tasked:index#where-to-start]] -> the same page, at an anchor
+[[tenet:index#where-to-start]] -> the same page, at an anchor
 ```
 
 Three properties, and each is the reason to use it over a URL:
@@ -313,7 +313,7 @@ Four small things, each from one place so none can drift.
 | Repo and issues row | automatic | `manifest.json` — `repo`, `issues` |
 
 **The prerequisites strip** is three chips under the title — `Minecraft 1.21.1`, `Fabric + NeoForge`,
-`Tasked 0.1.3` — one per fact, from `minecraft`, `loaders` and `version` in the manifest. Nobody should
+`Tenet 0.1.3` — one per fact, from `minecraft`, `loaders` and `version` in the manifest. Nobody should
 read a page for a version they are not running, and a hand-written "requires 1.21.1" in prose is a fact
 that goes stale the moment the manifest changes. It disappears entirely for a mod that has none of those
 fields. The loader names are looked up rather than derived, because capitalising the id gives
@@ -476,7 +476,7 @@ interrupt the main flow.
 
 ### Previous and next
 
-Automatic, from the sidebar order, and scoped to the mod — so the last Tasked page does not lead into
+Automatic, from the sidebar order, and scoped to the mod — so the last Tenet page does not lead into
 Armature's docs. Nothing to write.
 
 ### The footer row
@@ -499,7 +499,7 @@ is what stops them coming back.*
 **1. ~~`sync.mjs` reads sibling folders only.~~ Closed — the pinned checkout exists.**
 This was never a refinement, it was a **deploy blocker**, and it took a clone to see it. A checkout of
 this repository on a build server contains `.gitignore`, `AGENT.md`, `apps`, `bun.lock`, `manifest.json`,
-`package.json`, `README.md` and `scripts` — and no siblings. So `../tasked` did not resolve, every mod
+`package.json`, `README.md` and `scripts` — and no siblings. So `../tenet` did not resolve, every mod
 was skipped, and the sync exited non-zero: **the site could not be deployed at all.**
 
 `materialise()` now checks out `.cache/<mod>` at the SHA in `manifest.json`, fetching that one commit
@@ -512,19 +512,19 @@ lie about what you are working on. `ELLIPOG_USE_PINS=1` forces the pin, which is
 tested on a machine that *has* the repositories.
 
 **2. ~~Nothing shows which revision a page came from.~~ Closed — the sync names its source.**
-Every run prints it: `+ tasked 2 page(s) from f770a37`. That is the mitigation the note asked for and it
+Every run prints it: `+ tenet 2 page(s) from f770a37`. That is the mitigation the note asked for and it
 cost nothing, because the information was already in hand. A stale pin is now legible rather than
 silent — and because a pin is a *decision* rather than a mirror, `bun run pins` moves them and the
 weekly workflow opens a pull request rather than committing.
 
 **3. The field-reference page from the JSON Schema is not built.**
-Deferred with the schema work. `tasked/docs/tasked-quests.schema.json` exists and has real
+Deferred with the schema work. `tenet/docs/tenet-quests.schema.json` exists and has real
 descriptions in it, and a generated field table would be the only page with substantial content today
 — but the format refactor is replacing that schema and adding three per-kind files in a `_schema/`
 folder the walker skips, so generating against it now would target a document that is being rewritten.
 
 **8. ~~`design-preview` is a fixture and should be deleted.~~ Closed — it is gone.**
-`tasked/docs/design-preview.mdx` exercised every element above, because the design could not be judged
+`tenet/docs/design-preview.mdx` exercised every element above, because the design could not be judged
 against two short documents with five code blocks and no lists between them, and it was **disposable** by
 design — the authoring guide now covers the same ground with real content. `check.mjs` asserted against it
 while it was there and skips those assertions politely when it is not, so deleting it did not break the
@@ -555,7 +555,7 @@ released addons and packs.
 
 **Brand first, because that is what the architecture says the site is.** Aaen Studios is the parent
 engineering mark, Stellar is the developer suite, ellipog is the creator identity the gameplay content
-ships under. A reader who arrives for Tasked should see that it belongs to a suite, and the two families
+ships under. A reader who arrives for Tenet should see that it belongs to a suite, and the two families
 should not be filed together. The bands were status-first before this ("In development" / "Planned"), and
 **status did not disappear**: every cell states `in development` in its own footer, which is where a
 reader looks after the name. What changed is which question the band answers — *whose is this* before *how
@@ -1009,15 +1009,15 @@ every page rendered the bare default: the home page, the docs index, both mods' 
 404.
 
 **A dead template is invisible from the built HTML**, because the default it falls back to is a plausible
-title for every page at once. Nothing about `out/index.html` or `out/docs/tasked/index.html` looked wrong.
+title for every page at once. Nothing about `out/index.html` or `out/docs/tenet/index.html` looked wrong.
 So `check.mjs` asserts the thing that was actually false — **that a docs page's title differs from the home
 page's** — rather than only that the home page says `ellipog.dev`, which was true before and after.
 
 `app/docs/[[...slug]]/page.tsx` is now the one place that supplies the `%s` the layout wraps.
 
 **A sub-page is qualified with its mod; a section front page is not.** `Design preview` on its own is a tab
-that could belong to any site, so it becomes `Tasked — Design preview`. `Tasked documentation` already
-names Tasked, so prefixing it would give `Tasked — Tasked documentation`.
+that could belong to any site, so it becomes `Tenet — Design preview`. `Tenet documentation` already
+names Tenet, so prefixing it would give `Tenet — Tenet documentation`.
 
 The test is whether the title **already contains** the mod's name, rather than whether the page is a
 section index. So a section front page retitled `Overview` picks up its mod automatically instead of
@@ -1049,7 +1049,7 @@ did not move.
 ### Canonical, and the trailing slash
 
 Every page emits `<link rel="canonical">` for its own URL, built by `absoluteUrl()` — which appends the
-trailing slash that `trailingSlash: true` gives the export. `/docs/tasked` and `/docs/tasked/` are two
+trailing slash that `trailingSlash: true` gives the export. `/docs/tenet` and `/docs/tenet/` are two
 URLs to a static host, and the canonical is what says which one is the page.
 
 ### `robots.txt` and `sitemap.xml`
@@ -1304,7 +1304,7 @@ for a local annoyance, but worth knowing before it costs an hour.
   "buildCommand": "bun run build",
   "outputDirectory": "apps/docs/out",
   "redirects": [
-    { "source": "/docs/tasked/quests", "destination": "/docs/tasked/authoring/quests/", "permanent": true }
+    { "source": "/docs/tenet/quests", "destination": "/docs/tenet/authoring/quests/", "permanent": true }
   ]
 }
 ```
@@ -1327,8 +1327,8 @@ fails loudly if it has drifted from `package.json`. An install that silently res
 versions is a build that cannot be reproduced.
 
 **`redirects`.** Every page that has ever moved, kept alive at its old address — with **both slash
-forms**, because Vercel matches the path as written and `/docs/tasked/quests` and
-`/docs/tasked/quests/` are two different requests. The list is short and written by hand; the moment
+forms**, because Vercel matches the path as written and `/docs/tenet/quests` and
+`/docs/tenet/quests/` are two different requests. The list is short and written by hand; the moment
 it stops being short, it belongs in a generated file instead. A redirect is a promise that an old
 address still means something, so `check.mjs` asserts every destination is a page that exists: a 301
 to a 404 is worse than the 404 was, because a crawler follows it and a reader is told the page moved

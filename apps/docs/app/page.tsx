@@ -180,13 +180,13 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
                * Named per mod rather than left as the bare word `github`.
                *
                * This was a `<span>` inside one big anchor when the cell had a single destination, so a
-               * screen reader announced the whole cell — "Tasked, A questing engine…, in development,
+               * screen reader announced the whole cell — "Tenet, A questing engine…, in development,
                * docs" — and the words here were only ever a signpost for the eye. Now that they are a
                * link of their own, "github" on its own is a link with no subject: a reader tabbing
                * through the catalog hears one identical name per cell.
                *
                * The accessible name contains the visible text, which is what WCAG's label-in-name asks
-               * for — the same reason a bare "read more" is a bad link name and "Read the Tasked manual"
+               * for — the same reason a bare "read more" is a bad link name and "Read the Tenet manual"
                * is a good one.
                */
               <a

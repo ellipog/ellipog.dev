@@ -42,7 +42,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
     href: tree.overview?.url ?? null,
     section: {
       // The section's own front page is called "Overview" in the rail rather than by its page title.
-      // It sits under a label that already names the mod, so "Tasked" above "Tasked documentation"
+      // It sits under a label that already names the mod, so "Tenet" above "Tenet documentation"
       // says the same thing twice. The page's own heading is untouched -- that one is read on its own
       // and needs the full name. A folder's front page reads the same way, one level in.
       overview: tree.overview ? linkOf(tree.overview, 'Overview') : null,

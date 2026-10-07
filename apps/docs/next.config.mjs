@@ -11,8 +11,8 @@ const config = {
   // runtime is a docs site that can go down.
   output: 'export',
 
-  // Emit `out/mods/tasked/index.html` rather than `out/mods/tasked.html`, so any static host serves
-  // it at `/mods/tasked/` without a rewrite rule.
+  // Emit `out/mods/tenet/index.html` rather than `out/mods/tenet.html`, so any static host serves
+  // it at `/mods/tenet/` without a rewrite rule.
   trailingSlash: true,
 
   // Required with `output: 'export'` -- there is no server to run the optimiser.

@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   /*
    * The tab title: the site's name, then the page.
    *
-   * `ellipog.dev` alone on the home page, and `ellipog.dev | Tasked documentation` on a docs page. The
+   * `ellipog.dev` alone on the home page, and `ellipog.dev | Tenet documentation` on a docs page. The
    * site comes first because a reader with a dozen tabs open is looking for the *site* before the page,
    * and a tab truncated at twenty characters still says which site it is.
    *
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
    * The tab icon — the site's own identity, and deliberately **not** one of the mod marks.
    *
    * The marks in `components/mod-icon.tsx` belong to the mods and appear beside their names, where a
-   * reader can tell which is which; a tab showing Armature's glyph while the reader is on Tasked's page
+   * reader can tell which is which; a tab showing Armature's glyph while the reader is on Tenet's page
    * would be saying something untrue.
    *
    * **It is the same pair of files the masthead draws from**, in `public/site/`, copied by hand from

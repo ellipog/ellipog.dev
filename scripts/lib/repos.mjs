@@ -40,7 +40,7 @@ export function repoPath(mod) {
  *
  * **Why this exists, in one sentence: on a build server there are no sibling folders.** A clone of this
  * repository contains `.gitignore`, `AGENT.md`, `apps`, `manifest.json`, `package.json` and `scripts` —
- * and nothing else. `../tasked` does not exist, so the sibling read finds nothing, every mod is skipped
+ * and nothing else. `../tenet` does not exist, so the sibling read finds nothing, every mod is skipped
  * and the sync exits non-zero. The site cannot be deployed at all without this.
  *
  * The shallow single-commit fetch is deliberate. `git clone --depth 1` cannot check out an arbitrary

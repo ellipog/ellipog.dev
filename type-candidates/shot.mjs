@@ -120,7 +120,7 @@ rmSync(`${HERE}/shots`, { recursive: true, force: true });
 mkdirSync(`${HERE}/shots`, { recursive: true });
 
 const HOME = `${BASE}/`;
-const DOCS = `${BASE}/docs/tasked/design-preview/`;
+const DOCS = `${BASE}/docs/tenet/design-preview/`;
 
 for (const d of directions) {
   const css = override(d);

@@ -20,7 +20,7 @@ d = D['blueprint']
 ROLES = [
     ('figure', 88, '2,637,299', 0, False, 'works - where it should live'),
     ('hero h1', 52, 'Minecraft mods.', -0.02, False, 'works'),
-    ('docs h1', 28, 'Tasked', -0.02, False, 'works - short words'),
+    ('docs h1', 28, 'Tenet', -0.02, False, 'works - short words'),
     ('docs h2', 21, 'Where to start', -0.02, False, 'marginal - only if headings grow'),
     ('cell name', 16, 'Armature', -0.02, False, 'marginal - one word, and it is texture'),
     ('wordmark', 15, 'ellipog', -0.02, False, 'marginal - works, but 18px would be honest'),
@@ -88,7 +88,7 @@ def block_wide(sh, x0, x1, y, theme, wide):
 
     cw = (x1 - x0) / 2
     for i, (name, summary) in enumerate([
-        ('Tasked', 'A questing engine. JSON files in, a pannable canvas out, and the server decides what counts as done.'),
+        ('Tenet', 'A questing engine. JSON files in, a pannable canvas out, and the server decides what counts as done.'),
         ('Armature', 'The library under it. Layout, themes, shapes, a graph canvas, and one seam between the code and the game\u2019s renderer.'),
     ]):
         cx = x0 + i * cw
@@ -105,7 +105,7 @@ def block_wide(sh, x0, x1, y, theme, wide):
     sh.hair(y2, x0, x1)
 
     sh.fillrect(x0, y2 + 1, x1, y2 + 52, t['sunken'])
-    sh.text(x, y2 + 32, '{"id": "tasked", "version": "0.1.0", "environment": "*"}', R.faces(d, 'code', 12.5), t['muted'], tracking=0.02)
+    sh.text(x, y2 + 32, '{"id": "tenet", "version": "0.1.0", "environment": "*"}', R.faces(d, 'code', 12.5), t['muted'], tracking=0.02)
     sh.text(x + 500, y2 + 32, './gradlew runDatagen', R.faces(d, 'code', 12.5), t['muted'], tracking=0.02)
     y2 += 52
     sh.hair(y2, x0, x1)
