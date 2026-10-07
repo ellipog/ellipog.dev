@@ -56,9 +56,9 @@
       "summary": "A visual questing engine that ships no questlines of its own. JSON files in, a pannable canvas out, and the server, not the client, decides what counts as done.",
       "repo": "https://github.com/ellipog/tasked",
       "issues": "https://github.com/ellipog/tasked/issues",
-      "version": "0.1.0",
+      "version": "0.1.3",
       "localPath": "../tasked",
-      "pin": "e58cebeab1f0191d466078d6f23e16cfb635855b",
+      "pin": "8ebe6d8e427db482170f04df7f334e79f2ae06b8",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [
@@ -74,9 +74,9 @@
       "summary": "A shared library mod. One loader seam, a strict JSON reader, and a client UI toolkit for layout, text, shapes, themes and widgets.",
       "repo": "https://github.com/ellipog/armature",
       "issues": "https://github.com/ellipog/armature/issues",
-      "version": "0.1.0",
+      "version": "0.1.3",
       "localPath": "../armature",
-      "pin": "ca3932a920cceea5bc02ce73e1eef3d120055345",
+      "pin": "c2e7fcc6423d973be228c5ebc7856c4596b36627",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [

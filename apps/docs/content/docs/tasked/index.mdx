@@ -9,10 +9,12 @@ editing their own game.
 
 <Callout kind="note">
 
-**Tasked is at 0.1.0, and everything these pages describe works on both loaders.** The quest folder
-format and its <GlossaryTerm term="validator" />, the progression engine, server-authoritative sync, the quest book and
-its in-game editor are all built. 0.x is the promise that the format may still move; where a subject
-is unfinished, the page says so rather than describing what is planned.
+**Tasked is at 0.1.3 — pre-1.0 — and everything these pages describe works on both loaders, except
+where a page says otherwise** (the KubeJS binding is NeoForge-only, and its page says so). The
+quest folder format and its <GlossaryTerm term="validator" />, the progression engine, server-authoritative sync, the
+quest book and its in-game editor are all built, but the version is below 1.0 on purpose: a break
+in the format needs only a minor bump. Where a subject is unfinished, the page says so rather than
+describing what is planned.
 
 </Callout>
 
@@ -23,11 +25,11 @@ is unfinished, the page says so rather than describing what is planned.
 | Minecraft | 1.21.1, on Fabric or NeoForge |
 | Fabric | Fabric Loader 0.16.9+, with Fabric API 0.109.0+1.21.1 |
 | NeoForge | 21.1.252+ |
-| Armature | 0.1.0+, required on both loaders — [Armature documentation](/docs/armature/) is the library Tasked is built on |
+| Armature | 0.1.1+, required on both loaders — [Armature documentation](/docs/armature/) is the library Tasked is built on |
 | KubeJS | optional, NeoForge only, 2101.7.2+ — see [KubeJS scripting](/docs/tasked/authoring/kubejs/) |
 
 Tasked ships no questlines of its own. It is an engine, and installing it does not put somebody else's
-content in your config; the worked questlines live in the repository under `tools/quests/`, as
+content in your config; the worked questline lives in the repository under `tools/quests/`, as
 authoring material for a pack's first chapter.
 
 ## Where to start
@@ -71,6 +73,9 @@ and the lines between nodes are its dependencies. From a quest's card a player s
 <GlossaryTerm term="reward" />s, and picks between a choice reward's entries. A player in a party sees the roster there
 too, and the counts the party's mode combines.
 
-A player with permission level 2 gets **Edit** and **Tools** in the book's header. That is the in-game
-editor, and it writes the same files these pages describe — the server re-checks the permission and
-validates before anything lands on disk, so the client never writes a file.
+An operator gets three pills over the canvas's top-left corner — `Panels`, `Assets` and `✎ Edit` — and
+the header itself carries no authoring control. `Panels` latches the author's dock, which is where the
+Book and Chapter tabs live; `Assets` opens the pack's own files; `Edit` latches edit mode and nothing
+else. That is the in-game editor, and it writes the same files these pages describe: the server
+re-checks the permission and validates before anything lands on disk, so no quest file is written by the
+client — the player's own look and text size live in files the client owns.

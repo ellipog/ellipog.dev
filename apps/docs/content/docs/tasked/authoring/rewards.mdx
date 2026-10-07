@@ -4,7 +4,15 @@ title: "Rewards"
 
 Rewards are what a quest gives when it completes. They are separate from <GlossaryTerm term="task" />s, evaluated once,
 and by default they wait for the player to claim them — the claim button on a finished quest's card,
-or **Claim all** for everything outstanding.
+or the **Rewards** menu, which groups the whole book by chapter and collects at three levels: a
+**Claim** on one reward's row, **Claim Chapter** on a chapter's banner, and **Claim all** in the
+footer for everything the server is holding. Three toggles decide what the menu is showing — *Ready
+to claim*, *Choices pending* and *Claimed* — and the footer's sweep follows whichever is active, so a
+view of choices claims choices and a view of what you have already collected offers no sweep at all.
+
+Each row reads across four columns: what the quest is, how far along it is, what it gives, and the
+button that takes it. A quest's rewards are listed in the details column whether or not its row is
+folded open, so a chapter can be read at a glance and unfolded only where something needs deciding.
 
 ```json
 { "type": "tasked:item", "item": "minecraft:diamond", "count": 4 }
@@ -24,11 +32,47 @@ or **Claim all** for everything outstanding.
 
 | Value | Meaning |
 |---|---|
-| `default` | Follow the tree's own `defaultAutoClaim` — which defaults to `disabled`. |
+| `default` | Follow the quest's own `autoClaim`, then the chapter's, then the tree's `defaultAutoClaim` — which defaults to `disabled`. |
 | `enabled` | Give it the moment the quest completes. |
 | `disabled` | Wait for a claim. |
 | `no_toast` | Give it automatically, without a toast. |
-| `invisible` | Give it automatically, without telling the player. |
+| `invisible` | Give it automatically; the same silence as `no_toast`. |
+
+### Turning it on for a whole chapter
+
+The fifty dirt-and-wood quests at the start of a pack should not be fifty clicks, and they should not
+be fifty settings either. A chapter turns auto-claim on once:
+
+```json
+{ "id": "first_steps", "autoClaim": "enabled", "quests": [ ... ] }
+```
+
+and a quest that wants to differ says so for itself:
+
+```json
+{ "id": "the_boss", "autoClaim": "disabled" }
+```
+
+The ladder, most specific first: a reward's own `auto` → the quest's `autoClaim` → the chapter's
+`autoClaim` → the pack's `defaultAutoClaim` in `index.json` → off. `default` at any level means "ask
+the level below".
+
+Two things a mode can never override:
+
+- **A choice reward is never auto-granted.** Its payout *is* the player's pick, so it stays
+  outstanding and is offered the moment the quest is claimed — whatever `auto` says. A file that sets
+  an automatic `auto` on a `tasked:choice` gets a warning saying so, because the setting would
+  otherwise read as supported.
+- **A held team gets nothing.** `/tasked rewards block` outranks every automatic mode; unblocking is
+  the one moment it is released.
+
+`no_toast` and `invisible` are the same silence under two names: both grant without a toast and both
+suppress the completion notice for that quest, so a chapter of starter quests does not announce
+itself fifty times. The words are borrowed from FTB Quests, which is why there are two of them.
+
+While anything is still waiting, the player sees it in two places: a small badge on the quest's node
+with the number of rewards, and a count beside the chapter's row in the sidebar — `The Shop (3)` —
+which is where the eye goes first.
 
 An operator can hold every automatic payout at once with `/tasked rewards block`, whatever individual
 rewards say, and release it with `/tasked rewards unblock`. The switch is stored in the team's
@@ -141,6 +185,21 @@ A table is a list of entries, each an ordinary reward with a weight:
 | `entries` | — | The table. Each entry is a `reward` and a `weight`. |
 | `emptyWeight` | `0` | The chance of nothing on a throw, against the positive weights. Only `tasked:loot` includes it. |
 | `lootSize` | `1` | How many times the dice are thrown. |
+| `title` | the id | What the in-game editor calls the table. Absent, the id is opened out: `tier_1_ores` reads as "Tier 1 ores". |
+| `icon` | see below | The item the editor's table browser draws for it: `{ "item": "minecraft:iron_ingot" }`, with an optional `count` and `components` — the same shape a quest's `icon` uses. |
+| `uid` | — | The editor's handle for a table written `inline`. A table in its own file does not need one, and the loader ignores it there. |
+
+An absent `icon` is not a blank row: the editor draws the first entry that has an item, so a table of
+ore drops shows an ore rather than the chest every table reward type carries. A table of experience or
+commands — entries with no item of their own — falls back to that entry's type icon, and an empty
+table to paper.
+
+<Callout kind="note">
+
+`title`, `icon` and `uid` are for the editor and change nothing about a roll. They are optional, so
+every table written before them still reads, and a file never needs them to work.
+
+</Callout>
 
 A `weight` is how much of the table's probability space an entry takes; its chance is its weight over
 the total. **A weight of zero means always granted** — once per roll call — which is how a table says
@@ -156,3 +215,39 @@ that a table that accidentally includes itself cannot hang the server.
 
 A table that does not resolve — a typo in `table`, or a file that failed validation — logs a warning
 once and grants nothing. That is an author's mistake, not a crash.
+
+## Editing a table in game
+
+Nothing above has to be typed. A `tasked:random`, `tasked:loot`, `tasked:all_table` or `tasked:choice`
+reward's **Table** field is a card: it shows the table's icon, its name and its entry count, and it
+opens two panels.
+
+**The browser** (`Click to select or create a table`) lists every table the pack has, searchable by
+name or id, with `Edit`, `Copy` and `×` on each row and one button that makes one:
+
+- **New table** — a file under `reward_tables/`, with the name you give it.
+- **None** — clears the field, so the reward rolls no table.
+
+A table written *inside* a reward — the format's own inline shape — still reads and still rolls, but
+the panels no longer make one: a table lives in a file under `reward_tables/` and nowhere else, so
+there is one way to make one and one place to look. A reward holding an inline table shows it as what
+it is, without an edit path into it.
+
+**The editor** (the `Edit` chip) is the table itself:
+
+| | |
+|---|---|
+| **The header** | the title (type it — a blank title falls back to the id), the number of rolls, the entry count, the total weight, and the mode the chances are read as. |
+| **The rows** | one per entry: its icon and name, its weight with a stepper, and **the chance that weight means** — `Always` for a weight of zero, a percentage otherwise, `(per roll)` when the table rolls more than once, with the chance of seeing it *at least once* on hover. |
+| **The fold** | an entry's own fields, exactly as the card draws a reward's: the item (the picker, with the data of the stack you are holding), the count, and — for an entry that is itself a table — a button that opens it, with a breadcrumb back. |
+| **+ Item** | the item picker, appending one entry at weight 1. You can also **drag a stack in from EMI or JEI**: EMI lands it at the row under the pointer, JEI appends it to the end of the list, with its count and its data. |
+| **+ Reward** | any registered reward type — experience, a command, another table — as an entry. |
+| **Import...** | opens two rows. **From inventory** adds one entry per distinct item you carry; **From target chest** does the same for the container you are looking at, which the server resolves from your crosshair when the panel closes. Both append and never touch what is there, and tell you what they did. |
+| **Undo** | the last edit to this table, and stops at the table you opened — a nested table's steps are not its parent's. |
+| **Test roll x10** | rolls the table (nesting and all) and shows what came up, without granting anything. The server rolls, because only it can see every table the first one reaches. |
+| **Done** | one table back, or out of the panel. `Ctrl+Z` undoes your edits here — and stops at the table you opened. |
+
+Filling a container from a table is a command rather than a button, because it needs the crosshair and a
+screen captures the mouse: `/tasked table export <id>`. Reading one is a button above — the panel's
+`Import... › From target chest` row — and `/tasked table import <id>` is the same read for a player who is
+walking around. See [commands](../commands.md).

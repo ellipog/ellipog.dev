@@ -42,13 +42,13 @@
       "minimum": 0,
       "maximum": 64,
       "default": 0,
-      "description": "How many dependencies must be satisfied. When set, prerequisiteMode is ignored - this is how \"any three of these five\" is written. May not exceed the number of dependencies."
+      "description": "How many dependencies must be satisfied, replacing the mode's own count: this is how \"any three of these five\" is written. The mode still decides the *bar* each one must reach - completed, or merely started - so `one_started` with minRequired 2 means \"any two of these, started\". May not exceed the number of dependencies."
     },
 
-    "x": { "type": "integer", "default": 0, "description": "Canvas position. Grid spacing is 32." },
+    "x": { "type": "integer", "default": 0, "description": "Canvas position. The shipped chapters sit on a 32-unit grid; the editor snaps to 8." },
     "y": { "type": "integer", "default": 0 },
     "shape": {
-      "enum": ["rounded", "square", "circle", "diamond", "hexagon", "octagon", "pentagon", "gear", "heart", "tome", "none"],
+      "enum": ["rounded", "square", "circle", "diamond", "hexagon", "octagon", "pentagon", "gear", "heart", "tome", "star", "none"],
       "default": "rounded",
       "description": "The node's outline, each drawn at its own true proportions. `rounded` packs into a grid best; `none` draws no panel at all - the icon alone - and is still clickable, its hit area being the square."
     },
@@ -76,6 +76,10 @@
       "type": "boolean",
       "default": false,
       "description": "Tasks must be done in order: the second cannot be handed in until the first is."
+    },
+    "autoClaim": {
+      "enum": ["default", "disabled", "enabled", "no_toast", "invisible"],
+      "description": "Whether this quest's rewards are handed over the moment it completes, overriding the chapter's own `autoClaim` (which in turn defers to the pack setting in index.json). A reward's own `auto` still wins over this. `enabled` pays with a notification, `no_toast` silently, and `invisible` the same silence - the two silent names grant alike; `disabled` waits for a claim. Rewards that need a decision - a choice reward - are never auto-granted whatever this says."
     },
     "repeatable": {
       "type": "boolean",
@@ -186,25 +190,37 @@
     },
 
     "dependencyStyle": {
-      "description": "One line's style. Only the axes it names override anything; the axes it omits fall back to the chapter's default, and then to the built-ins (orthogonal, one, solid, thin).",
+      "description": "One line's style. Only the axes it names override anything; the axes it omits fall back to the chapter's default, and then to the built-ins (chamfered, chevron at the target, solid, thin).",
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "form": {
-          "enum": ["orthogonal", "straight", "curved"],
-          "description": "The route's shape. Orthogonal is the three-segment step, straight a direct line, and curved a smooth bow so parallel routes through a crowded graph can be told apart."
+          "enum": ["orthogonal", "chamfered", "straight", "curved"],
+          "description": "The route's shape. Chamfered is the built-in default: the three-segment step with every 90-degree corner cut at 45 degrees, a circuit trace. Orthogonal is the same step left square, straight a direct line, and curved a smooth bow, which reads `bend`."
+        },
+        "arrowHead": {
+          "enum": ["chevron", "triangle", "dot", "diamond", "none"],
+          "description": "The glyph an arrowhead is drawn as. Chevron is the built-in; none is a blunt line end."
+        },
+        "arrowPlace": {
+          "enum": ["target", "both", "mid", "stream"],
+          "description": "Where the heads sit: one at the dependent end (the built-in), one at each end, one in the middle of the route, or a repeating run."
+        },
+        "arrowDensity": {
+          "enum": ["low", "medium", "high"],
+          "description": "How far apart a stream repeats: 64, 32 or 16 pixels. Ignored by the other placements."
         },
         "arrows": {
           "enum": ["none", "one", "both", "many"],
-          "description": "Where arrowheads are drawn. One, at the dependent end, is what an unconfigured line gets."
+          "description": "Legacy, read but no longer written: the single axis the three arrow axes replaced. None is a blunt end, one a chevron at the target, both one at each end, and many a stream at its old 24-pixel spacing."
         },
         "dash": {
-          "enum": ["solid", "dashed"],
-          "description": "Whether the line is drawn in runs or unbroken."
+          "enum": ["solid", "dashed", "dotted", "dash_dot", "double", "hazard"],
+          "description": "The line's pattern. Double is two hairlines either side of the route and ignores `weight`; hazard is the run plus diagonal hatch marks."
         },
         "weight": {
-          "enum": ["thin", "thick"],
-          "description": "How many pixels wide."
+          "enum": ["thin", "thick", "bold", "conduit"],
+          "description": "How many pixels wide: 1, 2, 3, or a 6-pixel conduit with dark borders around a lighter core."
         },
         "bend": {
           "type": "number",
@@ -274,7 +290,19 @@
           "default": 1,
           "description": "How many times the dice are thrown."
         },
-        "entries": {
+                "title": {
+          "type": "string",
+          "description": "What the table is called in the editor and on a reward's badge. Absent or blank falls back to the id, opened out: `tier_1_ores` reads as \"Tier 1 ores\"."
+        },
+        "icon": {
+          "$ref": "#/definitions/itemRef",
+          "description": "The item a browser row or a reward badge draws for this table. Absent means the first entry that has an item, then that entry's reward type's icon."
+        },
+        "uid": {
+          "type": "string",
+          "description": "The editor's handle for a table written `inline` in a quest or in another table: it is what the editor addresses when a reward sits above or below it in a list. A table in its own file under `reward_tables/` is addressed by its file name, does not use this, and the loader ignores it there."
+        },
+"entries": {
           "type": "array",
           "items": {
             "type": "object",
@@ -289,8 +317,17 @@
               },
               "reward": {
                 "allOf": [ { "$ref": "#/definitions/anyType" } ],
-                "not": { "required": ["conditions"] },
-                "description": "The reward this entry grants. All of anyType except `conditions`, which cannot mean anything here: an entry is handed out by the roll rather than claimed, so a gate on it would be validated and then ignored. Put conditions on the table reward itself."
+                "not": {
+                  "anyOf": [
+                    { "type": "object", "required": ["conditions"] },
+                    {
+                      "type": "object",
+                      "required": ["type"],
+                      "properties": { "type": { "const": "tasked:choice" } }
+                    }
+                  ]
+                },
+                "description": "The reward this entry grants. All of anyType except two things. `conditions` cannot mean anything here: an entry is handed out by the roll rather than claimed, so a gate on it would be validated and then ignored. And `tasked:choice` cannot be an entry at all: a roll hands its entries out rather than offering them, so a choice entry is skipped. Put conditions on the table reward itself, and a choice on a quest."
               }
             }
           }
@@ -337,7 +374,7 @@
         "min": {
           "type": "integer",
           "minimum": 1,
-          "description": "tasked:score and tasked:party_size (condition) - the number to reach: a score, or the members of the party online now. At least 1, so an objective that does not exist (which reads as 0) locks the gate rather than opening it."
+          "description": "tasked:score and tasked:party_size (condition) - the number to reach: a score, or the members of the party online now. At least 1, so an objective that does not exist (which reads as 0) locks the gate rather than opening it. tasked:party_size is capped at 1000; tasked:score has no ceiling."
         },
         "advancement": {
           "$ref": "#/definitions/namespacedId",
@@ -355,7 +392,7 @@
     },
 
     "anyType": {
-      "description": "A task or a reward. The `type` field chooses the rest of the fields, and each field below names the type it belongs to. A field written for another type is a mistake the validator reports rather than a value anything reads.",
+      "description": "A task or a reward. The `type` field chooses the rest of the fields, and each field below names the type it belongs to. A field that no task or reward type declares is a mistake the validator reports rather than a value anything reads; a field that belongs to another type is read by that type and ignored by this one, because the validator checks every type's fields at once.",
       "type": "object",
       "required": ["type"],
       "properties": {
@@ -370,8 +407,7 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 72000,
-          "default": 20,
-          "description": "Tasks only. How often the task is re-checked, in ticks, twenty to the second. Raise it for an expensive check."
+          "description": "Tasks only. How often the task is re-checked, in ticks, twenty to the second. Left out, the task keeps its type's own cadence - 20 for most, 3 for a stat or a location, 5 for an advancement, 100 for a dimension - which is a sensible interval for how expensive that check is. Set it to override that. There is deliberately no one default here: a single number would be wrong for most of the types it applied to."
         },
         "conditions": {
           "type": "array",
@@ -465,8 +501,8 @@
         },
         "points": {
           "type": "boolean",
-          "default": false,
-          "description": "tasked:xp (task) - count levels rather than points."
+          "default": true,
+          "description": "tasked:xp (task) - whether the count is experience points (true, the default) or whole levels (false)."
         },
         "fluid": {
           "$ref": "#/definitions/namespacedId",
@@ -521,7 +557,7 @@
         "auto": {
           "enum": ["default", "disabled", "enabled", "no_toast", "invisible"],
           "default": "default",
-          "description": "Rewards only. When it is handed over: default follows the tree's own setting, enabled gives it on completion, disabled waits for a claim, no_toast gives it without a toast, and invisible gives it without the player being told."
+          "description": "Rewards only. When it is handed over: default follows the tree's own setting, enabled gives it on completion, disabled waits for a claim, no_toast gives it without a toast, and invisible grants the same way - the two silent names are FTB Quests' vocabulary rather than a behaviour."
         },
         "excludeFromClaimAll": {
           "type": "boolean",
@@ -548,7 +584,7 @@
         "levels": {
           "type": "boolean",
           "default": false,
-          "description": "tasked:xp (task and reward) - count levels rather than points."
+          "description": "tasked:xp (reward) - give whole levels rather than points, which is the default. The task's own switch is `points`, and it reads the other way: true there counts points."
         },
         "table": {
           "type": "string",

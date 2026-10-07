@@ -13,9 +13,9 @@ are the widgets that draw and key them.
 
 ```java
 TextField field = TextField.of(64).setValue("my_pack");
-field.insert(":");                 // typing
+field.insert(':');                 // typing
 field.backspace();                 // deleting
-field.left();                      // the widget calls selectTo instead when shift is held
+field.left();                      // the caret moves one code point
 field.selectAll().copyText();
 ```
 
@@ -23,7 +23,9 @@ Both answer `value()`, `caret()`, `length()`, `isEmpty()`, `hasSelection()`, `se
 `selectionEnd()` and `selectedText()`, and both offer `selectAll()`, `selectTo(position)` and
 `selectWordAt(position)` (the field), with `copyText()`, `cutText()` and `pasteText(text)`.
 `TextArea` adds the line dimension — a newline moves the caret to the next line's start — through the
-same operations.
+same operations. There is no shift-arrow: a selection is made by dragging or by `selectAll`, and the
+field's own keys are Left, Right, Home, End, Backspace and Delete, with Ctrl+C, Ctrl+V and Ctrl+X for
+the clipboard.
 
 Three pieces underneath, each written once:
 
@@ -55,7 +57,7 @@ for (RichText.Paragraph p : paragraphs) {
   (a line that began with `- `, `* ` or `+ `).
 - **Inline**, one level: `**bold**`, `*italic*` / `_italic_`, `` `code` ``, `[text](url)`. Markup
   inside a styled span is shown literally rather than interpreted — a real inline grammar is a much
-  larger promise to keep. A `\` escapes the character after it, and an unmatched delimiter is left as
+  larger promise to keep. A `\` escapes the punctuation that would otherwise be markup, and an unmatched delimiter is left as
   itself: a description with one stray `*` should read as prose, not as a parse error.
 - **A line break is a line break.** Markdown here does not join lines into flowing paragraphs, because
   these files are written a line per paragraph and joining them would re-wrap prose an author had
