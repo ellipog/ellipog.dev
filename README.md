@@ -68,7 +68,7 @@ will not work as written; see `AGENT.md`.
             │   ├── shuffled-number.tsx  the one animation on the site
             │   └── …
             ├── lib/           the Fumadocs source, and the docs helpers
-            ├── content/       GENERATED — gitignored
+            ├── content/       GENERATED — committed, and never edited here
             ├── public/        the site mark (tab + masthead), the mod marks, the host's logo
             └── out/           the static build
 

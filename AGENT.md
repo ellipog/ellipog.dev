@@ -312,10 +312,12 @@ Four small things, each from one place so none can drift.
 | `@since` chip | `<Since v="0.2.0" />` | typed, because there is nothing to look up |
 | Repo and issues row | automatic | `manifest.json` — `repo`, `issues` |
 
-**The prerequisites strip** is the one-line `Minecraft 1.21.1 · Fabric + Neoforge · Tasked 0.1.0` under
-the title. Nobody should read a page for a version they are not running, and a hand-written "requires
-1.21.1" in prose is a fact that goes stale the moment the manifest changes. It disappears entirely for a
-mod that has none of those fields.
+**The prerequisites strip** is three chips under the title — `Minecraft 1.21.1`, `Fabric + NeoForge`,
+`Tasked 0.1.3` — one per fact, from `minecraft`, `loaders` and `version` in the manifest. Nobody should
+read a page for a version they are not running, and a hand-written "requires 1.21.1" in prose is a fact
+that goes stale the moment the manifest changes. It disappears entirely for a mod that has none of those
+fields. The loader names are looked up rather than derived, because capitalising the id gives
+`Neoforge` — which is why `check.mjs` asserts the correct spelling.
 
 **The maturity marker** is the only frontmatter a document may set for itself — `draft`, `stable` or
 `unreleased`. Everything else is generated, because the catalog, the sidebar and the page have to agree
@@ -521,18 +523,20 @@ descriptions in it, and a generated field table would be the only page with subs
 — but the format refactor is replacing that schema and adding three per-kind files in a `_schema/`
 folder the walker skips, so generating against it now would target a document that is being rewritten.
 
-**8. `design-preview` is a fixture and should be deleted.**
-`tasked/docs/design-preview.mdx` exercises every element above. It exists because the design could not
-be judged against two short documents with five code blocks and no lists between them, and it is
-**disposable** — the authoring guide (Tasked stage 10) will cover the same ground with real content.
-`check.mjs` asserts against it while it is there and skips those assertions politely when it is not,
-so deleting it does not break the build.
+**8. ~~`design-preview` is a fixture and should be deleted.~~ Closed — it is gone.**
+`tasked/docs/design-preview.mdx` exercised every element above, because the design could not be judged
+against two short documents with five code blocks and no lists between them, and it was **disposable** by
+design — the authoring guide now covers the same ground with real content. `check.mjs` asserted against it
+while it was there and skips those assertions politely when it is not, so deleting it did not break the
+build. That is what happened, and the reasoning is kept rather than the entry.
 
-**9. There is no syntax highlighting, and no search.**
-Both were considered and left out. Highlighting is a second renderer, a theme pair and a large
-dependency for something the design does not depend on; the language label on a code block is a label,
-not a promise. Search is worth having once there is enough to search — at three pages it would be a
-box nobody uses, and it costs an index file and a chunk of JS on every load.
+**9. There is no syntax highlighting.**
+Considered and left out: highlighting is a second renderer, a theme pair and a large dependency for
+something the design does not depend on. The language label on a code block is a label, not a promise.
+**Search is no longer part of this gap.** It is a Pagefind index — `bun run search`, built into
+`out/_pagefind/` — with the palette in `components/search.tsx` and its data layer in `lib/search.ts`. The
+index is not fetched on page load: `loadSearch` is warmed on the trigger's first hover, and
+`data-pagefind-ignore` keeps the page furniture out of the results.
 
 **10. The shuffle effect is unverified by eye.**
 `ShuffledNumber` is asserted structurally — the static HTML has the true value, the two copies come in
@@ -1228,7 +1232,8 @@ line.
 ## Known gaps — true as of the last build, and deliberately not papered over
 
 **4. The alert transform in `sync.mjs` is a text rewrite, and its limits are real.**
-`convertAlerts` turns `> [!NOTE]` into a `<Callout>` by walking lines. It handles contiguous `>`
+`transformBody` turns `> [!NOTE]` into a `<Callout>` by walking lines, and the link pass shares that
+walk — which is why they are one pass and not two. It handles contiguous `>`
 lines, which is how a callout is always written. Two things it does not do:
 
 - **No lazy continuation.** A blockquote paragraph line with no leading `>` ends the callout early,
@@ -1244,9 +1249,11 @@ through the same code, and the transform is line-based so it will not touch it �
 written by hand in a docs file would be emitted as JSX *and* be rewritten if it happened to look like
 an alert. Write callouts as alerts; do not write them as JSX.
 **5. The CurseForge listing is not everything CurseForge hosts.**
-is recorded in `stats.json` as a `note` on every build rather than silently swallowed, and one of the
-four is known and handled by hand — see "Where the numbers come from". The other three are unaccounted
-for. If the site's CurseForge total looks low, this is the first place to look.
+The author listing returns fewer projects than CurseForge's own profile page prints, and the shortfall is
+recorded in `stats.json` as a `note` on every build rather than silently swallowed — the note prints both
+numbers, which is where to read today's. One of the missing projects is known and handled by hand — see
+"Where the numbers come from". The rest are unaccounted for. If the site's CurseForge total looks low,
+this is the first place to look.
 
 **6. The Modrinth figure is ~0.16% below the canonical sum.**
 `/search` returns an *indexed* `downloads` that lags the per-project endpoint — 296,496 here against
