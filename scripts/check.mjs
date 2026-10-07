@@ -726,51 +726,119 @@ for (const mod of pinned) {
 
 console.log('\n== the mod marks ==');
 /*
- * The icons are generated files that are also committed, which is the one arrangement here where two
- * things could drift: the sources in `design/icons-source/` and the glyphs in `apps/docs/public/icons/`.
+ * The icons are files the site serves from committed sources, which is the one arrangement here where two
+ * things could drift: `design/icons-source/<mod>.png` and `apps/docs/public/icons/<mod>.png`.
  * `bun run icons` regenerates one from the other, and these assertions are what say whether they agree.
  *
- * The colour check is the important one. A hex left in a generated glyph means the transform missed a
- * shape, and the result is a **coloured icon in a monochrome design** — the loudest possible failure,
- * and one that would only be noticed by looking. Every tone is meant to be `currentColor` at some
- * opacity, and every knockout `var(--icon-ground)`.
+ * **The colour check is gone with the vectors, and a shape check replaced it.** Every tone used to be
+ * `currentColor` at some opacity and every knockout `var(--icon-ground)`, so a hex left in a generated
+ * glyph meant the transform had missed a shape — a coloured icon in a monochrome design, the loudest
+ * possible failure. The marks are flat silhouettes now: the file supplies the shape through `mask-image`
+ * and the page supplies the ink, so there is no colour left to leak. What can still be wrong is invisible
+ * in a different way, and each assertion below is one of those:
+ *
+ *   - a **plate** exported into the file, which as a mask is a solid square of ink;
+ *   - a **light ink**, which works and is the wrong export;
+ *   - an **empty file**, which draws nothing and reads as a missing icon;
+ *   - a **footprint** that has moved, so one mark renders at a different size from its neighbours.
  */
 const ICON_DIR = 'apps/docs/public/icons';
-const iconFiles = existsSync(ICON_DIR) ? readdirSync(ICON_DIR).filter((f) => f.endsWith('.svg')) : [];
+const iconFiles = existsSync(ICON_DIR) ? readdirSync(ICON_DIR).filter((f) => f.endsWith('.png')) : [];
 
 check('there are icons to check', iconFiles.length > 0, `${iconFiles.length} file(s)`);
 
-for (const file of iconFiles) {
-  const id = file.replace(/\.svg$/, '');
-  const svg = readFileSync(`${ICON_DIR}/${file}`, 'utf8');
+/** How much of its square each mark's ink fills. The mask's one scale factor is only right while these agree. */
+const footprints = [];
 
-  const hexes = [...new Set(svg.match(/#[0-9a-f]{6}\b/gi) ?? [])];
-  check(`${id}: monochrome`, hexes.length === 0, hexes.length ? `leftover: ${hexes.join(' ')}` : '');
-  check(`${id}: takes its colour from the text`, svg.includes('currentColor'), 'currentColor');
-  // The plate is a full-bleed rect; 256 is the viewBox, so its survival is unambiguous.
-  check(`${id}: no background plate`, !/<rect[^>]*width="256"/.test(svg));
-  // The knockouts must point at the token, not at `--bg` — see the note in `scripts/icons.mjs` about why.
-  check(`${id}: knockouts use the ground token`, svg.includes('var(--icon-ground)'), 'var(--icon-ground)');
+for (const file of iconFiles) {
+  const id = file.replace(/\.png$/, '');
+  const mark = readInk(`${ICON_DIR}/${file}`);
+  const { bbox } = mark;
+
+  check(
+    `${id}: no ground exported into it`,
+    mark.cornerAlphas.every((a) => a === 0),
+    `corners ${mark.cornerAlphas.join('/')}`,
+  );
+  check(`${id}: the ink is the dark export`, mark.luminance !== null && mark.luminance <= 0.2, `${mark.ink ?? 'no ink'}`);
+  check(
+    `${id}: there is a mark in it`,
+    Boolean(bbox),
+    bbox ? `${bbox.maxX - bbox.minX + 1}x${bbox.maxY - bbox.minY + 1}` : 'no opaque pixel',
+  );
   check(`${id}: copy is in the build`, existsSync(`${OUT}/icons/${file}`));
+
+  if (bbox) {
+    footprints.push(Math.max(bbox.maxX - bbox.minX + 1, bbox.maxY - bbox.minY + 1) / mark.width);
+  }
 }
 
-// A generated glyph whose source is missing cannot be regenerated, which makes the transform a fiction.
+/*
+ * The one scale factor, and the property that makes it valid.
+ *
+ * `.mod-icon` scales the mask to 130%, which is right while every mark sits in a similar part of its
+ * square: the ink then lands at about two thirds of the box, where the vector glyphs these replaced sat.
+ * A source whose footprint drifts renders at a different size from its neighbours — the same class of
+ * failure as the two-file theme switch that resized half of the site's own mark — and nothing about it
+ * looks wrong on its own. `scripts/icons.mjs` refuses the same range, because either script can be run
+ * without the other.
+ */
+check(
+  'every mark fills a similar part of its square',
+  footprints.length === iconFiles.length && footprints.every((f) => f >= 0.45 && f <= 0.8),
+  footprints.map((f) => `${(f * 100).toFixed(0)}%`).join(', ') || 'none',
+);
+
+// A served icon whose source is missing cannot be regenerated, which makes the transform a fiction.
 const srcDir = 'design/icons-source';
-const sources = existsSync(srcDir) ? readdirSync(srcDir).filter((f) => f.endsWith('.svg')) : [];
-check('every generated icon has a committed source', sources.length === iconFiles.length, `${sources.length} source(s) / ${iconFiles.length} generated`);
+const sources = existsSync(srcDir) ? readdirSync(srcDir).filter((f) => f.endsWith('.png')) : [];
+check('every served icon has a committed source', sources.length === iconFiles.length, `${sources.length} source(s) / ${iconFiles.length} served`);
 
 if (home) {
   /*
-   * **Inlined, not an `<img>`, and this is the assertion that protects it.**
+   * **The mask reaches the page, and this is the assertion that protects both themes.**
    *
-   * The glyphs use two CSS variables: `currentColor` and `var(--icon-ground)`. An SVG in an `<img>` is a
-   * separate document with no access to the page's CSS, so neither would resolve — the icons would be
-   * black on a dark page and their knockout detail would vanish. It would look fine in light mode, which
-   * is exactly why it needs a test rather than an eye.
+   * The mark's shape is the PNG and its ink is `currentColor`, so the file itself is never drawn: an
+   * `<img>` would draw its own black ink, and on the dark theme's ground that is a mark the same colour
+   * as the page behind it. Correct in light mode, which is exactly why it needs a test rather than an eye.
+   *
+   * Asserted against `declarationsFor` rather than against the source text, because the minifier is free
+   * to merge two rules that declare the same thing — the trap this file documents above.
    */
-  check('icons are inlined as <svg>', /<svg class="mod-icon/.test(home), 'not an <img>');
+  check(
+    'icons are drawn as masks',
+    /class="mod-icon[^"]*"[^>]*style="[^"]*--icon:\s*url\(\/icons\//.test(home),
+    (home.match(/class="mod-icon[^"]*"[^>]*style="[^"]*"/) ?? ['no styled .mod-icon'])[0].slice(0, 140),
+  );
   check('no icon is loaded as an <img>', !/<img[^>]*icons\//.test(home));
-  check('the ground token reaches the page', home.includes('var(--icon-ground)'));
+  check(
+    'the ink comes from the page, not the file',
+    /background-color:\s*currentcolor/i.test(declarationsFor(allCss, '.mod-icon')),
+    show('.mod-icon'),
+  );
+  check(
+    'the mask is scaled to the marks',
+    /mask-size:\s*130%/i.test(declarationsFor(allCss, '.mod-icon')),
+    show('.mod-icon'),
+  );
+
+  /*
+   * The empty slot must not be filled with ink.
+   *
+   * The placeholder carries `.mod-icon` too — for the `flex: none` and the block box — so without its own
+   * `background-color` it would inherit the mark's ink fill and become a **solid square**: a slot that looks
+   * like a mark, which is the one thing it must not look like. Asserted here rather than left to the
+   * stylesheet because the two rules live in different places.
+   *
+   * Asked as "what colour is it" rather than "does it say `transparent`": the minifier is free to write
+   * that as `#0000`, and an assertion about the spelling would fail on a change that means nothing.
+   */
+  const slotFill = /background-color:\s*([^;]+)/i.exec(declarationsFor(allCss, '.mod-icon-empty'))?.[1]?.trim() ?? null;
+  check(
+    'the empty slot is not filled with ink',
+    slotFill !== null && !/^currentcolor$/i.test(slotFill),
+    slotFill ?? 'no background-color of its own',
+  );
 
   /*
    * A mod with no icon renders a placeholder — and the placeholder is the point.
@@ -791,28 +859,12 @@ if (home) {
    * Deriving the expected count from the files on disk means adding an icon, or a mod, keeps this honest
    * without anybody remembering to update a literal.
    */
-  const noIcon = manifest.suite.filter((m) => !existsSync(`${ICON_DIR}/${m.id}.svg`)).length;
+  const noIcon = manifest.suite.filter((m) => !existsSync(`${ICON_DIR}/${m.id}.png`)).length;
   const placeholders = (withoutScripts(home).match(/mod-icon-empty/g) ?? []).length;
   check(
     'a mod with no icon shows a placeholder',
     placeholders === noIcon,
     `${placeholders} rendered / ${noIcon} expected`,
-  );
-
-  /*
-   * The hover override, which is the whole reason the token exists.
-   *
-   * A catalog cell inverts on hover — its ground becomes `--inv-bg` — so the glyph's knockouts have to
-   * point at that instead, or they keep revealing `--bg` and show a colour that is not behind them.
-   *
-   * Asserted rather than looked at because it only appears in a state these tools cannot reach:
-   * `browser_hover` is not implemented in this session, so the inverted cell is not something a
-   * screenshot can capture.
-   */
-  check(
-    'the ground follows an inverted cell',
-    /grid-cell:hover \.mod-icon\{[^}]*--icon-ground:var\(--inv-bg\)/.test(allCss),
-    show('grid-cell:hover .mod-icon{'),
   );
 }
 

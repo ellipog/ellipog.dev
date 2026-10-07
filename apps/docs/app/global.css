@@ -445,9 +445,10 @@ main {
  *
  * Every other user of this class sits still: the masthead does not hover. The colophon's row is a link,
  * and a link inverts on hover here — `--inv-bg` under `--inv-fg` — so the ground beneath the mark flips
- * for the duration. A raster cannot follow that on its own: the ink is in the pixels, so the *file* has
- * to change, which is exactly what `--icon-ground` does for the vector marks that have knockouts. This is
- * the same move by a different mechanism.
+ * for the duration. A raster **drawn as a picture** cannot follow that on its own: the ink is in the
+ * pixels, so the *file* has to change, which is what the pair below does. The mod marks are rasters too
+ * and need none of this, because they are drawn as **masks** — the file carries only the outline and the
+ * page fills it with `currentColor`. Same format, different question asked of it.
  *
  * **Two rules rather than one, because the inversion goes in opposite directions in the two themes.** On
  * a light page the hovered ground is near-black, so the mark must go light; on a dark page it is
@@ -1105,41 +1106,40 @@ a:focus-visible > .arrow {
 /* ------------------------------------------------------------------ */
 
 /*
- * A mod's icon, inlined into the page rather than loaded as an image.
+ * A mod's icon, drawn as a mask rather than loaded as a picture.
  *
- * Two things it needs, and both come from tokens rather than from the file:
+ * The file says **where** the shape is — `mask-image` takes it from the PNG's alpha channel — and the
+ * page says **what colour** it is: `background-color: currentColor`, so the ink follows the text
+ * wherever the mark sits. That is the whole reason it is a mask and not an `<img>`: an `<img>` would
+ * draw the file's own black ink, and on the dark theme's ground that is a mark the same colour as the
+ * page behind it. It would look correct in light mode, which is exactly why it is not something to
+ * judge by one eye.
  *
- *   - `color` is what the glyph's `currentColor` resolves to, so it follows the text wherever it sits —
- *     including the catalog's hover inversion, where the text turns to paper.
- *   - `--icon-ground` is the **knockout** colour: the bits of the glyph that show the backdrop through.
- *     It has to be re-declared wherever the ground inverts, which is exactly what happens on a catalog
- *     cell. Pointing the knockouts at `--bg` instead looked right and was wrong — on a hovered cell it
- *     revealed a colour that was not behind the glyph at all.
+ * **`--icon-ground` used to live here, and it is gone with the knockouts it coloured.** The old glyphs
+ * were vectors with interiors that showed the backdrop through, so the colour behind them had to be
+ * re-declared wherever the ground moved — which is what the `.grid-cell:hover` override did. A flat
+ * silhouette has no interior, so there is nothing left to re-declare: the catalog cell's text turns to
+ * paper on hover and the mark turns with it, through `currentColor`, with no rule of its own.
  *
- * This is the one place in the design where a component sets a custom property for its own children to
- * read, and it is doing it because the SVG cannot know what it is standing on.
+ * **The 130% is the marks' geometry, not taste.** They are exported in the middle 60–63% of their
+ * square, so drawn at 100% each would sit in half its box. 130% lands the ink at about two thirds of
+ * the box's width, which is where the vector glyphs these replaced sat — and `scripts/icons.mjs`
+ * refuses a source whose footprint has left the range this number assumes, because a mark that renders
+ * at a different size from its neighbours is a change nobody sees.
  */
 .mod-icon {
-  --icon-ground: var(--bg);
   flex: none;
   display: block;
   color: inherit;
-}
-
-/*
- * A cell that inverts on hover moves its ground, so the knockouts move with it.
- *
- * Only the catalog cells. The sponsor band inverts too, and its mark is inlined for the same reason the
- * mod glyphs are — but it is a different element in a different component, and
- * `.sponsor-link:hover .brand-mark` already carries its override. Both tokens happen to point at
- * `--inv-bg`; they are separate rules because a selector reaching from one component into the other would
- * break the day either moved.
- *
- * No element qualifier here either — see the note where the `.grid-cell` hover rules are. Two of the
- * cells this has to match are `<div>`s.
- */
-.grid-cell:hover .mod-icon {
-  --icon-ground: var(--inv-bg);
+  background-color: currentColor;
+  mask-image: var(--icon);
+  -webkit-mask-image: var(--icon);
+  mask-size: 130%;
+  -webkit-mask-size: 130%;
+  mask-position: center;
+  -webkit-mask-position: center;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
 }
 
 /*
@@ -1148,8 +1148,13 @@ a:focus-visible > .arrow {
  * Deliberately visible. A row that simply has no icon shifts left and reads as a mod that is somehow
  * different from its neighbours; an empty dashed square reads as a slot waiting to be filled, which is
  * what it is. The same instinct as a typed-but-not-yet-live link: show the gap rather than hide it.
+ *
+ * `background-color: transparent` is not tidying — the placeholder carries `.mod-icon` too, for the
+ * `flex: none` and the block box, and without this it would inherit the ink fill and become a solid
+ * square: a slot that looks like a mark, which is the one thing it must not look like.
  */
 .mod-icon-empty {
+  background-color: transparent;
   border: 1px dashed var(--fg-faint);
   opacity: 0.6;
 }

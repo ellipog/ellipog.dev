@@ -8,8 +8,9 @@ import { usePathname } from 'next/navigation';
  *
  * This is the one client component in the rail, and it exists for two jobs that both need to know
  * where the reader is: the folder holding the current page is opened, and the current link says so.
- * The section's own label stays on the server, because `ModIcon` reads its SVG from disk and cannot
- * cross the boundary -- so the boundary is drawn at the links, which is where the interactivity is.
+ * The section's own label stays on the server, because `ModIcon` asks the filesystem whether the mod has
+ * a mark and that cannot cross the boundary -- so the boundary is drawn at the links, which is where the
+ * interactivity is.
  *
  * The default state is *closed*, which is what keeps a manual of twelve pages to a readable column.
  * That is also why the rail is not simply static markup: the group containing the current page opens

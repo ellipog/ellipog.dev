@@ -793,42 +793,48 @@ That is handled rather than hidden, and it is the one path left over from when a
 here: the sources for marks belonging to mods that are not certain to exist live in `design/planned/icons/`
 and are never generated or deployed — see *Planned mods are not published*.
 
-**Where they come from.** The design sources are committed at `design/icons-source/<mod>.svg` — brand
-assets, clearly not build output and clearly the input to something. Committing them matters: a
-transform whose input lives in somebody's pictures folder is not a transform, it is a one-way door, and
-the day an icon needs changing there would be nothing to change it from.
+**Where they come from.** The design sources are committed at `design/icons-source/<mod>.png` — the
+**no-background** export of the mod's own icon, 48 pixels square, one flat ink on transparency, and the same
+artwork each mod ships as its loader icon. Committing them matters: a mark whose input lives in somebody's
+pictures folder is not reproducible, it is a one-way door, and the day an icon needs changing there would be
+nothing to change it from.
 
-**The transform is `bun run icons`**, and it does three things, each of which was a decision:
+**`bun run icons` no longer transforms anything, and what is left of it is the part that is invisible when it
+is wrong.** The old pipeline read a 256-viewBox SVG carrying a white plate, a brand colour and its tints, and
+rewrote the lot into `currentColor` at ranked opacities plus `var(--icon-ground)` knockouts — which was
+necessary, because an SVG only takes the page's colour where every shape is told to. A flat silhouette needs
+none of that: the file says where the shape is and the page says what colour it is. So the script **reads**
+each source (`lib/png-ink.mjs`) and refuses a plate, a light ink, an empty file, or a footprint the CSS's one
+scale factor cannot serve.
 
-| Decision | Why |
-|---|---|
-| **The background plate is removed**, not recoloured | A full-bleed rect in a glyph is the plate the mark sat on. Recolouring leaves an invisible element behind, and on a design whose premise is that every edge is visible, shipping an element that does nothing is the wrong instinct. Identified by *size*, so a white rect that is part of the mark survives |
-| **Tones become `currentColor` at ranked opacity** | "Black and white" could mean two values, and that would lose the second tone giving each mark its depth. A grey is black at 45%, so opacity keeps the glyph strictly monochrome while preserving structure — and it inherits: ink at 45% on paper, paper at 45% on ink. Opacity comes from **rank**, not a luminance formula, because rank is predictable across files |
-| **White becomes `var(--icon-ground)`** | Remaining white is a knockout or a highlight across a solid shape — in both cases it means "whatever is behind me shows through". `transparent` would be wrong the moment a white shape overlaps a coloured one, which several do |
+**The mask is what replaced the tokens.** `.mod-icon` sets `background-color: currentColor` and
+`mask-image: var(--icon)`, so the shape comes from the PNG's alpha channel and the ink from the text the mark
+sits beside. `--icon-ground` is gone with the knockouts it coloured: a flat silhouette has no interior to show
+the backdrop through, so there is nothing left to re-declare when a catalog cell inverts on hover — the cell's
+text turns to paper and the mark turns with it. One file, both themes, no switching.
 
-Plus two cleanups: **vestigial glows deleted** (every source carries one shape at `opacity 0.04–0.08`, a
-flat-design shadow that contributes nothing at any size) and **accents floored at 0.45**, because the
-contact sheet showed the original `0.3` accents vanishing as the glyph shrank.
+**A mask rather than an `<img>`, and this is the load-bearing part.** An `<img>` draws the file's own black
+ink, and on the dark theme's ground that is a mark the same colour as the page behind it: invisible rather
+than merely wrong, and correct in light mode, which is exactly why it needs an assertion rather than an eye.
 
-**`--icon-ground`, not `--bg`, and that is not pedantry.** The catalog's cells invert on hover: their
-ground becomes `--inv-bg` while `--bg` carries on meaning the page behind everything. A glyph in a
-hovered cell would knock its holes out in paper on an ink ground — a colour that is not behind it. The
-token is set by `.mod-icon` and overridden where the ground inverts.
-
-**Inlined, not an `<img>`, and this is the load-bearing part.** An SVG in an `<img>` is a separate
-document with **no access to the page's CSS**, so neither `currentColor` nor `var(--icon-ground)` would
-resolve — the icons would be black on a dark page and their knockout detail would vanish. It would look
-perfectly fine in light mode, which is exactly why it needs an assertion rather than an eye.
+**The mask is scaled to 130%, and that is the marks' geometry rather than taste.** They are exported in the
+middle 60–63% of their square, so drawn at 100% each would sit in half its box; 130% lands the ink at about
+two thirds of the box's width, which is where the vector glyphs these replaced sat. Both `check.mjs` and
+`scripts/icons.mjs` refuse a source whose footprint has left the range that number assumes, because a mark
+rendering at a different size from its neighbours is a change nobody sees.
 
 **The placeholder is a slot**, the same size as the real marks, and it stays in `ModIcon` for the mod that
 is listed before its mark exists. A row with nothing shifts left and reads as a mod that is somehow
 different from its neighbours; a slot reads as one waiting to be filled. The same instinct as a Modrinth
 link that is typed but not yet live: show the gap, do not hide it. `check.mjs` counts the placeholders
-against the manifest, so it reads 0 today and stops being silent the day it is not.
+against the manifest, so it reads 0 today and stops being silent the day it is not. It also asserts that the
+slot is not *filled* — it carries `.mod-icon` for the box, so without its own `background-color: transparent`
+it would inherit the mark's ink and become a solid square, which is the one thing a slot must not look like.
 
-**Two files that must not drift:** `design/icons-source/` and `apps/docs/public/icons/`.
-`check.mjs` asserts every generated glyph has a committed source, that none contains a hex colour, and
-that no icon reached the page as an `<img>`.
+**Two files that must not drift:** `design/icons-source/` and `apps/docs/public/icons/`. `check.mjs` asserts
+that every served icon has a committed source, that each one has no ground and a dark ink and a mark in it,
+that the footprints agree, that the ink reaches the page as a mask rather than as an `<img>`, and that the
+empty slot is not filled with ink.
 
 ---
 
@@ -853,12 +859,19 @@ which ink each one is drawn in.
 
 ### Why two files, when every other mark is one
 
-**A raster cannot take `currentColor`, so the arrangement the other marks use is not available.** Every
-other mark on this site is a vector mapped to `currentColor` at build time and inlined, which is exactly
-what lets *one* file work on either ground — and inlining is also the only way a glyph can read
-`var(--icon-ground)` for its knockouts, since an SVG in an `<img>` cannot see the page's CSS. A PNG has its
-colour in its pixels and no CSS reaches into them. Two files is the honest consequence, and inlining a
-base64 PNG would gain nothing while costing a third more bytes again.
+**Because both of this mark's callers need pixels, and neither of them can apply CSS.** Every other mark on
+the site is drawn by the page — the mod marks as a **mask**, so the file supplies the shape and
+`currentColor` supplies the ink, and the sponsor's mark as an inlined vector. A *mask* is what lets one
+raster work on either ground, and it is available to anything the browser renders as an element. It is not
+available to a `<link rel="icon">`, which has no stylesheet, or to the OG card, which is an image a crawler
+fetches rather than a page anything styles. Those two are the whole of this mark's job, so the pair stays:
+two files, one per ground, named for the ground they are for.
+
+**The distinction worth keeping is *a raster as a picture* against *a raster as a shape*.** Drawn as a
+picture, a PNG has its colour in its pixels and no CSS reaches into them — which is why the tab needs one
+file per theme and why the mod marks would be invisible on the dark ground as `<img>`s. Drawn as a mask, the
+same PNG carries only its outline and the page fills it, which is why the mod marks are one file each. The
+format was never the obstacle; the caller was.
 
 **A favicon cannot read `[data-theme]`, so the pair is also the tab's only possible switch.** `layout.tsx`
 names both files under `icons.icon`, each with a `media` query, resolved before first paint from the same
