@@ -46,6 +46,7 @@
       }
     ]
   },
+  "/*suite": "ONLY MODS THAT EXIST. Every entry here is `status: \"active\"`, and `app/page.tsx` renders an entry only when it is -- so a mod is named on the site the day it is certain to ship and not before. A planned mod is not listed, not summarised, and not named anywhere in this repository: the idea is the thing being kept private, and a name plus a one-line summary is enough of it to be worth keeping. Those entries live in `design/planned/suite.json`, which is gitignored, and they move in here when the mod is certain. `check.mjs` asserts both halves of this -- that no entry is anything but active, and that the catalog says `planned` nowhere.",
   "suite": [
     {
       "id": "tasked",
@@ -82,51 +83,6 @@
         "fabric",
         "neoforge"
       ]
-    },
-    {
-      "id": "kindred",
-      "name": "Kindred",
-      "brand": "ellipog",
-      "status": "planned",
-      "summary": "Kin and lineages.",
-      "localPath": "../kindred",
-      "minecraft": "26.3"
-    },
-    {
-      "id": "kith",
-      "name": "Kith",
-      "brand": "stellar",
-      "status": "planned",
-      "summary": "Traits and abilities.",
-      "localPath": "../kith",
-      "minecraft": "26.3"
-    },
-    {
-      "id": "stature",
-      "name": "Stature",
-      "brand": "stellar",
-      "status": "planned",
-      "summary": "Scale and hitboxes.",
-      "localPath": "../stature",
-      "minecraft": "26.3"
-    },
-    {
-      "id": "folio",
-      "name": "Folio",
-      "brand": "stellar",
-      "status": "planned",
-      "summary": "Documentation, in game.",
-      "localPath": "../folio",
-      "minecraft": "26.3"
-    },
-    {
-      "id": "writ",
-      "name": "Writ",
-      "brand": "stellar",
-      "status": "planned",
-      "summary": "Sandboxed TypeScript scripting for Minecraft — events, stages, recipes, content.",
-      "localPath": "../writ",
-      "minecraft": "26.3"
     }
   ],
   "selected": [

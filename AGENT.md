@@ -62,6 +62,7 @@ and no fallback.
 | `apps/docs/public/site/*.png` | **committed** | The site's two marks, one per theme — **the tab icon and the OG card draw this pair** — plus `portrait.png`, the masthead's image. The marks are copied by hand from the studio repository; the portrait is exported by `bun run portrait`. See below. |
 | `apps/docs/.source/`, `.next/`, `out/` | gitignored | Build output. |
 | `.cache/` | gitignored | Reserved for git checkouts of mod repositories. See the gap below. |
+| `design/planned/` | gitignored | Mods that are not certain to exist: their deferred `suite` entries, the plan for them, and their icon sources. Nothing here is named on the site or in this repository — see *Planned mods are not published*. |
 
 **A generated tree must be wiped, never merged into.** `sync.mjs` calls `rmSync` on `content/` before
 it writes anything. If that ever becomes a merge, a document deleted from a mod's repository will
@@ -80,6 +81,12 @@ step.
 ---
 
 ## Adding a mod
+
+**The first question is not how to add it but whether it exists yet.** Nothing is listed, summarised or
+named on this site until it is certain to ship, and the entries for everything else live in
+`design/planned/` — gitignored, and out of the repository for the same reason. Read *Planned mods are not
+published* below before adding an entry: an idea that gets named in a public repository is one that has
+been published, whatever the page does.
 
 1. Add an entry to `manifest.json` with `status: "active"`, plus `repo` and `issues` if you want the
    source row at the foot of its docs pages.
@@ -103,6 +110,47 @@ has: its repository, if the manifest gives it one, and never a `docs` link.
 
 If `docs/` exists but has no `index.md`, the sync writes one from the manifest summary. An authored
 `index` always wins.
+
+---
+
+## Planned mods are not published
+
+**A mod is named here on the day it is certain to exist, and not before.** `manifest.json` holds only
+`status: "active"` entries, `app/page.tsx` renders an entry only when it is active, and `check.mjs`
+asserts both halves — that no entry is anything but active, and that the word `planned` appears nowhere on
+the built page. Two assertions rather than one because they are two different mistakes: a page that shows
+something it should not, and the idea sitting in a public repository waiting for the next edit to render
+it.
+
+**The reason is that a name is already the idea.** "A scale and hitbox API" is a plan whether it is on a
+card or in a JSON file, and this repository is public and has been indexed — so a `summary`, a `name`, a
+`brand` and a `minecraft` target for something that may never ship is the idea published, not a
+placeholder for it. The same goes for the served side: `apps/docs/public/icons/<mod>.svg` is deployed, so
+a mark for a mod nobody has announced is a filename anybody can fetch. `design/planned/` is where all of
+it lives instead:
+
+| File | What it is |
+|---|---|
+| `design/planned/suite.json` | The entries deferred out of `manifest.json`'s `suite`, in the manifest's own shape so promoting one is a paste. |
+| `design/planned/stack-plan.md` | The design plan for the stack section, which names the same mods. |
+| `design/planned/icons/` | The icon sources for the mods that have a mark but are not listed. |
+
+**It is one ignored folder rather than three scattered rules, and nothing in it is read by the build.**
+`design/planned/` is in `.gitignore`, which makes the whole arrangement one line to understand and one
+line to reverse: promoting a mod means pasting its entry into `manifest.json`, moving its icon from
+`design/planned/icons/` to `design/icons-source/`, and running `bun run icons`. `scripts/icons.mjs` reads
+`design/icons-source/` non-recursively, so a source left in the subfolder is skipped rather than
+regenerated — which is what stops an unlisted mod's mark from quietly reappearing in `public/` and being
+deployed.
+
+**This is the arrangement the mod repositories already use for their own plans.** Every one of them keeps
+a `plan.md` beside a `.gitignore`, so the working document is on disk and out of git. The site's half of
+that is this folder; the difference is only that the site had been publishing its half in the manifest.
+
+**What it costs, stated rather than discovered:** the site's own list of what is coming is now invisible
+to anybody who is not on this machine, including a future contributor, and `git log` still carries the
+entries that were removed. Removing them from the history is a rewrite of a public repository — a
+different operation, and not one to start from here.
 
 ---
 
@@ -503,22 +551,32 @@ released addons and packs.
 
 **Brand first, because that is what the architecture says the site is.** Aaen Studios is the parent
 engineering mark, Stellar is the developer suite, ellipog is the creator identity the gameplay content
-ships under. A reader who arrives for Tasked should see that it belongs to a suite with five siblings; a
-reader who arrives for Kindred should not find it filed among developer tools. The bands were
-status-first before this ("In development" / "Planned"), and **status did not disappear**: every cell
-still states `in development` or `planned` in its own footer, which is where a reader looks after the
-name. What changed is which question the band answers — *whose is this* before *how far along is it*.
+ships under. A reader who arrives for Tasked should see that it belongs to a suite, and the two families
+should not be filed together. The bands were status-first before this ("In development" / "Planned"), and
+**status did not disappear**: every cell states `in development` in its own footer, which is where a
+reader looks after the name. What changed is which question the band answers — *whose is this* before *how
+far along is it*.
+
+**`planned` is no longer one of the words a cell can say, because there is no longer a cell that could say
+it.** Every listed mod is active — see *Planned mods are not published* — so `in development` is the only
+status the catalog renders, and the footer states it rather than deriving it from a field that now has one
+value. The status is still what the page filters on, which is the part worth keeping.
 
 **Every suite mod declares its `brand` in the manifest, and `check.mjs` asserts it.** A mod without one
 renders in neither band and vanishes from the page without an error — the same class of silent failure as
 the `a.grid-cell` selector below, and the reason the assertion exists rather than a convention. The two
 band heads are asserted too, so the page cannot quietly stop naming the suite it groups by.
 
-**The six Stellar cells sit three-up**, two rows; the gameplay band holds one cell and closes its row
-with fillers. The 2-up band the in-development mods used to get existed for the wide summary, and losing
-it is this arrangement's one cost — at three-up those two summaries wrap a line or two further. The trade
-was taken because the suite is the thing being shown, and six cells in two rows say that better than two
-bands of two and four ever did.
+**The two Stellar cells sit three-up**, one row, closed with a filler; the gameplay band renders nothing
+at all, because it has no cells — a label, a rule and nothing under them reads as a section that failed
+to load, which is the one thing an unbuilt section must not look like. So the page draws a band only when
+the manifest gives it an active mod, and the band comes back the day it does. That is the same rule the
+stack plan states for empty tiers: **no "coming soon" slots.**
+
+The 2-up band the in-development mods used to get existed for the wide summary, and losing it is this
+arrangement's one cost — at three-up those two summaries wrap a line or two further. The trade was taken
+because the suite is the thing being shown, and the cells in rows say that better than two bands of two
+and four ever did.
 
 ---
 
@@ -562,7 +620,7 @@ rule as before, now applied to a different element.
 
 The two links are also **named per mod**, not left as bare `github` and `docs`. They were `<span>`s inside
 one anchor, where the cell's own text was the accessible name and these words were only a signpost for the
-eye. As links of their own they need subjects: six identical `github` links down one page is the same
+eye. As links of their own they need subjects: one identical `github` link per cell down a page is the same
 defect as a bare "read more". Each accessible name contains its visible text, which is what label-in-name
 asks for.
 
@@ -726,7 +784,10 @@ committed — the dark one was the same artwork recoloured and is gone), and the
 
 ## The mod marks
 
-Each mod has an icon. Five have one; **Kindred does not**, and that is handled rather than hidden.
+Every listed mod has an icon, and **a mod with none renders a dashed placeholder** rather than nothing.
+That is handled rather than hidden, and it is the one path left over from when an unlisted mod was drawn
+here: the sources for marks belonging to mods that are not certain to exist live in `design/planned/icons/`
+and are never generated or deployed — see *Planned mods are not published*.
 
 **Where they come from.** The design sources are committed at `design/icons-source/<mod>.svg` — brand
 assets, clearly not build output and clearly the input to something. Committing them matters: a
@@ -755,9 +816,11 @@ document with **no access to the page's CSS**, so neither `currentColor` nor `va
 resolve — the icons would be black on a dark page and their knockout detail would vanish. It would look
 perfectly fine in light mode, which is exactly why it needs an assertion rather than an eye.
 
-**Kindred renders a dashed placeholder**, the same size as the real marks. A row with nothing shifts
-left and reads as a mod that is somehow different from its neighbours; a slot reads as one waiting to be
-filled. The same instinct as a Modrinth link that is typed but not yet live: show the gap, do not hide it.
+**The placeholder is a slot**, the same size as the real marks, and it stays in `ModIcon` for the mod that
+is listed before its mark exists. A row with nothing shifts left and reads as a mod that is somehow
+different from its neighbours; a slot reads as one waiting to be filled. The same instinct as a Modrinth
+link that is typed but not yet live: show the gap, do not hide it. `check.mjs` counts the placeholders
+against the manifest, so it reads 0 today and stops being silent the day it is not.
 
 **Two files that must not drift:** `design/icons-source/` and `apps/docs/public/icons/`.
 `check.mjs` asserts every generated glyph has a committed source, that none contains a hex colour, and
@@ -1305,9 +1368,11 @@ content by forgetting a step, and no way to ship one that is structurally wrong 
 - the scrollbar rules are in the built CSS, with the standard properties still inside the Gecko guard
 - no probe or scratch file has leaked into the repository
 - every `selected` project in the manifest resolves to a real platform entry, and the totals add up
+- **nothing that is not certain to exist is published**: no manifest entry is anything but `active`, the
+  catalog says `planned` nowhere, and a brand band is drawn exactly when it has an active mod
 - the crawler files ship, the sitemap is **exactly** the pages the build emitted, and every page names
   its own canonical
-- every page carries a card — `og:image` on all six, not only on the home page
+- every page carries a card — `og:image` on every emitted page, not only on the home page
 - the home page's structured data parses, and declares `WebSite` and `Person`
 - the landmark and the accessible labels are in the markup, and `prefers-reduced-motion` is in the CSS
 

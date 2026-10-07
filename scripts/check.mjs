@@ -773,10 +773,12 @@ if (home) {
   check('the ground token reaches the page', home.includes('var(--icon-ground)'));
 
   /*
-   * Kindred has no icon, so it renders a placeholder — and the placeholder is the point.
+   * A mod with no icon renders a placeholder — and the placeholder is the point.
    *
    * A row with nothing shifts left and reads as a mod that is somehow different; a dashed slot reads as
-   * one waiting to be filled. The count is asserted so the placeholder cannot be quietly dropped.
+   * one waiting to be filled. Every listed mod has an icon today, so this reads 0 against 0 and passes
+   * without proving anything — which is the state it is kept in rather than deleted: the mechanism is
+   * reachable the day a mod is listed before its mark exists, and the count is what keeps it honest then.
    */
   /*
    * Counted from the markup with the render-tree payload stripped, and compared against the manifest
@@ -898,13 +900,21 @@ if (home) {
    */
   const visibleHome = withoutScripts(home);
   /*
-   * EVERY SUITE MOD DECLARES ITS BRAND, AND THE PAGE NAMES BOTH BANDS.
+   * EVERY SUITE MOD DECLARES ITS BRAND, AND A BAND IS DRAWN EXACTLY WHEN IT HAS A CELL.
    *
-   * The catalog groups by brand first — Stellar's developer suite, then ellipog's gameplay — with each
-   * cell keeping its own status word. A mod with no `brand` renders in neither band: it disappears from
-   * the page with no error, no warning and no visual clue, which is the class of failure this file
-   * exists for. The band heads are asserted too, so the page cannot quietly stop naming the suite it
-   * groups by.
+   * The catalog groups by brand first — Stellar's developer suite, then ellipog's gameplay. A mod with no
+   * `brand` renders in neither band: it disappears from the page with no error, no warning and no visual
+   * clue, which is the class of failure this file exists for.
+   *
+   * **The band heads are asserted against the manifest rather than by name, and that changed when the
+   * gameplay band went empty.** It used to assert that both head words rendered, which was true while a
+   * planned mod was listed -- and once the planned entries left, the portfolio band held no cells and the
+   * page stopped drawing it. A head over nothing is a section that reads as broken, so the rule is the
+   * one asserted now: a band renders when it has an active mod of that brand and not otherwise. Asserted
+   * in both directions, because "no band" and "an empty band" are one edit apart and only one is right.
+   *
+   * The label is the brand with the casing the site gives it, so the two are written out rather than
+   * derived -- `Stellar` is a proper noun and `ellipog` is the creator identity.
    */
   const brands = new Set(['stellar', 'ellipog']);
   const unbranded = manifest.suite.filter((m) => !brands.has(m.brand));
@@ -913,12 +923,19 @@ if (home) {
     unbranded.length === 0,
     unbranded.map((m) => m.id).join(', ') || 'stellar / ellipog',
   );
-  check(
-    'the catalog names the suite and the portfolio',
-    visibleHome.includes('<span class="label">Stellar</span>') &&
-      visibleHome.includes('<span class="label">ellipog</span>'),
-    'both band heads render',
-  );
+
+  for (const [brand, label] of [
+    ['stellar', 'Stellar'],
+    ['ellipog', 'ellipog'],
+  ]) {
+    const cells = manifest.suite.filter((m) => m.status === 'active' && m.brand === brand).length;
+    const drawn = visibleHome.includes(`<span class="label">${label}</span>`);
+    check(
+      `${brand}: the band renders exactly when it has a cell`,
+      cells > 0 === drawn,
+      cells > 0 ? `${cells} cell(s), band drawn` : 'no cells, no band — an empty band reads as broken',
+    );
+  }
   const repoMods = manifest.suite.filter((m) => m.repo);
 
   /*
@@ -989,7 +1006,7 @@ if (home) {
    *
    * The names matter more than they look. They were `<span>`s inside one big anchor, where the cell's own
    * text was the accessible name and the words here were only a signpost for the eye. As links of their
-   * own, a bare `github` is a link with no subject — six identical ones down the page — which is the same
+   * own, a bare `github` is a link with no subject — one identical name per cell down the page — which is the same
    * defect as a bare "read more". Both accessible names contain their visible text, which is what
    * label-in-name asks for.
    */
@@ -1039,9 +1056,29 @@ if (home) {
     `${repoLinks} rendered / ${repoMods.length} expected`,
   );
 
-  // The status and the shape of the row are unchanged by any of this.
-  check('the cell still states its status', visibleHome.includes('in development') && visibleHome.includes('planned'));
-  check('a mod with no repository gets no repository link', !visibleHome.includes('aria-label="Kindred on GitHub"'));
+  /*
+   * THE STATUS WORD IS STILL IN THE CELL, AND `planned` IS NOWHERE ON THE PAGE.
+   *
+   * The catalog filters on `status` where it renders, so a stale manifest entry cannot put a mod on this
+   * page -- but a filter is one edit away from being removed, and the failure would look like an extra
+   * cell rather than like a bug. So the markup is checked for the word AND the manifest is checked for
+   * the data, because they are two different mistakes: one is a page that shows something it should not,
+   * the other is the idea sitting in a public repository waiting to be rendered by the next edit.
+   *
+   * `planned` describes a mod that is not certain to exist. This site names those nowhere: not in the
+   * catalog, not as a summary, not as a served icon. See manifest.json's own note and AGENT.md.
+   */
+  check(
+    'the catalog states no status but in development',
+    visibleHome.includes('in development') && !visibleHome.includes('planned'),
+    visibleHome.includes('planned') ? 'something on the page says planned' : 'in development only',
+  );
+  const notActive = manifest.suite.filter((m) => m.status !== 'active');
+  check(
+    'the manifest holds no mod that is not active',
+    notActive.length === 0,
+    notActive.map((m) => `${m.id} (${m.status ?? 'no status'})`).join(', ') || 'all active',
+  );
 
   /*
    * The three CSS properties, asked of the built stylesheet rather than of the source.

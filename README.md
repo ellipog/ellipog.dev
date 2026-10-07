@@ -43,7 +43,7 @@ will not work as written; see `AGENT.md`.
     ├── glossary.json          terms defined once, referenced from any mod's docs
     ├── .github/workflows/     refresh-stats.yml, update-pins.yml
     ├── design/
-    │   ├── icons-source/      the five brand SVGs the mod marks are generated from
+    │   ├── icons-source/      the brand SVGs the mod marks are generated from
     │   └── brand-source/      the host's logo, same idea
     ├── scripts/
     │   ├── sync.mjs           checks out each pin, copies docs/ in, wipes the target first
@@ -157,8 +157,14 @@ from the branches. If a page looks out of date, the pin needs moving — `bun ru
 
 ## The mod marks, and the host's
 
-Each mod has an icon beside its name on the catalog and on its docs section in the sidebar. Five do;
-Kindred renders a dashed placeholder, which is the honest treatment for a slot waiting to be filled.
+Each mod has an icon beside its name on the catalog and on its docs section in the sidebar. A mod listed
+before its mark exists renders a dashed placeholder, which is the honest treatment for a slot waiting to
+be filled.
+
+**A mod that is not certain to exist is not named here at all.** No catalog entry, no summary, no served
+icon — and nothing in this repository either, since a name and a one-line summary are the idea itself.
+Those entries live in `design/planned/`, which is gitignored. See `AGENT.md` → *Planned mods are not
+published*.
 
 They are **monochrome and inherit the text colour** — ink on paper, paper on ink — so one file works in
 both themes. The sources live in `design/icons-source/` and the generated glyphs in

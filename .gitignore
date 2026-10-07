@@ -59,6 +59,16 @@ apps/docs/stats.json
 *.log
 *.out.txt
 
+# PLANNED MODS, AND EVERY IDEA IN THEM. A mod that is not certain to exist is not named on the site --
+# not in the catalog, not as a served icon, not in the bundle a visitor downloads -- and it is not named
+# in this repository either, because a name, a role and a one-line summary ARE the idea. So the entries
+# deferred out of `manifest.json`, the plan for them, and their icon sources all live under here.
+#
+# This is the arrangement the mod repositories already use for their own `plan.md`: the working document
+# is on disk and out of git. Promote an entry into `manifest.json` and its icon into
+# `design/icons-source/` the day the mod is certain; `design/planned/suite.json` says how.
+design/planned/
+
 # Editor and OS noise
 .DS_Store
 Thumbs.db

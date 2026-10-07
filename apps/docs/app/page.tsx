@@ -22,8 +22,9 @@ type SuiteMod = {
   /**
    * Where the code lives, and it is the cell's second destination.
    *
-   * Optional, because a planned mod has no repository yet — and the cell renders the link only when the
-   * field is there, so adding a mod to the manifest without one cannot produce a link to nothing.
+   * Optional: a mod can be certain enough to list and still have no public repository. The cell renders
+   * the link only when the field is there, so adding a mod to the manifest without one cannot produce a
+   * link to nothing.
    */
   repo?: string;
   minecraft?: string;
@@ -168,7 +169,10 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
       </div>
       <p className="summary">{mod.summary}</p>
       <div className="meta">
-        <span className="faint">{mod.status === 'active' ? 'in development' : 'planned'}</span>
+        {/* The one status a listed mod can have. `planned` is not a state this page knows: a mod that is
+            not certain to exist is not in the manifest, so there is no cell for it to describe -- see
+            `Home` below, and `manifest.json`'s own note. */}
+        <span className="faint">in development</span>
         {hasDocs || mod.repo ? (
           <span className="cell-links faint">
             {mod.repo ? (
@@ -179,7 +183,7 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
                * screen reader announced the whole cell — "Tasked, A questing engine…, in development,
                * docs" — and the words here were only ever a signpost for the eye. Now that they are a
                * link of their own, "github" on its own is a link with no subject: a reader tabbing
-               * through the catalog hears six identical ones.
+               * through the catalog hears one identical name per cell.
                *
                * The accessible name contains the visible text, which is what WCAG's label-in-name asks
                * for — the same reason a bare "read more" is a bad link name and "Read the Tasked manual"
@@ -203,7 +207,7 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
               <span aria-hidden="true">·</span>
             ) : null}
             {hasDocs ? (
-              // Same reason as the repository link above: `docs` alone would be one of six identical
+              // Same reason as the repository link above: `docs` alone would be one of a row of identical
               // link names on this page. The visible text is inside the accessible one.
               <a className="cell-link" href={`/docs/${mod.id}/`} aria-label={`${mod.name} documentation`}>
                 docs <Arrow />
@@ -258,17 +262,67 @@ function SelectedCell({ item, index }: { item: Selected; index: number }) {
   );
 }
 
+/**
+ * One brand band — and **nothing at all when it has no cells**.
+ *
+ * A band is a label, a hairline and a row of cells. With no cells it is a label and a hairline, which
+ * reads as a section that failed to load rather than as a section with nothing in it. That state is
+ * reachable the moment the manifest holds no mod of one brand, and it is the state today: the gameplay
+ * portfolio's first mod is not certain to exist, so it is not in the manifest, so there is no band for it
+ * until there is something to put in one. **No "coming soon" slot** — the same rule the stack plan states
+ * for empty tiers, and the reason this is a component rather than a condition written twice: the band
+ * that is empty first is not always the same one.
+ *
+ * `check.mjs` asserts it in both directions — the band is absent while it holds nothing, and comes back
+ * the day the manifest gives it a mod — because "no band" and "an empty band" are one edit apart and only
+ * one of them is right.
+ */
+function Band({ label, note, mods }: { label: string; note: string; mods: SuiteMod[] }) {
+  if (mods.length === 0) return null;
+
+  return (
+    <section className="band">
+      <div className="band-head">
+        <span className="label">{label}</span>
+        <span className="faint mono">{note}</span>
+      </div>
+      <div className="grid" style={{ ['--cols' as string]: '3' }}>
+        {mods.map((mod) => (
+          <SuiteCell key={mod.id} mod={mod} />
+        ))}
+        {/* The placeholders that close the last row are their own list inside their own grid, so their
+            keys only have to be unique among themselves -- which is why one band's do not need a prefix
+            to stay clear of the other's. */}
+        {Array.from({ length: fillers(mods.length, 3) }, (_, i) => (
+          <Filler key={`f${i}`} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
-  const suite = manifest.suite as SuiteMod[];
   /*
-   * Brand first, and the status stays on the cell.
+   * NOTHING IS LISTED UNLESS IT IS CERTAIN TO EXIST, AND THAT IS THE FILTER RATHER THAN THE MANIFEST.
+   *
+   * The manifest holds only active mods today (see its own note, and AGENT.md), so this changes nothing
+   * about today's page. It is here because the two failure modes are not the same size: a stale manifest
+   * entry is one line somebody forgot to delete, and the cell it would render states a mod, a summary and
+   * a Minecraft version for something that may never ship. Reading the status at the point of rendering
+   * means the leak cannot happen whatever the data says -- a mod is on this page when it is `active` and
+   * at no other time, and the assertion in `check.mjs` holds the manifest to the same rule.
+   */
+  const suite = (manifest.suite as SuiteMod[]).filter((mod) => mod.status === 'active');
+  /*
+   * Brand inside that, and the status word stays off the band.
    *
    * The bands used to be status-first — "In development" and "Planned" — which answered *how far along*
    * before *whose is this*. The architecture says whose first: Stellar is the developer suite, ellipog is
    * the gameplay portfolio, and a reader who arrives for one mod should see which family it belongs to.
-   * Nothing about progress is lost: every cell still states `in development` or `planned` in its own
-   * footer, which is where a reader looks after the name. `check.mjs` asserts every entry declares a
-   * brand, because one without it would render in neither band — and AGENT.md carries the reasoning.
+   * Status did not disappear: every cell states it in its own footer, which is where a reader looks after
+   * the name. What changed is which question the band answers — *whose is this* before *how far along is
+   * it*. `check.mjs` asserts every entry declares a brand, because one without it would render in neither
+   * band — and AGENT.md carries the reasoning.
    */
   const stellar = suite.filter((m) => m.brand === 'stellar');
   const gameplay = suite.filter((m) => m.brand === 'ellipog');
@@ -302,35 +356,8 @@ export default function Home() {
         ) : null}
       </section>
 
-      <section className="band">
-        <div className="band-head">
-          <span className="label">Stellar</span>
-          <span className="faint mono">the developer suite</span>
-        </div>
-        <div className="grid" style={{ ['--cols' as string]: '3' }}>
-          {stellar.map((mod) => (
-            <SuiteCell key={mod.id} mod={mod} />
-          ))}
-          {Array.from({ length: fillers(stellar.length, 3) }, (_, i) => (
-            <Filler key={`st${i}`} />
-          ))}
-        </div>
-      </section>
-
-      <section className="band">
-        <div className="band-head">
-          <span className="label">ellipog</span>
-          <span className="faint mono">gameplay</span>
-        </div>
-        <div className="grid" style={{ ['--cols' as string]: '3' }}>
-          {gameplay.map((mod) => (
-            <SuiteCell key={mod.id} mod={mod} />
-          ))}
-          {Array.from({ length: fillers(gameplay.length, 3) }, (_, i) => (
-            <Filler key={`el${i}`} />
-          ))}
-        </div>
-      </section>
+      <Band label="Stellar" note="the developer suite" mods={stellar} />
+      <Band label="ellipog" note="gameplay" mods={gameplay} />
 
       <section className="band">
         <div className="band-head">

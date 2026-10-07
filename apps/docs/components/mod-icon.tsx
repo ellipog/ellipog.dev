@@ -27,8 +27,8 @@ import { join } from 'node:path';
 /**
  * Files are read once per process rather than once per render.
  *
- * `readFileSync` on every cell of every page is a syscall per icon per render, and there are six mods on
- * the catalog plus a section per mod in every docs sidebar. The cache is a module-level Map because the
+ * `readFileSync` on every cell of every page is a syscall per icon per render, and the catalog draws one
+ * icon per cell while every docs sidebar draws one per section. The cache is a module-level Map because the
  * build is a single process — on a server this would need to be keyed on something, and on a static
  * export it does not.
  */

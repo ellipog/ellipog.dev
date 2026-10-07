@@ -6,7 +6,7 @@
  *
  * WHAT THE SOURCES ARE
  *
- * `design/icons-source/<mod>.svg`, five files, all the same shape of document: a `0 0 256 256` viewBox, a
+ * `design/icons-source/<mod>.svg`, one per listed mod, all the same shape of document: a `0 0 256 256` viewBox, a
  * full-bleed white background rect, one dominant brand colour with one or two lighter tints of it, white
  * used as knockouts, and several shapes stroked with `fill="none"` rather than filled. No gradients, no
  * clip paths, no masks, no `<style>` blocks — which is why the shared transform needs no class-resolution
