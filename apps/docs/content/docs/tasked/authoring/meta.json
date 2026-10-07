@@ -3,6 +3,7 @@
   "pages": [
     "conditions",
     "kubejs",
+    "languages",
     "quest-files",
     "quests",
     "rewards",
