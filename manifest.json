@@ -67,9 +67,9 @@
       "summary": "A visual questing engine that ships no questlines of its own. JSON files in, a pannable canvas out, and the server, not the client, decides what counts as done.",
       "repo": "https://github.com/ellipog/tenet",
       "issues": "https://github.com/ellipog/tenet/issues",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "localPath": "../tenet",
-      "pin": "41204c0af8627847d63389d907cc114aa25e53ad",
+      "pin": "935ff328c660bead6d714fb07e0fd14257d1fe55",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [
