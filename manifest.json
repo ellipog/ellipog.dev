@@ -69,7 +69,7 @@
       "issues": "https://github.com/ellipog/tenet/issues",
       "version": "0.1.5",
       "localPath": "../tenet",
-      "pin": "935ff328c660bead6d714fb07e0fd14257d1fe55",
+      "pin": "a61b10a606760aa86e376012edb194d8397945b0",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [
