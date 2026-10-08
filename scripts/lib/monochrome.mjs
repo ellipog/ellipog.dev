@@ -1,21 +1,28 @@
 /**
  * Turn a flat, coloured SVG into a monochrome one that inherits `currentColor`.
  *
- * Written once and used by both `icons.mjs` (the mod marks) and `brand.mjs` (the host logo), because the
- * logic is the same and only the quirks differ. A second copy of this would be the usual problem: two
- * implementations of the same colour-mapping, drifting apart the first time one of them is tuned.
+ * Written once and shared, which is now three callers rather than one. `brand.mjs` runs `toMonochrome`
+ * over the band's two marks; `mark.mjs` and `lib/png-ink.mjs` (and so `icons.mjs`) read `luminance` from
+ * here, so the repository has one gamma expansion instead of three. The mod marks stopped going through
+ * the colour mapping when their sources became flat PNG silhouettes — a mask takes its ink from the page
+ * — which is why the transform's callers are the brand marks and only them.
  *
  * WHAT IT DOES
  *
- * 1. Resolves `<style>` class references into plain `fill` attributes, optionally. An inline SVG's
+ * 1. Normalises the named colour `white` to `#ffffff`, so a source that spells it out is read by the
+ *    same code as one that writes a hex. Not cosmetic: white is what this transform calls *the ground*,
+ *    and an unmapped one survives as literal paper in light mode and as a white slab in dark.
+ * 2. Resolves `<style>` class references into plain `fill` attributes, optionally. An inline SVG's
  *    `<style>` is **document-scoped**, so inlining a file that carries one leaks `.cls-1 { fill: #000 }`
  *    into the whole page — which is a real hazard, not a tidiness issue.
- * 2. Removes any full-bleed rect: the plate the mark sat on. By *size*, so a white rect that is part of
+ * 3. Drops the export's own wrappers, optionally: the `<defs>`, the full-bleed luminance `<mask>` and
+ *    the `mask`/`clip-path` attributes that reference them. See the option's own note below.
+ * 4. Removes any full-bleed rect: the plate the mark sat on. By *size*, so a white rect that is part of
  *    the artwork survives.
- * 3. Deletes vestigial glows — shapes at very low opacity that contribute nothing at any size.
- * 4. Floors the remaining accents, because a tone faint enough to vanish when the glyph is drawn at 16px
+ * 5. Deletes vestigial glows — shapes at very low opacity that contribute nothing at any size.
+ * 6. Floors the remaining accents, because a tone faint enough to vanish when the glyph is drawn at 16px
  *    is a tone that has stopped doing its job.
- * 5. Ranks what is left into `currentColor` at graded opacity, and maps white — plus any colour named as
+ * 7. Ranks what is left into `currentColor` at graded opacity, and maps white — plus any colour named as
  *    structural ground — to `var(--icon-ground)`.
  *
  * WHY RANK RATHER THAN A FORMULA
@@ -69,6 +76,8 @@ function classFills(svg) {
  * @param {string} raw            The source SVG.
  * @param {object} [options]
  * @param {boolean} [options.resolveClasses]  Fold `<style>` classes into `fill` and delete the block.
+ * @param {boolean} [options.stripExportWrappers]  Drop the `<defs>`, the full-bleed `<mask>` and the
+ *   `mask`/`clip-path` attributes of an export that wraps its artwork in both.
  * @param {string[]} [options.ground]  Extra colours that mean "the ground shows through" — for artwork
  *   where a bright fill is structurally the interior field rather than a tone.
  * @param {number} [options.glowFloor]   Below this opacity, a shape is considered vestigial.
@@ -81,6 +90,7 @@ function classFills(svg) {
 export function toMonochrome(raw, options = {}) {
   const {
     resolveClasses = false,
+    stripExportWrappers = false,
     ground = [],
     glowFloor = 0.15,
     accentFloor = 0.45,
@@ -92,6 +102,21 @@ export function toMonochrome(raw, options = {}) {
   const [, , vbW, vbH] = viewBox.split(/\s+/).map(Number);
 
   let body = raw.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
+
+  /*
+   * THE NAMED COLOUR, NORMALISED BEFORE ANYTHING READS IT.
+   *
+   * `fill="white"` is the same white as `#ffffff`, but every step below matches a hex — the colour scan,
+   * the `groundSet` lookup and the rewrite — so a source that spells it out would keep a literal white.
+   * That is not a cosmetic difference. White is what this transform calls **the ground**: the field a
+   * knockout shows through. Unmapped, it survives as literal paper on a light page — where it looks
+   * *correct*, which is the trap — and as a white slab with dark knockouts on a dark one. Ko-fi's
+   * wordmark is exactly that file, its capsule and its letterforms both `fill="white"`, and the failure
+   * is invisible in the theme it was written in.
+   */
+  body = body
+    .replace(/\bfill="white"/gi, 'fill="#ffffff"')
+    .replace(/\bstroke="white"/gi, 'stroke="#ffffff"');
 
   let classesResolved = 0;
   if (resolveClasses) {
@@ -105,6 +130,37 @@ export function toMonochrome(raw, options = {}) {
     }
     // The block has to go, or it leaks styles into the page it is inlined into.
     body = body.replace(/<defs[\s\S]*?<\/defs>/gi, '').replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  }
+
+  /*
+   * THE EXPORT'S OWN WRAPPERS, WHICH ARE STRUCTURAL NOTHING.
+   *
+   * Figma-style exports wrap the artwork in a `<mask>` and a `<clipPath>` whose single child is a shape
+   * covering the whole viewBox: a white luminance mask is fully opaque, a full-bleed clip path clips
+   * nothing. Both are no-ops, and inlined they are worse than useless — the `<clipPath>` lives in
+   * `<defs>`, which the class pass above deletes, so `clip-path="url(#clip0_1_194)"` is left dangling
+   * and the reference is to an element that is not there. The mask is worse still: its white rect is
+   * *the ground* by this file's own rule, so it would be recoloured with everything else and blank the
+   * glyph in one theme.
+   *
+   * So they are dropped, by name and deliberately, rather than left to the browser to ignore. The
+   * geometry is what makes it safe, and it is checked in `brand.mjs`'s report: one white path across
+   * the whole viewBox, one rect the same size, neither of them a design decision.
+   */
+  let wrappersDropped = 0;
+  if (stripExportWrappers) {
+    // The leading `\s*` takes the line the block sat on with it, so removing one does not leave a blank
+    // line behind in a file this repository commits and reads.
+    for (const pattern of [/\s*<defs[\s\S]*?<\/defs>/gi, /\s*<mask[\s\S]*?<\/mask>/gi]) {
+      body = body.replace(pattern, (block) => {
+        wrappersDropped += 1;
+        return '';
+      });
+    }
+    body = body.replace(/\s(?:mask|clip-path)="url\(#[^)]*\)"/gi, (attr) => {
+      wrappersDropped += 1;
+      return '';
+    });
   }
 
   /* The plate: a rect covering the whole viewBox. By size, never by colour. */
@@ -228,6 +284,7 @@ export function toMonochrome(raw, options = {}) {
       removedPlate,
       glowsDropped,
       classesResolved,
+      wrappersDropped,
       mapped,
       tones: tones.length,
       clusters: clusters.map((c) => `${c.colours.join('+')}@${ranks[Math.min(clusters.indexOf(c), ranks.length - 1)]}`),

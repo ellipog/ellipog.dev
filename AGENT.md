@@ -630,11 +630,66 @@ asks for.
 
 ---
 
-## The sponsor band
+## The band at the foot of every page: the host, and the tip jar beside it
 
-One affiliate arrangement, at the foot of every page: BisectHosting, with the code `mcstellar` for 25%
-off. It lives in `manifest.json` like every other fact about the site, and `components/sponsor.tsx`
-renders it.
+**Two cells in one row.** BisectHosting — one affiliate arrangement, with the code `mcstellar` for 25% off
+— takes the left two parts, and Ko-fi takes the third: where the mods' own running costs are tipped into.
+Both live in `manifest.json` like every other fact about the site, and `components/sponsor.tsx` renders
+them.
+
+**The ratio is measured, and so is the width at which the two cells stop being a row.** The host's cell
+needs about 680px before `25% off with code mcstellar · Affiliate link` breaks onto a second line — it
+does at 1001px and does not at 1024 — and the tip jar's needs about 330 for a wordmark, a tagline and a
+handle. Two to one is the first split that serves both at the shell's 1200px — at 50/50 the host's offer
+line wraps at a 1200px viewport and the row reads lopsided — and below **1024px** they stack. That number
+is the first round one at or above the measured floor, and the safe side of it deliberately: a two-up
+that only *just* fits is one font-rendering difference from wrapping, and the wrap is what looks broken.
+Stacked, each cell has the full width back and reads exactly as the band did before it had a second cell,
+so the narrow arrangement is the old one rather than a squeezed new one.
+
+**The first number here was 1000, and it moved because the measurement did rather than the design.** It
+was measured against a mock whose second cell had a 150px mark and a sans-serif handle; the real cell has
+a 124px mark and a monospace handle at 11.5px, and the host's cell — which is the binding one either way —
+wraps its offer line at 1001px in the built page. A breakpoint copied from a mock is a number nobody
+measured; the one in `global.css` was read off the artifact.
+
+**The tip jar's mark is drawn smaller than the host's — 124x34 against 123x41 — and the size lives in the
+manifest with the mark.** The host's is a hexagon with a two-line wordmark inside it, so its ink fills
+about half its box; Ko-fi's is one line of fat lettering that fills nearly all of it, and at the same 41px
+the tip jar out-weighed the cell it introduces. `BrandMark` reads `logoHeight` as the height it draws at,
+so the box is stated once per mark instead of a prop at every call site.
+
+**`flex` rather than `grid`, and that is what removes the need for a modifier class.** The manifest may
+hold the host, or the tip jar, or both; `flex-grow` fills whatever it is given, so one object present
+means one full-width cell — the band exactly as it was — with nothing to remember when the other object
+is deleted. The row draws its own top hairline and each cell after the first draws the line on its own
+left, which is the rule the grids already follow: an edge is drawn once, by the element that owns it.
+
+**The two cells are separate landmarks, and that is the part that cannot be got wrong.** The host's is
+`aria-label="Sponsored: …"` and Ko-fi's is `aria-label="Support: …"`. One `Sponsored` region holding an
+unpaid tip jar would be the same misattribution as the `SPONSORED` label that once sat above the colophon
+and made the studio look like part of the sponsorship — a reader can now skip the paid row and not the
+other, or the other and not the paid one.
+
+**Ko-fi is not a sponsorship, and three of the host's declarations would therefore be false on it.**
+`rel="sponsored"` would be a claim to the one crawler that reads it, for a link nobody paid for; an
+`Affiliate link` note would describe an arrangement that does not exist; and the host's landmark would
+file it under one. So the second cell carries none of them — `rel="noreferrer noopener"`, its own
+landmark, and no disclosure note — and `check.mjs` asserts all three negatives **on that cell's own
+markup**, because the host's cell is supposed to carry all three and a page-wide search would pass
+whatever the second one said.
+
+**It has no chip, and that is the wording decision rather than an omission.** The host's cell carries
+`Hosting partner` because a chip names a *relationship* and that one has a name worth stating. Ko-fi's
+relationship is that there is none: it is a tip jar, so the tagline says what the link is in words —
+`Support the work`, with the handle under it — and a chip would have to invent a status to sit in. The
+tagline is one edit in the manifest.
+
+**The handle is derived from `url`, never typed beside it**, so the words and the destination cannot
+disagree — the rule the colophon's domain already follows. It sits under the tagline rather than at the
+right-hand edge where the host's domain goes, because at one part of the row there is no width for both a
+tagline and a CTA beside a wordmark; it is mono and faint, because a URL is an identifier rather than
+than a sentence.
 
 **It says it is a paid link, and that is the only thing here that is not negotiable — but *where* it says
 so turned out to matter, and that is worth recording.** There used to be an uppercase `SPONSORED` label in
@@ -780,9 +835,21 @@ chip renders, because the two failures look nothing alike.
 **It is a `<section aria-label="Sponsored: <host>">`**, not a `<div>`, so it appears in a screen reader's landmark
 list and can be skipped deliberately — which a plain div would not allow.
 
-**Which files are the brand's:** the source is `design/brand-source/bisecthosting.svg` (the light variant,
-committed — the dark one was the same artwork recoloured and is gone), and the generated glyph is
-`apps/docs/public/brand/bisecthosting.svg`. Regenerate with `bun run brand`.
+**Which files are the brands':** the host's source is `design/brand-source/bisecthosting.svg` (the light
+variant, committed — the dark one was the same artwork recoloured and is gone) and the tip jar's is
+`design/brand-source/kofi.svg` (Ko-fi's own wordmark, committed verbatim from their brand asset pack); the
+generated glyphs are `apps/docs/public/brand/bisecthosting.svg` and `.../kofi.svg`. Regenerate both with
+`bun run brand`, which is a table of marks rather than a script per logo — the transform is shared and
+only the quirks differ.
+
+**The tip jar's file has three quirks, and the third one is a dark-mode bug that no eye would catch on a
+light page.** `scripts/lib/monochrome.mjs` and the header of `scripts/brand.mjs` carry the detail; the
+short version is that its capsule and letterforms are the *named* colour `white` (which this design calls
+the ground, so left named it survives as literal paper and renders as a white slab on a dark page), that
+its `<defs>`, `<mask>` and `<clipPath>` are full-bleed no-ops whose references dangle once `<defs>` is
+dropped, and that its orange cup is a **tone** rather than a ground — declared as ground, the heart
+knocked out of it would disappear. `check.mjs` asserts the first two are gone from the generated file,
+because both are invisible in the theme they were drawn in.
 
 ---
 
@@ -1373,7 +1440,7 @@ bun run dev        :: sync, then fetch stats, then next dev
 bun run sync       :: just the sync, with a log of what it copied
 bun run stats      :: just the platform fetch, printing both totals
 bun run icons      :: regenerate the mod marks from design/icons-source/
-bun run brand      :: regenerate the host's logo from design/brand-source/
+bun run brand      :: regenerate the band's brand marks from design/brand-source/
 bun run portrait   :: export the masthead portrait from design/portrait-source/
 ```
 

@@ -39,18 +39,18 @@ will not work as written; see `AGENT.md`.
 ## Layout
 
     ellipog.dev/
-    ├── manifest.json          the author, the studio, the sponsor, the suite (with a pin each), releases
+    ├── manifest.json          the author, the studio, the sponsor and the support link, the suite, releases
     ├── glossary.json          terms defined once, referenced from any mod's docs
     ├── .github/workflows/     refresh-stats.yml, update-pins.yml
     ├── design/
     │   ├── icons-source/      the brand SVGs the mod marks are generated from
-    │   └── brand-source/      the host's logo, same idea
+    │   └── brand-source/      the host's logo and Ko-fi's wordmark, same idea
     ├── scripts/
     │   ├── sync.mjs           checks out each pin, copies docs/ in, wipes the target first
     │   ├── stats.mjs          fetches both platforms' download counts
     │   ├── pins.mjs           moves the pins; dry unless --write
     │   ├── icons.mjs          turns the mod icon sources into monochrome glyphs
-    │   ├── brand.mjs          the same for the host's logo
+    │   ├── brand.mjs          the same for the band's brand marks, one table of them
     │   ├── lib/monochrome.mjs the transform both of those share
     │   ├── lib/png-ink.mjs    reads a PNG's size, ink and corners — used by check.mjs
     │   └── check.mjs          asserts the built site is what it should be
@@ -69,7 +69,7 @@ will not work as written; see `AGENT.md`.
             │   └── …
             ├── lib/           the Fumadocs source, and the docs helpers
             ├── content/       GENERATED — committed, and never edited here
-            ├── public/        the site mark (tab + masthead), the mod marks, the host's logo
+            ├── public/        the site mark (tab + masthead), the mod marks, the band's brand marks
             └── out/           the static build
 
 ---
@@ -197,26 +197,39 @@ does, and `check.mjs` asserts a docs page differs from the home page.
 
 ---
 
-## The sponsor band
+## The sponsor band, and the tip jar beside it
 
-Every page carries one affiliate arrangement at its foot — BisectHosting, with the code `mcstellar` for
-25% off. It is **disclosed as an affiliate link in the row itself**, beside the offer, and its link carries
-`rel="sponsored"`, because a paid link that does not declare itself is a link pretending to be a
-recommendation. The section also carries `aria-label="Sponsored: BisectHosting"`.
+Every page carries two cells at its foot, in one row: **BisectHosting** — one affiliate arrangement, with
+the code `mcstellar` for 25% off — at two parts, and **Ko-fi**, where the mods' running costs are tipped
+into, at one. Below 1024px they stack, because that is where the host's cell starts wrapping its offer
+line; the ratio and the breakpoint are both measured rather than picked, and `global.css` carries the
+numbers.
+
+The host's cell is **disclosed as an affiliate link in the row itself**, beside the offer, and its link
+carries `rel="sponsored"`, because a paid link that does not declare itself is a link pretending to be a
+recommendation. Its section carries `aria-label="Sponsored: BisectHosting"`.
+
+**Ko-fi's cell is not a sponsorship, so it carries none of that**: no `rel="sponsored"` — nobody paid for
+that link — no `Affiliate link` note, no `Hosting partner`-style chip, and its **own** landmark,
+`aria-label="Support: Ko-fi"`. One `Sponsored` region holding an unpaid tip jar would be the same
+misattribution as the `SPONSORED` label that once sat above the colophon and made the studio look like
+part of the sponsorship. `check.mjs` asserts all three negatives on that cell's own markup.
 
 The note used to be an uppercase `SPONSORED` label in a head strip above the row. That strip sat directly
 above the colophon's own `ENGINEERED & MAINTAINED BY` line, so the two stacked labels read as one heading
 over both rows and made the studio look like part of the sponsorship — which is why the note moved down
 into the row it describes.
 
-**The strip itself is gone too, so the band is one row rather than two.** It existed to carry the host's
+**The strip itself is gone too, so each cell is one row rather than two.** It existed to carry the host's
 name and its `Partner` chip, and it was repeating a name the mark's own wordmark already gives at the left
 of the row. The chip moved in beside the tagline and the band is roughly half its height. `check.mjs`
 asserts no `sponsor-head` is rendered, so the second bar cannot return unnoticed.
 
-The details live in `manifest.json` under `sponsor`; removing that object removes the band, and
-`check.mjs` skips its assertions. The generated mark is in `apps/docs/public/brand/`, committed, from
-`design/brand-source/`.
+The details live in `manifest.json` under `sponsor` and `support`; removing either object removes its cell,
+and the row falls back to one full-width cell. `check.mjs` skips the assertions for whichever is absent.
+The generated marks are in `apps/docs/public/brand/`, committed, from `design/brand-source/` — and Ko-fi's
+is drawn smaller (124x34 against the host's 123x41) because one line of fat lettering fills its box where
+a hexagon with a two-line wordmark does not.
 
 The small `Hosting partner` chip beside the host's tagline is a deliberate wording choice, not a default.
 It is two words rather than one because `Minecraft server hosting` beside `PARTNER` says what the host does

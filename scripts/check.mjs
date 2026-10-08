@@ -1364,6 +1364,168 @@ if (sponsor) {
   console.log('  .   no sponsor in the manifest -- skipping the sponsor assertions');
 }
 
+console.log('\n== the support cell, and why it is not a sponsorship ==');
+/*
+ * THE SECOND CELL IS UNPAID, AND ALMOST EVERY ASSERTION HERE IS ABOUT SAYING SO.
+ *
+ * Ko-fi is where the mods' own running costs are tipped into. Nothing about that link is paid for, which
+ * makes three of the host's declarations actively wrong here rather than merely unnecessary:
+ * `rel="sponsored"` would be a false claim to the one crawler that reads it, an `Affiliate link` note
+ * would describe an arrangement that does not exist, and a region labelled `Sponsored` would put an
+ * unpaid link under a paid heading — which is the misattribution the band's whole history is made of.
+ *
+ * So half of these are negatives: the URL and the words that should be there, and the three things that
+ * must not be. Each fails silently on its own — a `rel` is invisible, and a disclosure that covers one
+ * cell too many looks like nothing at all.
+ *
+ * **The mark is asserted twice over, because its failure mode is invisible in one theme.** Its capsule
+ * and its letterforms are the *named* colour `white` in the source, and white is what this design calls
+ * the ground: left named it renders as a white slab with dark knockouts on a dark page, while looking
+ * entirely correct on a light one. `scripts/brand.mjs` normalises the named colour, and the assertion
+ * below is what stops a re-export from quietly putting it back.
+ */
+const support = manifest.support;
+
+if (support) {
+  const supportSection = /<section class="support"[\s\S]*?<\/section>/.exec(home ?? '')?.[0] ?? '';
+  const supportLink = /<a class="support-link"[^>]*>/.exec(supportSection)?.[0] ?? '';
+  const supportHandle = support.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+  check('the support cell renders', home.includes('class="support"'));
+  check('it links where the manifest says', supportSection.includes(support.url), support.url);
+  check('the cell says what the link is', supportSection.includes(support.tagline), support.tagline);
+  check(
+    'the handle is derived from the URL, not typed beside it',
+    supportSection.includes(supportHandle),
+    supportHandle,
+  );
+  check('it opens away from the site', supportLink.includes('target="_blank"'));
+
+  /*
+   * The three declarations that would be false here. Asserted on the cell's own markup rather than on the
+   * page, because the host's cell *should* carry all three — a page-wide search would pass whatever the
+   * second cell said.
+   */
+  check(
+    'the link does not declare itself sponsored',
+    supportLink.includes('rel="noreferrer noopener"') && !/sponsored/i.test(supportLink),
+    'rel="noreferrer noopener", and no rel="sponsored"',
+  );
+  check(
+    'it is not disclosed as an affiliate link',
+    !/Affiliate link|sponsor-disclosure/.test(supportSection),
+    'the note belongs to the paid cell',
+  );
+  check(
+    'it is not under the host\'s landmark',
+    !/aria-label="Sponsored/.test(supportSection),
+    'aria-label="Support: …" instead',
+  );
+  check(
+    'the region names itself for a screen reader',
+    supportSection.includes(`aria-label="Support: ${support.name}"`),
+    `aria-label="Support: ${support.name}"`,
+  );
+  check(
+    'the disclosure is in the paid cell and nowhere else',
+    // `withoutScripts`, because Next serialises the same markup into the RSC payload as well — a plain
+    // count over the file reads every class twice and would fail on a page that is entirely correct.
+    (withoutScripts(home ?? '').match(/sponsor-disclosure/g) ?? []).length === 1,
+    'one disclosure, on the offer it describes',
+  );
+
+  /* The mark, and every one of these is a thing that has gone wrong at least once in this pipeline. */
+  const kofiSvg = existsSync('apps/docs/public/brand/kofi.svg')
+    ? readFileSync('apps/docs/public/brand/kofi.svg', 'utf8')
+    : '';
+
+  check('the tip jar mark is in the repo', existsSync('apps/docs/public/brand/kofi.svg'), support.logo);
+  check('it is copied into the build', existsSync(`${OUT}/brand/kofi.svg`));
+  check('it is monochrome', !/#[0-9a-f]{6}\b/i.test(kofiSvg), 'no hex colours');
+  check(
+    'no named colour survives it',
+    !/(?:fill|stroke)="white"/i.test(kofiSvg),
+    'white is the mark\'s own capsule, and the ground token is how it follows the page',
+  );
+  check(
+    'the export wrapper is gone',
+    !/<mask|clip-path|url\(#/i.test(kofiSvg),
+    'a full-bleed mask and clip path are no-ops, and one of them leaves a dangling reference',
+  );
+  check('nothing inlined carries an id', !/\bid="/.test(kofiSvg), 'two inlined marks would collide');
+  check('it carries no <style> block', !/<style/i.test(kofiSvg));
+  check('it takes its colour from the text', kofiSvg.includes('currentColor'), 'currentColor');
+  check('its capsule follows the ground', kofiSvg.includes('var(--icon-ground)'), 'var(--icon-ground)');
+  check(
+    'the mark is inlined, not an <img>',
+    /<svg class="brand-mark"/.test(supportSection),
+    'an <img> could not see the page CSS',
+  );
+  check(
+    'the mark box is reserved from the manifest',
+    new RegExp(
+      `<svg class="brand-mark"[^>]*width="${support.logoWidth}"[^>]*height="${support.logoHeight}"`,
+    ).test(supportSection),
+    `${support.logoWidth} x ${support.logoHeight} — the size the manifest gives, not one the component chose`,
+  );
+
+  /* Two marks in the band now, so the "one is inlined" assertion above is not the whole story. */
+  check(
+    'both cells inline their own mark',
+    (home?.match(/<svg class="brand-mark"/g) ?? []).length === 2,
+    `${(home?.match(/<svg class="brand-mark"/g) ?? []).length} inline mark(s)`,
+  );
+
+  /*
+   * THE ROW, WHICH IS LAYOUT RATHER THAN HONESTY — AND STILL ASSERTED.
+   *
+   * `declarationsFor` asks what a selector resolves to, so a minifier merging these rules cannot make
+   * these fail; the media query is matched in the raw sheet, because a rule inside an `@media` block is
+   * deliberately not returned as a top-level rule.
+   */
+  check(
+    'the two cells share one row',
+    /display:\s*flex/.test(declarationsFor(allCss, '.band-row')),
+    show('.band-row{'),
+  );
+  check(
+    'a cell stretches its own link',
+    /display:\s*flex/.test(declarationsFor(allCss, '.band-row>*')),
+    show('.band-row>*{'),
+  );
+  check(
+    'the split is two to one',
+    /flex:\s*2 1 0/.test(declarationsFor(allCss, '.band-row>.sponsor')) &&
+      /flex:\s*1 1 0/.test(declarationsFor(allCss, '.band-row>.support')),
+    'the host at two parts, the tip jar at one',
+  );
+  check(
+    'the row stacks rather than squeezing',
+    /@media\s*\(max-width:\s*1024px\)\{[^@]*?flex-direction:\s*column/.test(allCss),
+    show('max-width:1024px'),
+  );
+  check(
+    'the tip jar mark follows the cell into the inversion',
+    /--icon-ground:\s*var\(--inv-bg\)/.test(declarationsFor(allCss, '.support-link:hover .brand-mark')),
+    show('.support-link:hover .brand-mark{'),
+  );
+  check(
+    'the row is on the docs pages too',
+    Boolean(docsPage?.includes('class="support"')),
+    'it is in the root layout, like the host\'s cell',
+  );
+
+  const supportAt = (home ?? '').indexOf('class="support"');
+  const bandColophonAt = (home ?? '').indexOf('class="colophon"');
+  check(
+    'the support cell sits above the colophon as well',
+    supportAt !== -1 && bandColophonAt !== -1 && supportAt < bandColophonAt,
+    supportAt === -1 ? 'no support cell found' : bandColophonAt === -1 ? 'no colophon found' : 'cell first',
+  );
+} else {
+  console.log('  .   no support in the manifest -- skipping the support assertions');
+}
+
 console.log('\n== the colophon, and why it is not the footer coming back ==');
 /*
  * A ROW THAT REPEATS A ROW IS FURNITURE. THAT IS THE WHOLE TEST, AND IT IS ASSERTED DIRECTLY.

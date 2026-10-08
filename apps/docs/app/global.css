@@ -1822,11 +1822,11 @@ a:focus-visible > .arrow {
  */
 
 /* ------------------------------------------------------------------ */
-/* The sponsor band                                                    */
+/* The band at the foot of every page                                  */
 /* ------------------------------------------------------------------ */
 
 /*
- * The host, and the second-to-last row on every page.
+ * The host and the tip jar, and the second-to-last row on every page.
  *
  * **It was given its own band so it would not read as part of the site's colophon.** That colophon was
  * the footer — the domain, then links to where else the work lives — and a paid arrangement dropped
@@ -1845,9 +1845,88 @@ a:focus-visible > .arrow {
  * qualifies rather than above it — so the strip is gone and the chip sits inside, next to the tagline. The
  * band is about half the height it was, and one assertion exists purely so a later edit cannot put the
  * second bar back without saying so.
+ *
+ * **The row is two cells now, and it was one.** The host keeps the left two parts and Ko-fi takes the
+ * third, separated by the same hairline as every other edge here. They are one row rather than two bands
+ * because they are the same kind of fact — who this page sends its reader to — and side by side they read
+ * as one row with two answers instead of two sections that happen to sit together.
+ *
+ * **`flex` rather than `grid`, and that is the whole reason there is no modifier class.** The manifest can
+ * hold the host, or the tip jar, or both, and `flex-grow` fills whatever it is given: one cell present
+ * means one full-width cell, exactly the band as it was, with nothing to remember to add when one of the
+ * two objects is removed.
+ *
+ * **The edge is drawn once, by the row that owns it** — the same rule the grids follow. `.band-row` draws
+ * the top, and each cell after the first draws the line on its own left, so the divider between the two
+ * is one pixel and belongs to one element rather than being two borders meeting.
  */
-.sponsor {
+.band-row {
+  display: flex;
   border-top: 1px solid var(--line);
+}
+
+/*
+ * A cell is a flex container, and that is load-bearing rather than tidiness.
+ *
+ * The link inside it is what inverts on hover, and the two cells are rarely the same height — the host's
+ * carries an offer and a code where Ko-fi's carries two short lines. Without this the shorter cell's link
+ * stops at its own content and the paper below it belongs to nothing: a strip at the bottom of the cell
+ * that does not respond to the pointer, in a row where every other pixel does.
+ */
+.band-row>* {
+  min-width: 0;
+  display: flex;
+}
+
+/*
+ * THE RATIO, AND WHY IT IS TWO TO ONE.
+ *
+ * Measured against the real content rather than picked: the host's cell needs about 680px before
+ * `25% off with code mcstellar · Affiliate link` breaks onto a second line — it does at 1001 and does
+ * not at 1024 — and the tip jar's cell needs about 330 for its wordmark, tagline and handle. Two to one
+ * is the first split that serves both at the shell's 1200px, and at 50/50 the host's offer line wraps at
+ * a 1200px viewport and the row reads lopsided.
+ */
+.band-row>.sponsor {
+  flex: 2 1 0;
+}
+
+.band-row>.support {
+  flex: 1 1 0;
+}
+
+/* The divider, drawn by the cell on the right of it. */
+.band-row>*+* {
+  border-left: 1px solid var(--line);
+}
+
+/*
+ * BELOW 1024px THE TWO CELLS STACK, AND THE NUMBER IS MEASURED.
+ *
+ * Two-to-one leaves the host's cell about 683px at a 1025px viewport, which is where its offer line
+ * stops breaking; the tip jar's cell is comfortable well below that. So 1024 is the first round number
+ * at or above the measured floor, and it is the safe side of it on purpose: a two-up that only *just*
+ * fits is one font-rendering difference away from wrapping, and the wrap is the thing that looks broken.
+ *
+ * It was 1000 when this row was first written, against a mock whose second cell had a 150px mark and a
+ * sans handle. The real page — a 124px mark and a monospace handle at 11.5px — measured narrower than
+ * the mock on one side and wider on the other, and the host's cell was the binding one either way. The
+ * number moved because the measurement did, not because the design did.
+ *
+ * Stacked, each cell gets the full width back and reads exactly as it did before the row had a second
+ * cell — so this is the same band at a narrower width, not a squeezed one. The divider moves with them:
+ * what was a line down the left of the second cell becomes the line above it, so the two cells stay one
+ * hairline-separated row in both arrangements.
+ */
+@media (max-width: 1024px) {
+  .band-row {
+    flex-direction: column;
+  }
+
+  .band-row>*+* {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
 }
 
 /*
@@ -1899,24 +1978,36 @@ a:focus-visible > .arrow {
 }
 
 /*
- * One row: the logo, what the offer is, where it goes.
+ * One cell: the mark, what the offer is, where it goes.
  *
- * `flex-wrap` so the CTA drops to a second line on a narrow screen rather than squeezing the copy, and
- * `align-items: center` because the logo is an image with its own baseline and would otherwise sit high.
+ * **Both cells share every one of these rules**, which is why each selector carries both names rather
+ * than Ko-fi's cell reusing `.sponsor-link` and calling itself something it is not. The two cells say
+ * different things and one of them is paid; a class that says `sponsor` on the unpaid one would be the
+ * kind of name this file already refuses to keep around.
+ *
+ * `flex: 1` so the link fills its cell, including the height the row stretches it to — the hover
+ * inversion has to reach every pixel of the cell, or the bottom strip of the shorter one belongs to
+ * nothing. `flex-wrap` so the host's CTA drops to a second line on a narrow screen rather than squeezing
+ * the copy, and `align-items: center` because the mark is an image with its own baseline and would
+ * otherwise sit high.
  */
-.sponsor-link {
+.sponsor-link,
+.support-link {
   display: flex;
   align-items: center;
   gap: var(--s5);
   padding: var(--s4);
+  flex: 1;
+  min-width: 0;
   transition: background-color 0.12s linear, color 0.12s linear;
 }
 
 /*
- * Hover inverts the whole row, like every other clickable surface here. An inversion is structure; a
+ * Hover inverts the whole cell, like every other clickable surface here. An inversion is structure; a
  * tint or a lift-off shadow would be decoration, and this design has neither.
  */
-.sponsor-link:hover {
+.sponsor-link:hover,
+.support-link:hover {
   background: var(--inv-bg);
   color: var(--inv-fg);
 }
@@ -1940,12 +2031,15 @@ a:focus-visible > .arrow {
   color: inherit;
 }
 
-/* A hovered sponsor row inverts its ground, so the mark's knockouts move with it. */
-.sponsor-link:hover .brand-mark {
+/* A hovered cell inverts its ground, so the mark's knockouts move with it — both cells, because both
+   marks carry the field this token colours: the host's hexagon interior, and Ko-fi's own capsule. */
+.sponsor-link:hover .brand-mark,
+.support-link:hover .brand-mark {
   --icon-ground: var(--inv-bg);
 }
 
-.sponsor-copy {
+.sponsor-copy,
+.support-copy {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1956,8 +2050,9 @@ a:focus-visible > .arrow {
 /* A row rather than a line of text, because the `Hosting partner` chip sits in it beside the tagline. `center`
    rather than `baseline`: the chip is a bordered box, and a box aligned on the text baseline sits visibly
    low next to it. `wrap` so the chip drops to its own line on a narrow screen instead of squeezing the
-   tagline. */
-.sponsor-tagline {
+   tagline. Ko-fi's cell has no chip and needs none of that — a flex row with one child is a line of text. */
+.sponsor-tagline,
+.support-tagline {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1973,6 +2068,28 @@ a:focus-visible > .arrow {
 }
 
 .sponsor-link:hover .sponsor-offer {
+  color: var(--inv-faint);
+}
+
+/*
+ * Ko-fi's handle, under its tagline, and deliberately not `.sponsor-offer`.
+ *
+ * The host's offer line is a sentence with an identifier inside it — `25% off with code mcstellar` — so it
+ * is prose in the prose face. This cell's second line is *only* the destination, and an identifier is
+ * monospace everywhere on this site: the same 11.5px faint mono `.link-handle` and `.colophon-domain` get.
+ * Sharing the rule would have made a URL read as a sentence.
+ *
+ * It is the second line rather than a right-aligned CTA because at one part of the row there is no width
+ * for both a tagline and a CTA beside a wordmark — measured, see the ratio note above.
+ */
+.support-offer {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  color: var(--fg-faint);
+}
+
+.support-link:hover .support-offer {
   color: var(--inv-faint);
 }
 
@@ -2045,7 +2162,8 @@ a:focus-visible > .arrow {
 }
 
 @media (max-width: 700px) {
-  .sponsor-link {
+  .sponsor-link,
+  .support-link {
     gap: var(--s4);
     flex-wrap: wrap;
   }
