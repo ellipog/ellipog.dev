@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 import './global.css';
@@ -79,7 +79,33 @@ export const metadata: Metadata = {
       { url: '/site/mark-on-dark.png', type: 'image/png', media: '(prefers-color-scheme: dark)' },
       { url: '/site/mark-on-light.png', type: 'image/png', media: '(prefers-color-scheme: light)' },
     ],
+    /*
+     * The iOS home-screen icon. The light-ground mark: iOS shows no dark-aware variant, and a
+     * dark-ink glyph on the system's light icon backdrop is the legible pairing — the same
+     * "accidental default" reasoning that lists the light file last above. The file is 879px
+     * square and downscales cleanly; no separate artwork, so there is nothing new to keep in
+     * step with the tab mark.
+     */
+    apple: [{ url: '/site/mark-on-light.png', type: 'image/png' }],
   },
+};
+
+/*
+ * The browser chrome's colour on mobile: paper in the light theme, near-black in the dark one.
+ *
+ * A `viewport` export rather than `metadata.themeColor`: since Next 14 the theme colour lives
+ * here, and a `themeColor` key inside `metadata` is silently dropped from the built head — which
+ * is exactly how a page ships with the assertion below failing and nothing in the source looking
+ * wrong. Literals duplicating the `--bg` tokens in `global.css` (`:root` and
+ * `[data-theme="dark"]`), because neither export can read CSS variables. If either token moves,
+ * move these with it — `check.mjs` compares them, so the drift fails locally rather than
+ * shipping as a white bar above a dark page.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+  ],
 };
 
 /**

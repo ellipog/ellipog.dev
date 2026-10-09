@@ -109,9 +109,9 @@ function frontmatter(title, description, extra = {}) {
  * the body, and treating it as one means it gets copied into the generated file as a second `---`
  * block, while `leadingHeading` stops finding the title because the file no longer starts with `#`.
  *
- * The frontmatter a document declares is *read* (for `maturity`) and never written through: the
- * generated frontmatter is the site's, and a document does not get to overrule the title the manifest
- * gave it.
+ * The frontmatter a document declares is *read* (for `maturity` and `description`) and only
+ * those two keys are written through: the generated frontmatter is otherwise the site's, and a
+ * document does not get to overrule the title the manifest gave it.
  */
 function splitFrontmatter(markdown) {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(markdown);
@@ -205,9 +205,15 @@ function discover(mod) {
 
     const raw = readFileSync(file, 'utf8');
     const title = leadingHeading(raw) ?? (isIndex ? mod.name : humanise(filename));
+    // A hand-written `description` is the page's search-result sentence. It is read here and
+    // written through in `writeMod`, so the generated frontmatter the site renders as its lede is
+    // the same sentence the head emits as `og:description`. A document without one gets an excerpt
+    // at render time instead (see `descriptionOf`) — and is named in the sync log, so the gap is
+    // visible where the author can close it rather than silently shipped.
+    const description = declaredKey(raw, 'description');
     const url = `/docs/${[mod.id, ...slugPath].filter(Boolean).join('/')}/`;
 
-    const page = { file, raw, slugged, isIndex, parts, slugPath, title, url };
+    const page = { file, raw, slugged, isIndex, parts, slugPath, title, description, url };
 
     pages.push(page);
     // Keys: the root index answers to `mod:index` and to the bare mod id, because that reads more
@@ -374,13 +380,14 @@ function writeMod(section) {
     const where = relative(resolve(SITE, '..'), page.file);
     const { body: sourceBody } = splitFrontmatter(page.raw);
     const body = transformBody(stripLeadingHeading(sourceBody), where);
-    // Only `maturity` is read from the source's own frontmatter; the rest is generated. See declaredKey.
+    // `maturity` and `description` are read from the source's own frontmatter; the rest is
+    // generated. See declaredKey.
     const maturity = declaredKey(page.raw, 'maturity');
     // The folder is the URL for an index too: `toolkit/index.md` writes `toolkit/index.mdx`. Every
     // index used to write the mod's root `index.mdx`, so a subfolder's front page replaced the mod's
     // own -- the landing page vanished from the site with nothing in the log to say so.
     const target = [out, ...page.parts.map((p) => p.toLowerCase()), `${page.slugged}.mdx`];
-    write(join(...target), frontmatter(page.title, '', maturity ? { maturity } : {}) + body);
+    write(join(...target), frontmatter(page.title, page.description ?? '', maturity ? { maturity } : {}) + body);
   }
 
   // A section's own front page, not a subfolder's: a mod whose only index is `guides/index.md`
@@ -565,6 +572,17 @@ function main() {
   if (unused.length > 0) {
     console.log(
       `sync: ${unused.length} glossary term(s) defined but not yet referenced: ${unused.map((t) => `${t.id} (${t.source})`).join(', ')}`,
+    );
+  }
+
+  // Pages with no `description` are reported, not failed: the site excerpts their opening prose at
+  // render time instead (see `descriptionOf`), so nothing ships an empty tag — but an excerpt is a
+  // backstop, and a hand-written sentence is what a search result should show. The source file is
+  // named so the author knows which file to open.
+  const undescribed = sections.flatMap((s) => s.pages.filter((p) => !p.description));
+  if (undescribed.length > 0) {
+    console.log(
+      `sync: ${undescribed.length} page(s) with no description in frontmatter (excerpted at render time): ${undescribed.map((p) => relative(resolve(SITE, '..'), p.file)).join(', ')}`,
     );
   }
 

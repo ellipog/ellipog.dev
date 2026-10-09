@@ -5,6 +5,7 @@ import { getTableOfContents } from 'fumadocs-core/content/toc';
 import type { TOCItemType } from 'fumadocs-core/toc';
 
 import { source } from '@/lib/source';
+import { excerptFromMarkdown } from '@/lib/metadata';
 import manifest from '@/manifest.json';
 
 /**
@@ -136,6 +137,39 @@ export function maturityOf(slugs: string[]): string | undefined {
   const value = /^maturity:\s*(.+)$/m.exec(front)?.[1]?.trim().replace(/^["']|["']$/g, '');
   // An allowlist, because the class name it becomes goes straight into the markup.
   return value === 'draft' || value === 'stable' || value === 'unreleased' ? value : undefined;
+}
+
+/**
+ * A page's meta description, read from the generated file.
+ *
+ * **Frontmatter first, excerpt second.** The sync writes the source document's own `description`
+ * through (see `writeMod` in `scripts/sync.mjs`), so a hand-written sentence always wins. When
+ * there is none, the body's opening prose is excerpted via `excerptFromMarkdown` rather than
+ * falling back to the site's description — which is what shipped the same sentence on two dozen
+ * pages. Read from disk for the same reason as `maturityOf`: the page schema strips unknown keys,
+ * so `page.data` cannot be trusted with it.
+ *
+ * Returns undefined when the file is missing or nothing readable survives, so the caller keeps
+ * its final `SITE.description` fallback rather than emitting an empty tag.
+ */
+export function descriptionOf(slugs: string[]): string | undefined {
+  const base = join(process.cwd(), 'content', 'docs', ...slugs);
+  const file = existsSync(`${base}.mdx`) ? `${base}.mdx` : join(base, 'index.mdx');
+  if (!existsSync(file)) return undefined;
+
+  const raw = readFileSync(file, 'utf8');
+  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw)?.[1];
+  const declared = front
+    ? /^description:\s*(.+)$/m
+        .exec(front)?.[1]
+        ?.trim()
+        .replace(/^["']|["']$/g, '')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\')
+    : undefined;
+  if (declared) return declared;
+
+  return excerptFromMarkdown(raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ''));
 }
 
 export type Neighbour = { url: string; title: string };

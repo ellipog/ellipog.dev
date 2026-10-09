@@ -2245,6 +2245,7 @@ function metaTag(html, key) {
  * which is what happens when the block lives in a page component instead of in the one helper
  * every page asks.
  */
+const descriptions = [];
 for (const path of builtPaths) {
   const html = read(`${OUT}${path}index.html`);
   if (!html) continue;
@@ -2275,6 +2276,46 @@ for (const path of builtPaths) {
     Boolean(imagePath) && existsSync(`${OUT}${imagePath}`),
     image ?? 'no og:image',
   );
+  // Attribute order is Next's, not ours: each tag is matched on the pair it carries rather
+  // than on position, so a reordered head does not read as a missing theme.
+  const themes = [...html.matchAll(/<meta\s[^>]*name="theme-color"[^>]*>/g)].map((m) => m[0]);
+  check(
+    `${path} names the browser chrome in both themes`,
+    themes.some((t) => t.includes('(prefers-color-scheme: light)') && t.includes('#ffffff')) &&
+      themes.some((t) => t.includes('(prefers-color-scheme: dark)') && t.includes('#09090b')),
+    'the literals duplicate the --bg tokens in global.css; move both together',
+  );
+  check(
+    `${path} offers a touch icon`,
+    /<link rel="apple-touch-icon"/.test(html),
+    'no apple-touch-icon in the head',
+  );
+  // Collected for the uniqueness assertion below: the failure this catches is never "nobody set a
+  // description", it is "twenty-three pages share the site's" — which is what a fallback to
+  // SITE.description on every undescribed page ships as.
+  descriptions.push([path, metaTag(html, 'description')]);
+}
+
+/*
+ * Every page describes itself, in its own words.
+ *
+ * `descriptionOf` resolves frontmatter first and an excerpt second, so a duplicate here means two
+ * pages genuinely open with the same sentence rather than a fallback leaking through — which is a
+ * copy problem to fix in the source document, not a code problem.
+ */
+{
+  const empty = descriptions.filter(([, d]) => !d);
+  check('every page carries a meta description', empty.length === 0, empty.map(([p]) => p).join(', ') || 'all set');
+  const seen = new Map();
+  for (const [p, d] of descriptions) {
+    if (d) seen.set(d, [...(seen.get(d) ?? []), p]);
+  }
+  const dupes = [...seen.entries()].filter(([, ps]) => ps.length > 1);
+  check(
+    'no two pages share a meta description',
+    dupes.length === 0,
+    dupes.map(([d, ps]) => `${ps.join(' + ')}: ${JSON.stringify(d.slice(0, 60))}`).join('; ') || 'all unique',
+  );
 }
 
 console.log('\n== what the home page says it is ==');
@@ -2297,6 +2338,84 @@ check(
   (person?.sameAs ?? []).includes(manifest.author.links[0].url),
   'a sameAs pointing anywhere else is a claim the page does not make',
 );
+check('it names its own address', person?.url === siteUrl, person?.url ?? 'no url on Person');
+
+console.log('\n== what each docs page says it is ==');
+/*
+ * One BreadcrumbList per docs page: Home → Documentation → … → this page.
+ *
+ * Read from the built HTML like the home block, because a trail that names a URL the page's own
+ * canonical does not is two identities for one page — and that disagreement is invisible in a
+ * browser. The home page carries no trail (it *is* the root), so only /docs/ paths are read here.
+ */
+for (const path of builtPaths.filter((p) => p.startsWith('/docs/'))) {
+  const html = read(`${OUT}${path}index.html`);
+  const blocks = [...(html ?? '').matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+  let trail = null;
+  try {
+    trail = blocks.map((m) => JSON.parse(m[1])).find((b) => b?.['@type'] === 'BreadcrumbList') ?? null;
+  } catch {
+    trail = null;
+  }
+  check(`${path} carries a parseable trail`, trail !== null, 'no BreadcrumbList block');
+  if (!trail) continue;
+  const items = trail.itemListElement ?? [];
+  const positions = items.map((i) => i.position);
+  check(
+    `${path} numbers its trail from one`,
+    positions.every((p, i) => p === i + 1),
+    JSON.stringify(positions),
+  );
+  check(
+    `${path} names every step`,
+    items.every((i) => typeof i.name === 'string' && i.name.length > 0),
+    'an unnamed step is a crumb that says nothing',
+  );
+  check(
+    `${path} trails on-domain with trailing slashes`,
+    items.every((i) => typeof i.item === 'string' && i.item.startsWith(`${siteUrl}/`) && i.item.endsWith('/')),
+    items.map((i) => i.item).join(' ') || 'no items',
+  );
+  check(
+    `${path} trails home through the docs index to itself`,
+    items.length >= 2 && items[0].item === `${siteUrl}/` && items[1].item === `${siteUrl}/docs/` && items.at(-1).item === `${siteUrl}${path}`,
+    items.map((i) => i.item).join(' > ') || 'no items',
+  );
+}
+
+console.log('\n== the page that is not a page ==');
+/*
+ * The 404 exists so the head has exactly one `<title>`: without `app/not-found.tsx`, Next renders
+ * the layout default *and* its own `404: This page could not be found.` into the same head. The
+ * one thing it must do for crawlers — stay out of the index — is the second half of the same
+ * assertion, because a fix for the first half that dropped the second would be worse than the bug.
+ */
+{
+  const missing = read(`${OUT}/404.html`);
+  const titles = [...(missing ?? '').matchAll(/<title>[^<]*<\/title>/g)];
+  check('the 404 carries exactly one title', titles.length === 1, `${titles.length} found`);
+  check(
+    'the 404 still stays out of the index',
+    /<meta name="robots" content="[^"]*noindex[^"]*"/.test(missing ?? ''),
+    'a findable 404 is a page that should not exist, existing',
+  );
+}
+
+console.log('\n== the file for readers that are not browsers ==');
+/*
+ * `llms.txt` is the cheapest AI-citation win a docs site has: it tells an AI crawler what the
+ * site is and where the canonical docs live, in one fetch. It is a static file in `public/`, so
+ * the assertion is only that the export carried it and that it names the sitemap and the pages
+ * a model should start from — the prose itself is the author's, not the build's, to judge.
+ */
+{
+  const llms = read(`${OUT}/llms.txt`);
+  check('llms.txt ships', Boolean(llms));
+  check('llms.txt names the sitemap', (llms ?? '').includes(`${siteUrl}/sitemap.xml`), 'no sitemap address');
+  for (const entry of [`${siteUrl}/docs/tenet/`, `${siteUrl}/docs/armature/`, `${siteUrl}/docs/glossary/`]) {
+    check(`llms.txt points at ${entry.replace(siteUrl, '')}`, (llms ?? '').includes(entry), 'missing entry');
+  }
+}
 
 console.log('\n== the invisible half of accessibility ==');
 /*

@@ -84,6 +84,7 @@ const STRUCTURED_DATA = {
     {
       '@type': 'Person',
       name: manifest.author.handle,
+      url: SITE.url,
       sameAs: [...manifest.author.links.map((link) => link.url), GITHUB],
     },
   ],

@@ -13,13 +13,19 @@ import manifest from '@/manifest.json';
  *
  * What is deliberately **not** here: the docs pages' titles and descriptions. Those belong to the
  * pages and come from their frontmatter — this file is only about the site.
+ *
+ * Two descriptions, two jobs — and they must stay different. `SITE.description` below describes the
+ * *home* page (what the mods are, where to get them). The *docs index* is described by
+ * `manifest.site.description`, which `scripts/sync.mjs` writes into the generated `/docs/` front
+ * page. If the two ever read the same, every docs page without its own description falls back to
+ * the home sentence and the sitemap ships two dozen duplicate descriptions.
  */
 export const SITE = {
   domain: manifest.site.domain,
   url: `https://${manifest.site.domain}`,
   title: 'ellipog.dev',
   description:
-    'Minecraft mods for Fabric and NeoForge — a UI library and a questing engine in development, plus earlier work.',
+    'Tenet and Armature — Minecraft mods for Fabric and NeoForge: a visual questing engine and a UI library in development, plus earlier work.',
 } as const;
 
 /**
@@ -37,6 +43,48 @@ export const CARD = {
   alt: 'ellipog — Minecraft mods for Fabric and NeoForge',
 } as const;
 
+/**
+ * A meta-description-length excerpt from a docs page's markdown body.
+ *
+ * The backstop for a page whose frontmatter has no `description`: without it, `generateMetadata`
+ * falls back to `SITE.description` and two dozen pages ship the same sentence (which is what the
+ * site did until this existed — only `/docs/` and `/docs/glossary/` declared one). A hand-written
+ * description always wins; this only runs when there is none.
+ *
+ * Pure string work, deliberately: the file reading lives beside `tocOf`/`maturityOf` in
+ * `lib/docs.ts`, which already established that pattern. Returns undefined when nothing readable
+ * survives, so the caller keeps its final `SITE.description` fallback rather than emitting an
+ * empty tag.
+ */
+export function excerptFromMarkdown(markdown: string, maxLength = 155): string | undefined {
+  const text = markdown
+    // Fenced code blocks are examples, not summaries.
+    .replace(/```[\s\S]*?```/g, ' ')
+    // `import`/`export` lines are scaffolding, never prose.
+    .replace(/^(?:import|export)\s.*$/gm, ' ')
+    // Component tags keep their inner text: `<Callout>` wrappers go, the sentence stays.
+    .replace(/<\/?[A-Za-z][\w.:-]*(?:\s[^<>]*)?\/?>/g, ' ')
+    // `{expression}` fragments are code, not words.
+    .replace(/\{[^{}\s]+\}/g, ' ')
+    // Wiki links resolve to their label, or the target when they carry none.
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')
+    .replace(/\[\[([^\]]+)\]\]/g, '$1')
+    // Markdown links keep their text; images are dropped outright.
+    .replace(/!?\[[^\]]*\]\([^)]*\)/g, (m) => (/^!/.test(m) ? ' ' : m.replace(/^\[([^\]]*)\].*$/, '$1')))
+    // Emphasis and inline code leave their words behind.
+    .replace(/(`{1,3}|[*_]{1,3})([^`*_]+)\1/g, '$2')
+    // Line-level markers (headings, quotes, list bullets, ordered numbers) are not content.
+    .replace(/^[ \t]*(?:#{1,6}\s+|>{1,3}\s*|[-*+]\s+|\d+[.)]\s+)/gm, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) return undefined;
+  if (text.length <= maxLength) return text;
+  // Cut on a word boundary so the snippet never ends mid-word; no ellipsis, which reads as
+  // trailing content in a meta tag rather than as an abbreviation.
+  const cut = text.lastIndexOf(' ', maxLength);
+  return (cut > maxLength * 0.5 ? text.slice(0, cut) : text.slice(0, maxLength)).trim() || undefined;
+}
 /**
  * A route's absolute URL, with the trailing slash the export actually serves.
  *

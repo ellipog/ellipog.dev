@@ -5,8 +5,8 @@ import { DocsContents } from '@/components/docs-contents';
 import { DocsFooter } from '@/components/docs-footer';
 import { TableOfContents } from '@/components/toc';
 import { mdxComponents } from '@/components/mdx';
-import { maturityOf, neighboursOf, prerequisiteFacts, sectionLabelOf, sectionOf, tocOf } from '@/lib/docs';
-import { SITE, social } from '@/lib/metadata';
+import { descriptionOf, maturityOf, neighboursOf, prerequisiteFacts, sectionLabelOf, sectionOf, tocOf } from '@/lib/docs';
+import { SITE, absoluteUrl, social } from '@/lib/metadata';
 import { source } from '@/lib/source';
 
 type Props = { params: Promise<{ slug?: string[] }> };
@@ -70,8 +70,45 @@ export default async function DocsPage({ params }: Props) {
   // its width.
   const rail = toc.filter((item) => item.depth > 1);
 
+  /*
+   * The trail a crawler reads: Home → Documentation → … → this page.
+   *
+   * Intermediate names come from the pages themselves (`source.getPage` on each prefix), so a
+   * renamed section renames its crumb by construction rather than by remembering. URLs are the
+   * canonicals via `absoluteUrl`, which is what keeps the trail and the `<link rel="canonical">`
+   * from naming two identities for one page. Deliberately no richer per-page schema: a
+   * `SoftwareApplication` or `TechArticle` node without ratings, offers or dates would be marking
+   * up claims nobody made — the same judgement that keeps the sponsor's badge from saying
+   * "verified".
+   */
+  const crumbs = [
+    { name: 'Home', url: absoluteUrl('/') },
+    { name: 'Documentation', url: absoluteUrl('/docs') },
+    ...resolved.map((_, i) => {
+      const prefix = resolved.slice(0, i + 1);
+      const target = source.getPage(prefix);
+      return {
+        name: target?.data.title ?? prefix[i],
+        url: absoluteUrl(`/docs/${prefix.join('/')}`),
+      };
+    }),
+  ];
+  const BREADCRUMBS = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((crumb, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: crumb.name,
+      item: crumb.url,
+    })),
+  };
+
   return (
     <div className={rail.length >= 2 ? 'docs-page docs-page-with-rail' : 'docs-page'}>
+      {/* Parsed back out of the built HTML by `check.mjs`, like the home page's own block: a
+          malformed trail is invisible in a browser. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMBS) }} />
       <article className="prose" {...searchMeta}>
         <div className="page-head">
           <h1>{page.data.title}</h1>
@@ -146,16 +183,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
    * docs pages cannot end up with different site facts from the home page. `page.url` is the
    * page's own address, which is the one thing here that must not be reconstructed by hand.
    *
-   * The description is the page's frontmatter line — the same sentence the page renders as its
-   * lede — so a search result and the page it points at say the same thing. A page with none falls
-   * back to the site's own description rather than to an empty `og:description`, which is a card
-   * with a title and nothing else.
+   * The description is the page's own sentence — frontmatter when the author wrote one, an excerpt
+   * of the opening prose otherwise (see `descriptionOf`) — so a search result and the page it
+   * points at say the same thing. Only a page with no readable prose at all falls back to the
+   * site's description, rather than every undescribed page sharing it.
    */
   return {
     title: qualified,
     ...social({
       title: qualified,
-      description: page.data.description ?? SITE.description,
+      description: descriptionOf(resolved) ?? SITE.description,
       path: page.url,
     }),
   };

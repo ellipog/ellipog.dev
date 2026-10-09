@@ -1,0 +1,29 @@
+# ellipog.dev
+
+> Minecraft mods for Fabric and NeoForge, and their manuals.
+
+Ellipog builds Minecraft mods. Two are in development: Tenet, a visual questing
+engine (JSON quest files in, a pannable canvas out; the server decides what
+counts as done), and Armature, a shared library mod (one loader seam, a strict
+JSON reader, and a client UI toolkit for layout, text, shapes, themes and
+widgets). Earlier released work (addons and packs) is listed on the home page.
+Everything published is on Modrinth and CurseForge. Target versions: Minecraft
+1.21.1 on Fabric and NeoForge.
+
+## Docs
+
+- [Home](https://ellipog.dev/): catalog, download counts, author links
+- [Documentation](https://ellipog.dev/docs/): every manual, written in the mod's
+  own repository and synced at build time
+- [Tenet documentation](https://ellipog.dev/docs/tenet/): quest authoring,
+  quest files, tasks, rewards, conditions, validation, KubeJS scripting, HUD
+- [Armature documentation](https://ellipog.dev/docs/armature/): API (data,
+  teams), client toolkit (layout, panels, shapes, text, themes, widgets)
+- [Glossary](https://ellipog.dev/docs/glossary/): terms used across the mods
+
+## Machine files
+
+- [Sitemap](https://ellipog.dev/sitemap.xml): every page on the site
+- Author: Ellipog — [Modrinth](https://modrinth.com/user/Ellipog),
+  [CurseForge](https://www.curseforge.com/members/ellipog/projects),
+  [GitHub](https://github.com/ellipog)
