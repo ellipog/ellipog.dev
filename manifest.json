@@ -69,7 +69,7 @@
       "issues": "https://github.com/ellipog/tenet/issues",
       "version": "0.1.5",
       "localPath": "../tenet",
-      "pin": "a6009917babec2901ffbbd79a02191ea068eadc8",
+      "pin": "d9895c00a7298b12f90425aeb5ef5de21bf44102",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [
@@ -87,7 +87,7 @@
       "issues": "https://github.com/ellipog/armature/issues",
       "version": "0.1.5",
       "localPath": "../armature",
-      "pin": "45c11a20ba52c73abad0e1fec7aca29ab6a97ecf",
+      "pin": "8e3ebe7f994a70b7a2f834b4fd800b608a9a74c3",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [
