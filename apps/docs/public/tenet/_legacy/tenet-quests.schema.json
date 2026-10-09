@@ -1171,6 +1171,14 @@
           "default": false,
           "description": "tenet:command (reward) — do not say in chat that it ran."
         },
+        "feedbackMessage": {
+          "$ref": "#/definitions/text",
+          "description": "tenet:command (reward) — a message shown when the command runs; absent shows nothing extra. FTB Quests calls this feedback_message."
+        },
+        "description": {
+          "$ref": "#/definitions/text",
+          "description": "tenet:toast (reward) — the message shown when the reward is collected. Empty shows the generic toast sentence."
+        },
         "stage": {
           "$ref": "#/definitions/namespacedId",
           "description": "tenet:stage (task and reward) — the stage the player has to have, or the one to set. Any id: a stage exists by being granted, so there is no list to pick from and nothing to validate."
