@@ -88,6 +88,7 @@ progress rather than in a save, so it is a server-side decision and not up to th
 | `tenet:advancement` | An advancement, or one criterion of one. |
 | `tenet:choice` | One entry of a table, picked by the player. |
 | `tenet:command` | A command, run as the player. |
+| `tenet:currency` | Money, paid through the installed economy. |
 | `tenet:custom` | Whatever a registered handler does. |
 | `tenet:item` | Items. |
 | `tenet:loot` | A table roll that can come up empty. |
@@ -103,6 +104,7 @@ progress rather than in a save, so it is a server-side decision and not up to th
 |---|---|---|
 | `tenet:advancement` | `advancement`, `criterion` | The advancement to award; `criterion` names one criterion instead of the whole thing. |
 | `tenet:xp` | `amount`, `levels` | Points, or whole levels when `levels` is `true`. Default is points. |
+| `tenet:currency` | `amount` | How much currency to pay. The coin it names belongs to the installed economy: a currency mod (or script) registers the paying half, and with nothing registered the grant pays nothing while the quest still completes. |
 | `tenet:stage` | `stage`, `remove` | The stage to set; `remove: true` takes it away instead of granting it. |
 | `tenet:custom` | `id` | The id a handler was registered under. A reward whose handler is not registered warns rather than failing. |
 | `tenet:toast` | `description` | The message shown when collected, as literal text or a translation key with fallback. Empty shows the generic toast sentence. |
