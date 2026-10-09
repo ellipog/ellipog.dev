@@ -2,6 +2,7 @@
   "title": "Authoring",
   "pages": [
     "conditions",
+    "ftb-mapping",
     "kubejs",
     "languages",
     "quest-files",

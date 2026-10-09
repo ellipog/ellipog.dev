@@ -63,10 +63,44 @@
       }
     },
 
+    "icon": {
+      "description": "What a quest, chapter, group or the book shows as its picture: an item, a texture file, or an entity drawn as its spawn egg. An item object is the arm every file written before the union uses, so old files read unchanged.",
+      "anyOf": [
+        { "$ref": "#/definitions/itemRef" },
+        {
+          "type": "object",
+          "required": ["texture"],
+          "properties": {
+            "texture": {
+              "type": "string",
+              "description": "A texture file by its own path, e.g. my_pack:textures/gui/emblem.png. Drawn stretched into the icon's box; a path nothing holds draws the missing texture."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["entity"],
+          "properties": {
+            "entity": {
+              "type": "string",
+              "pattern": "^[a-z0-9_.-]+:[a-z0-9_/.-]+$",
+              "description": "An entity id, e.g. minecraft:creeper. Drawn as its spawn egg where one exists; an entity with no egg draws the missing mark naming it."
+            }
+          }
+        }
+      ]
+    },
+
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9_]{1,64}$",
       "description": "Lowercase letters, digits and underscores. This id appears in player progress files, so changing it needs an entry in `aliases`."
+    },
+
+    "alias": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_]{1,64}$",
+      "description": "A former id, in any letter case. Lookups ignore case, so an uppercase alias resolves the same object; ids themselves stay lowercase."
     },
 
     "namespacedId": {
@@ -257,6 +291,16 @@
           "type": "string",
           "description": "The editor's handle for a table written `inline` in a quest or in another table: it is what the editor addresses when a reward sits above or below it in a list. A table in its own file under `reward_tables/` is addressed by its file name, does not use this, and the loader ignores it there."
         },
+        "useTitle": {
+          "type": "boolean",
+          "default": false,
+          "description": "Draw this table's title on a reward row that rolls it, rather than the generic roll sentence. FTB Quests calls this use_title."
+        },
+        "hideTooltip": {
+          "type": "boolean",
+          "default": false,
+          "description": "Draw no item tooltip on a reward row that rolls this table. FTB Quests calls this hide_tooltip."
+        },
 "entries": {
           "type": "array",
           "items": {
@@ -365,11 +409,11 @@
         },
         "aliases": {
           "type": "array",
-          "items": { "$ref": "#/definitions/id" },
+          "items": { "$ref": "#/definitions/alias" },
           "description": "Former ids. Add one when renaming, and nothing that referenced the old name breaks."
         },
         "icon": {
-          "$ref": "#/definitions/itemRef",
+          "$ref": "#/definitions/icon",
           "description": "The item the book draws on the group's row. Optional: an absent icon falls back to the first chapter under the group."
         },
         "collapsedByDefault": {
@@ -438,6 +482,11 @@
           "type": "boolean",
           "default": false,
           "description": "image: turn about this element's own top-left corner instead of its centre. FTB Quests calls this alignToCorner, and it is what a logo pinned by its corner needs - the two pivots are visibly different pictures."
+        },
+        "locked": {
+          "type": "boolean",
+          "default": false,
+          "description": "image: pin the picture against the editor's drag - grips and moves leave it where it is. Readers are unaffected. FTB Quests calls this position_locked, and the migration tool maps it onto this key."
         },
         "image": { "$ref": "#/definitions/imageSource" },
         "tint": {
@@ -556,18 +605,55 @@
     },
 
     "click": {
-      "description": "What pressing an element does. All seven names FTB Quests can write are readable here, and the four this build cannot run - run_command, custom_event, show_recipe, show_docs - are reported as errors naming them, because a click that silently does nothing reads as a bug in the mod rather than as a gap in it.",
+      "description": "What pressing an element does. All seven names FTB Quests can write are readable here, and all seven run: a command through the server's dispatcher, an event through the script bus, a recipe through a viewer, a guide page as a message, a quest or a page straight.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "type": {
           "enum": ["none", "open_quest", "open_uri", "run_command", "custom_event", "show_recipe", "show_docs"],
           "default": "none",
-          "description": "What a press does. none is an element that is not pressable; open_quest opens another quest by id or alias; open_uri opens an http or https address in the browser. The other four are readable and refused, so that a converted pack is told what it is losing rather than left with a dead button."
+          "description": "What a press does. none is an element that is not pressable; open_quest opens another quest by id or alias; open_uri opens an http or https address in the browser; show_recipe opens the item's recipes in a viewer, or says there is none installed; show_docs names a guide page, which has no integration and answers with a message; run_command runs server-side as the pressing player at the pack's level; custom_event fires a script event by id."
         },
         "data": {
           "type": "string",
-          "description": "What the action acts on: a quest id or alias for open_quest, an http or https URL for open_uri. Unused by none."
+          "description": "What the action acts on: a quest id or alias for open_quest, an http or https URL for open_uri, an item id for show_recipe, mod and book for show_docs, a command for run_command, an event id for custom_event. Unused by none."
+        }
+      }
+    },
+
+    "link": {
+      "description": "One marker pointing at another quest. Drawn in the node layer with the target's state and icon; pressing it opens that quest. A link is never counted for its chapter's completion and no dependency, gate or milestone may name one.",
+      "type": "object",
+      "required": ["id", "quest"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/id",
+          "description": "Unique within this chapter, and never equal to any quest, chapter or group id or alias: two nodes addressed by one name means a press opens whichever the lookup finds first."
+        },
+        "quest": {
+          "type": "string",
+          "description": "The target quest, by id or alias, in any chapter. A name that resolves to nothing is reported at load, because the link would then mirror nothing and its press would do nothing. FTB Quests calls this linked_quest, and the migration tool maps it onto this key."
+        },
+        "x": {
+          "type": "integer",
+          "description": "The left edge in canvas pixels, measured the same way a quest node's `x` is. The migration tool converts FTB's centre-based doubles to this corner."
+        },
+        "y": {
+          "type": "integer",
+          "description": "The top edge in canvas pixels."
+        },
+        "shape": {
+          "enum": ["rounded", "square", "circle", "diamond", "hexagon", "octagon", "pentagon", "gear", "heart", "tome", "star", "none"],
+          "default": "rounded",
+          "description": "The node's shape. Absent draws as the target quest does."
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 512,
+          "default": 48,
+          "description": "The node's size in pixels, 16 to 512. Absent draws at the target quest's size."
         }
       }
     },
@@ -585,8 +671,8 @@
           "items": { "$ref": "#/definitions/text" },
           "description": "One string per paragraph. Separate from a single newline-containing string on purpose. Markdown is read in these strings."
         },
-        "icon": { "$ref": "#/definitions/itemRef" },
-        "aliases": { "type": "array", "items": { "$ref": "#/definitions/id" } },
+        "icon": { "$ref": "#/definitions/icon" },
+        "aliases": { "type": "array", "items": { "$ref": "#/definitions/alias" } },
 
         "progressionMode": {
           "enum": ["flexible", "linear"],
@@ -602,6 +688,22 @@
           "type": "boolean",
           "default": false,
           "description": "Whether item tasks in this chapter take the items unless the task says otherwise. The inherited default, which is why it lives here: an author sets it once for a whole trade chapter."
+        },
+        "defaultFlexibleProgress": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this chapter's quests may work their tasks before their dependencies are met, unless a quest says otherwise. Either this or a quest's flexibleProgress makes the quest flexible."
+        },
+        "defaultMinWidth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3000,
+          "default": 0,
+          "description": "What the quests in this chapter use for their detail-panel width unless a quest says otherwise: a quest's own minWidth wins over this, and 0 (unset) means the panel kind decides. FTB Quests calls this default_min_width."
+        },
+        "autofocus": {
+          "type": "string",
+          "description": "The quest this chapter centres on when it is selected, by id or alias, in this chapter. Absent centres on the chapter's bounding box. FTB Quests calls this autofocus_id."
         },
         "autoClaim": {
           "enum": ["default", "disabled", "enabled", "no_toast", "invisible"],
@@ -664,6 +766,12 @@
           "description": "What is drawn *under* this chapter's quests: a picture, a label, a rule or a box. The chapter's own file carries them in the folder format too, so this is the same field in the same place - the one-file format is read by the same codec, which is why an element here works exactly as it does there."
         },
 
+        "links": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/link" },
+          "description": "Markers pointing at other quests: each draws in the node layer with its target's state and icon, and pressing it opens that quest. The folder format's chapter.json carries the same field in the same place - the one-file format is read by the same codec, which is why a link here works exactly as it does there."
+        },
+
         "quests": { "type": "array", "items": { "$ref": "#/definitions/quest" } }
       }
     },
@@ -677,8 +785,8 @@
         "title": { "$ref": "#/definitions/text" },
         "subtitle": { "$ref": "#/definitions/text" },
         "description": { "type": "array", "items": { "$ref": "#/definitions/text" } },
-        "icon": { "$ref": "#/definitions/itemRef", "description": "Defaults to paper if absent." },
-        "aliases": { "type": "array", "items": { "$ref": "#/definitions/id" } },
+        "icon": { "$ref": "#/definitions/icon", "description": "Defaults to paper if absent." },
+        "aliases": { "type": "array", "items": { "$ref": "#/definitions/alias" } },
 
         "dependsOn": {
           "type": "array",
@@ -735,6 +843,16 @@
           "default": false,
           "description": "Tasks must be done in order: the second cannot be handed in until the first is."
         },
+        "optional": {
+          "type": "boolean",
+          "default": false,
+          "description": "This quest does not gate its dependants: they count it as neither satisfied nor required, so it neither helps nor blocks them. Dependency lines from it are still drawn. For side quests and branches nothing waits for."
+        },
+        "flexibleProgress": {
+          "type": "boolean",
+          "default": false,
+          "description": "Tasks may be worked on before this quest's dependencies are met; completion waits for them. Either this or the chapter's defaultFlexibleProgress makes the quest flexible."
+        },
         "autoClaim": {
           "enum": ["default", "disabled", "enabled", "no_toast", "invisible"],
           "description": "Whether this quest's rewards are handed over the moment it completes, overriding the chapter's own `autoClaim` (which in turn defers to the pack setting in index.json). A reward's own `auto` still wins over this. `enabled` pays with a notification, `no_toast` silently, `invisible` with no trace; `disabled` waits for a claim. Rewards that need a decision - a choice reward - are never auto-granted whatever this says."
@@ -790,6 +908,23 @@
           "default": false,
           "description": "Draw no dependency lines arriving at this quest. The quest itself is unaffected, and quests that depend on it still draw their lines to it."
         },
+        "hideDependentLines": {
+          "type": "boolean",
+          "default": false,
+          "description": "Draw no dependency lines leaving this quest for its dependants. The outgoing half of hideDependencyLines. FTB Quests calls this hide_dependent_lines."
+        },
+        "minWidth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3000,
+          "default": 0,
+          "description": "Minimum width of this quest's detail panel. 0 is unset: the chapter's defaultMinWidth decides, and then the panel kind's default. FTB Quests calls this min_width."
+        },
+        "disableToast": {
+          "type": "boolean",
+          "default": false,
+          "description": "Completing this quest raises no toast. Combines with the silent auto-claim modes: either silence wins. FTB Quests calls this disable_toast."
+        },
         "hideTextUntilComplete": {
           "type": "boolean",
           "default": false,
@@ -830,6 +965,19 @@
           "items": { "$ref": "#/definitions/condition" },
           "description": "Tasks and rewards. Gates that must all hold for a player before the task counts for them, or the reward is paid to them."
         },
+        "disableToast": {
+          "type": "boolean",
+          "default": false,
+          "description": "Tasks and rewards. This task finishing, or this reward collected, raises no toast. FTB Quests calls this disable_toast."
+        },
+        "title": {
+          "$ref": "#/definitions/text",
+          "description": "Tasks and rewards. The words the row wears instead of the type's own sentence. Absent means the type decides. A checkmark's title is its button's text."
+        },
+        "icon": {
+          "$ref": "#/definitions/icon",
+          "description": "Tasks and rewards. The picture the row wears instead of the type's own: an item, a texture file, or an entity drawn as its spawn egg. Absent means the type decides."
+        },
 
         "item": {
           "$ref": "#/definitions/namespacedId",
@@ -864,10 +1012,6 @@
         "tag": {
           "type": "string",
           "description": "tenet:item_tag (task) — an item tag; any item in it counts."
-        },
-        "title": {
-          "$ref": "#/definitions/text",
-          "description": "tenet:checkmark (task) — the label on the button a player presses."
         },
         "dimension": {
           "$ref": "#/definitions/namespacedId",
