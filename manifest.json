@@ -69,7 +69,7 @@
       "issues": "https://github.com/ellipog/tenet/issues",
       "version": "0.1.5",
       "localPath": "../tenet",
-      "pin": "2aa747fe5c03641bfc1ffbdb6fa38ceab6b04f16",
+      "pin": "420a63236c66b6125df34afa3727d05cc3e2c19d",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [
@@ -85,9 +85,9 @@
       "summary": "A shared library mod. One loader seam, a strict JSON reader, and a client UI toolkit for layout, text, shapes, themes and widgets.",
       "repo": "https://github.com/ellipog/armature",
       "issues": "https://github.com/ellipog/armature/issues",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "localPath": "../armature",
-      "pin": "5f38d34e0ceee95ff1b2011d7ac6b7ea70a510b3",
+      "pin": "3d9f611006fcb98225dad6023f3716d01a643afc",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [
