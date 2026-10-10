@@ -421,13 +421,6 @@ export default function MigratorPage() {
             <p className="muted">Large input (over 512 MB unpacked) — conversion still runs locally, it may take a while.</p>
           )}
           {intakeError && <p style={{ color: 'var(--danger)' }}>{intakeError}</p>}
-          {migratedReason && (
-            <div>
-              <p style={{ color: 'var(--danger)' }}>Already migrated — input {migratedReason}.</p>
-              <span className="checkline"><input type="checkbox" checked={opts.force} onChange={(e) => setOpts({ ...opts, force: e.target.checked })} /> convert anyway (force)</span>
-              <span className="help">Re-runs the FTB book inside. Files the new tree replaces are overwritten, not duplicated.</span>
-            </div>
-          )}
         </div>
       </section>
 
@@ -503,6 +496,13 @@ export default function MigratorPage() {
             <span className="faint mono">{progress.stage || 'idle'}</span>
           </div>
           <div className="stage-body">
+            {migratedReason && (
+              <div>
+                <p style={{ color: 'var(--danger)' }}>Already migrated — input {migratedReason}.</p>
+                <span className="checkline"><input type="checkbox" checked={opts.force} onChange={(e) => setOpts({ ...opts, force: e.target.checked })} /> convert anyway (force)</span>
+                <span className="help">Re-runs the FTB book inside. Files the new tree replaces are overwritten, not duplicated.</span>
+              </div>
+            )}
             <div className="toolbar">
               <button type="button" className="btn" data-primary="true" disabled={running} onClick={() => void run()}>
                 {running ? 'Converting…' : 'Convert'}
