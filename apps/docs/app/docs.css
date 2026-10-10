@@ -930,7 +930,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--s3);
-  margin: var(--s5) calc(-1 * var(--docs-gutter)) var(--s4);
+  margin: 0 calc(-1 * var(--docs-gutter)) var(--s4);
   padding: var(--s2) var(--s4);
   border-bottom: 1px solid var(--line);
   transition: background-color 0.12s linear, color 0.12s linear;
