@@ -50,6 +50,8 @@ export const DEFAULT_OPTIONS: PipelineOptions = {
 
 export interface PlacedFile {
   readonly path: string;
+  /** Where the file came from — labelled at emission, never guessed from the path. */
+  readonly kind: 'converted' | 'passthrough' | 'report';
   readonly text?: string;
   readonly bytes?: Uint8Array;
 }
@@ -232,7 +234,11 @@ export async function convertVfs(
   for (const file of emitted) {
     if (file.path.startsWith('_migrator/') && !options.includeMigrator) continue;
     emittedPaths.add(prefix(file.path));
-    placed.push({ path: prefix(file.path), text: file.text });
+    placed.push({
+      path: prefix(file.path),
+      kind: file.path.startsWith('_migrator/') ? 'report' : 'converted',
+      text: file.text,
+    });
   }
   // Structure preservation: everything outside the book root passes through
   // byte-for-byte; inside the root everything stays unless keepSource is off.
@@ -254,7 +260,7 @@ export async function convertVfs(
       replaced++;
       continue;
     }
-    passthrough.push({ path: file.path, bytes: file.bytes });
+    passthrough.push({ path: file.path, kind: 'passthrough', bytes: file.bytes });
   }
   if (replaced > 0) {
     report.note({
@@ -263,8 +269,8 @@ export async function convertVfs(
     });
   }
   if (options.includeMigrator) {
-    placed.push({ path: prefix('_migrator/report.json'), text: `${JSON.stringify(report.toJson(), null, 2)}\n` });
-    placed.push({ path: prefix('_migrator/report.md'), text: reportMarkdown(report) });
+    placed.push({ path: prefix('_migrator/report.json'), kind: 'report', text: `${JSON.stringify(report.toJson(), null, 2)}\n` });
+    placed.push({ path: prefix('_migrator/report.md'), kind: 'report', text: reportMarkdown(report) });
   }
   placed.push(...passthrough);
   placed.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));

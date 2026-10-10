@@ -492,8 +492,18 @@
   display: flex;
   align-items: baseline;
   gap: var(--s2);
+}
+
+.fold-name {
   font-size: 13px;
   font-weight: 600;
+}
+
+.fold-sub {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--fg-muted);
 }
 
 .fold-caret {
@@ -510,7 +520,8 @@
 }
 
 .fold-head:hover .fold-caret,
-.fold-head:hover .fold-count {
+.fold-head:hover .fold-count,
+.fold-head:hover .fold-sub {
   color: var(--inv-faint);
 }
 

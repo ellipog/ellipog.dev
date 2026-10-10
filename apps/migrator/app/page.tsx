@@ -37,30 +37,17 @@ function totalBytes(files: ReadonlyArray<VfsFile>): number {
   return files.reduce((sum, f) => sum + f.bytes.length, 0);
 }
 
-/** Converted vs passthrough vs report, for the tree browser badges. */
-function kindOf(path: string, outputRoot: string): 'converted' | 'passthrough' | 'report' {
-  const rel = outputRoot === '' ? path : path.startsWith(`${outputRoot}/`) ? path.slice(outputRoot.length + 1) : null;
-  if (rel === null) return 'passthrough';
-  if (rel.startsWith('_migrator/')) return 'report';
-  if (
-    rel === 'index.json' ||
-    rel.endsWith('/group.json') ||
-    rel.endsWith('/chapter.json') ||
-    rel.startsWith('reward_tables/') ||
-    rel.startsWith('lang/') ||
-    (rel.endsWith('.json') && !rel.includes('/'))
-  ) {
-    return 'converted';
-  }
-  return 'passthrough';
-}
-
 const FILE_KINDS = ['converted', 'passthrough', 'report'] as const;
 type FileKind = (typeof FILE_KINDS)[number];
 const FILE_KIND_LABEL: Record<FileKind, string> = {
   converted: 'Converted',
   passthrough: 'Passthrough',
   report: 'Report files',
+};
+const FILE_KIND_SUB: Record<FileKind, string> = {
+  converted: 'the new Tenet tree',
+  passthrough: 'your input files, copied over untouched',
+  report: 'conversion report + old→new id map',
 };
 
 const REPORT_SEVS = ['error', 'warning', 'note'] as const;
@@ -581,7 +568,7 @@ export default function MigratorPage() {
                   const rows = placed.filter(
                     (f) =>
                       (filter === '' || f.path.toLowerCase().includes(filter.toLowerCase())) &&
-                      kindOf(f.path, result.outputRoot) === kind,
+                      f.kind === kind,
                   );
                   if (rows.length === 0) return null;
                   const folded = !foldFiles[kind];
@@ -596,7 +583,10 @@ export default function MigratorPage() {
                       >
                         <span className="fold-title">
                           <span className="fold-caret" aria-hidden>{folded ? '▸' : '▾'}</span>
-                          {FILE_KIND_LABEL[kind]}
+                          <span className="fold-name">
+                            {FILE_KIND_LABEL[kind]}
+                            <span className="fold-sub">{FILE_KIND_SUB[kind]}</span>
+                          </span>
                         </span>
                         <span className="fold-count">{rows.length} files · {fmtBytes(bytes)}</span>
                       </button>
