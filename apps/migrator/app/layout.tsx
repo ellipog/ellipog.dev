@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import './global.css';
 import './migrator.css';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Colophon } from '@/components/colophon';
 
 export const metadata: Metadata = {
   title: { default: 'tenet migrator', template: 'tenet migrator | %s' },
@@ -71,6 +72,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </span>
             </div>
           </footer>
+          {/* The studio's signature, last on the page — same construction as docs. */}
+          <Colophon />
         </div>
       </body>
     </html>
