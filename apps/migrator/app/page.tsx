@@ -145,7 +145,15 @@ export default function MigratorPage() {
       const { files: picked, name } = await filesFromDirectoryPicker();
       takeIntake(picked, name, false);
     } catch (error) {
-      setIntakeError(error instanceof Error ? error.message : String(error));
+      // Cancel is silent. Anything else is either a missing API (friendly already)
+      // or the browser refusing the folder — Chrome blocks some locations ("contains
+      // system files") with no override, so point at the pickers that always work.
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      setIntakeError(
+        error instanceof Error && error.message.startsWith('this browser')
+          ? error.message
+          : 'That folder can’t be opened with the system picker — the browser refuses some locations. Use Choose folder or a .zip instead.',
+      );
     }
   }
 

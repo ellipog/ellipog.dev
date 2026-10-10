@@ -103,4 +103,14 @@ check(
   `${replaced.placed.length} files`,
 );
 
+// 6. ftbquests-folder drop: the book nested one level deep plus a stray README.
+const ftbq = [
+  ...bare.map((f) => ({ path: `quests/${f.path}`, bytes: f.bytes })),
+  { path: 'quests/README.md', bytes: new TextEncoder().encode('# quests\n') },
+];
+const picked = await convertVfs(ftbq, DEFAULT_OPTIONS);
+check('ftbquests folder converts', !picked.failed, picked.fatal ?? '');
+check('nested book detected', picked.detectedRoot === 'quests', picked.detectedRoot);
+check('stray README passes through', picked.placed.some((f) => f.path === 'quests/README.md'));
+
 process.exit(failures === 0 ? 0 : 1);
