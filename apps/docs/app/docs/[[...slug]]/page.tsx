@@ -123,7 +123,7 @@ export default async function DocsPage({ params }: Props) {
         >
           <span className="label">FTB Quests → Tenet</span>
           <span className="migrator-go">
-            Migrating a quest book? Convert it in the browser <Arrow />
+            Have an FTB quest book? Convert it with one button <Arrow />
           </span>
         </a>
       ) : null}

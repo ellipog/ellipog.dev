@@ -910,6 +910,11 @@
  * column with a void standing where it should have been. Spanning both tracks
  * keeps the band on a row of its own, with the article and the rail below it,
  * on pages with a rail and on pages without one alike.
+ *
+ * A hairline rather than an ink edge, and tighter all round than a card. The band sits above
+ * the title on every Tenet page, so an ink-bordered box there would out-weigh the page head —
+ * the manual would open with its exit rather than its name. Destinations still invert on hover;
+ * quiet is about the resting state, not the affordance.
  */
 .migrator-band {
   grid-column: 1 / -1;
@@ -917,9 +922,9 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--s3);
-  margin-bottom: var(--s5);
-  padding: var(--s3) var(--s4);
-  border: 1px solid var(--line-ink);
+  margin-bottom: var(--s4);
+  padding: var(--s2) var(--s4);
+  border: 1px solid var(--line);
   transition: background-color 0.12s linear, color 0.12s linear;
 }
 
