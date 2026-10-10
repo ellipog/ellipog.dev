@@ -124,4 +124,23 @@ check('profile-depth converts', !profile.failed, profile.fatal ?? '');
 const skipNotes = profile.reportJson.entries.filter((e) => e.code === 'passthrough-skipped');
 check('giant accounted in report', skipNotes.length === 1 && skipNotes[0].path === 'mods/huge.jar');
 
+// 8. Already-migrated input: refused by default, force re-converts cleanly.
+const redo = first.placed.map((f) => ({
+  path: f.path,
+  bytes: f.text !== undefined ? new TextEncoder().encode(f.text) : f.bytes,
+}));
+const refused = await convertVfs(redo, DEFAULT_OPTIONS);
+check(
+  'migrated input refused',
+  refused.failed && refused.reportJson.entries.some((e) => e.code === 'already-migrated'),
+);
+const forced = await convertVfs(redo, { ...DEFAULT_OPTIONS, force: true });
+check('force re-converts', !forced.failed, forced.fatal ?? '');
+const outPaths = forced.placed.map((f) => f.path);
+check('no duplicated paths', new Set(outPaths).size === outPaths.length);
+check(
+  'stale outputs replaced',
+  forced.reportJson.entries.some((e) => e.code === 'replaced-output'),
+);
+
 process.exit(failures === 0 ? 0 : 1);

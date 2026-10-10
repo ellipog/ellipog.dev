@@ -14,7 +14,7 @@ import { useRef, useState } from 'react';
 
 import { SCHEMA_STAMP } from '@/lib/core';
 import type { ReportEntry, VfsFile } from '@/lib/core';
-import { detectBooks } from '@/lib/detect';
+import { alreadyMigrated, detectBooks } from '@/lib/detect';
 import type { Detection } from '@/lib/detect';
 import {
   filesFromDataTransfer,
@@ -112,6 +112,7 @@ export default function MigratorPage() {
     setFiles(incoming);
     setSkipped(leftOut);
     setScan(null);
+    setOpts((o) => ({ ...o, force: false }));
     setInputName(name);
     setOversize(tooBig);
     setDetections(detectBooks(incoming));
@@ -191,6 +192,8 @@ export default function MigratorPage() {
 
   const effectiveRoot =
     selectedRoot ?? detections.find((d) => d.confidence === 'high')?.root ?? detections[0]?.root;
+
+  const migratedReason = files ? alreadyMigrated(files) : null;
 
   // Locales present in the detected book's lang/ (merged build artefacts excluded,
   // same rule as the core) — shown under the canonical input so the choice is informed.
@@ -379,6 +382,13 @@ export default function MigratorPage() {
             <p className="muted">Large input (over 512 MB unpacked) — conversion still runs locally, it may take a while.</p>
           )}
           {intakeError && <p style={{ color: 'var(--danger)' }}>{intakeError}</p>}
+          {migratedReason && (
+            <div>
+              <p style={{ color: 'var(--danger)' }}>Already migrated — input {migratedReason}.</p>
+              <span className="checkline"><input type="checkbox" checked={opts.force} onChange={(e) => setOpts({ ...opts, force: e.target.checked })} /> convert anyway (force)</span>
+              <span className="help">Re-runs the FTB book inside. Files the new tree replaces are overwritten, not duplicated.</span>
+            </div>
+          )}
         </div>
       </section>
 

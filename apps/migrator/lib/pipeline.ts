@@ -26,6 +26,8 @@ export interface PipelineOptions {
   readonly fallbackLocale: string;
   readonly allowLoss: boolean;
   readonly strict: boolean;
+  /** Re-run over an already-migrated tree: the FTB book inside converts anyway. */
+  readonly force: boolean;
   readonly coordinateScale: number | null;
   readonly sizeScale: number | null;
   readonly imageScale: number | null;
@@ -38,6 +40,7 @@ export const DEFAULT_OPTIONS: PipelineOptions = {
   fallbackLocale: '',
   allowLoss: false,
   strict: false,
+  force: false,
   coordinateScale: null,
   sizeScale: null,
   imageScale: null,
@@ -136,9 +139,12 @@ export async function convertVfs(
   }
 
   const migrated = alreadyMigrated(allFiles);
-  if (migrated !== null) {
+  if (migrated !== null && !options.force) {
     report.error({ code: 'already-migrated', message: `refused: input ${migrated}` });
-    return fail(report, allFiles.length, `Refused — input ${migrated}.`);
+    return fail(report, allFiles.length, `Refused — input ${migrated}. Tick “convert anyway” to run it regardless.`);
+  }
+  if (migrated !== null) {
+    report.note({ code: 'forced-remigration', message: `input ${migrated}; converting anyway` });
   }
 
   const detections = detectBooks(allFiles);
@@ -222,24 +228,45 @@ export async function convertVfs(
 
   onProgress('emit', 6, 7);
   const placed: Array<PlacedFile> = [];
+  const emittedPaths = new Set<string>();
   for (const file of emitted) {
     if (file.path.startsWith('_migrator/') && !options.includeMigrator) continue;
+    emittedPaths.add(prefix(file.path));
     placed.push({ path: prefix(file.path), text: file.text });
   }
-  if (options.includeMigrator) {
-    placed.push({ path: prefix('_migrator/report.json'), text: `${JSON.stringify(report.toJson(), null, 2)}\n` });
-    placed.push({ path: prefix('_migrator/report.md'), text: reportMarkdown(report) });
-  }
   // Structure preservation: everything outside the book root passes through
-  // byte-for-byte, plus non-snbt members inside the root the model ignores.
-  // keepSource=false drops the original subtree after a successful run.
+  // byte-for-byte; inside the root everything stays unless keepSource is off.
+  // Paths the new tree emits are replaced, never duplicated (forced re-runs).
+  // Collected before the _migrator files so the report names every replacement.
+  // (Report paths register here too, although their text is written last.)
+  if (options.includeMigrator) {
+    emittedPaths.add(prefix('_migrator/report.json'));
+    emittedPaths.add(prefix('_migrator/report.md'));
+  }
+  const passthrough: Array<PlacedFile> = [];
+  let replaced = 0;
   const inRoot = (p: string): boolean => (root === '' ? true : p === root || p.startsWith(`${root}/`));
   for (const file of allFiles) {
     const inside = inRoot(file.path);
     if (inside && !options.keepSource) continue;
     if (inside && /(^|\/)lang\/[^/]*_merged\.snbt$/.test(file.path)) continue; // build artefact
-    placed.push({ path: file.path, bytes: file.bytes });
+    if (emittedPaths.has(file.path)) {
+      replaced++;
+      continue;
+    }
+    passthrough.push({ path: file.path, bytes: file.bytes });
   }
+  if (replaced > 0) {
+    report.note({
+      code: 'replaced-output',
+      message: `${replaced} stale output file${replaced === 1 ? '' : 's'} replaced, not duplicated`,
+    });
+  }
+  if (options.includeMigrator) {
+    placed.push({ path: prefix('_migrator/report.json'), text: `${JSON.stringify(report.toJson(), null, 2)}\n` });
+    placed.push({ path: prefix('_migrator/report.md'), text: reportMarkdown(report) });
+  }
+  placed.push(...passthrough);
   placed.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 
   for (const group of vfsCaseCollisions(placed.map((f) => ({ path: f.path, bytes: new Uint8Array() })))) {
