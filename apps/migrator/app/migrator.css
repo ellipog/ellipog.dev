@@ -207,6 +207,13 @@
   gap: var(--s2);
 }
 
+/* The one-line explanation under an option: muted, smaller, never a second label. */
+.help {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
 .log {
   background: var(--bg-sunken);
   border: 1px solid var(--line);

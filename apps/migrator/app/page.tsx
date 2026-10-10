@@ -176,7 +176,10 @@ export default function MigratorPage() {
     setVerifyMsg(null);
     setLog([`starting ${PROFILE_LABEL} on ${files.length} files…`]);
     setProgress({ stage: 'detect', done: 0, total: 7 });
-    const handle = runPipeline(files, opts, selectedRoot, (stage, done, total) => {
+    // Geometry scales are intentionally unexposed: the core's measured ×64/×48
+    // always apply. The pipeline keeps the override fields for scripts, not UI.
+    const effective = { ...opts, coordinateScale: null, sizeScale: null };
+    const handle = runPipeline(files, effective, selectedRoot, (stage, done, total) => {
       setProgress({ stage, done, total });
       setLog((lines) => [...lines, `${stage} — ${done}/${total}`]);
     }, skipped);
@@ -209,7 +212,7 @@ export default function MigratorPage() {
     if (!result || !files || result.failed) return;
     setVerifyMsg('re-running…');
     try {
-      const second = await runPipeline(files, opts, selectedRoot, () => {}, skipped).done;
+      const second = await runPipeline(files, { ...opts, coordinateScale: null, sizeScale: null }, selectedRoot, () => {}, skipped).done;
       if (second.failed) {
         setVerifyMsg('re-run failed — see the report');
         return;
@@ -345,7 +348,7 @@ export default function MigratorPage() {
         <section className="stage">
           <div className="stage-head">
             <span className="label">3 · Options</span>
-            <span className="faint mono">scales default to the core&rsquo;s measured values (×64 / ×48)</span>
+            <span className="faint mono">sensible defaults — most packs only need Convert</span>
           </div>
           <div className="stage-body">
             <div className="optgrid">
@@ -358,22 +361,18 @@ export default function MigratorPage() {
                 <input type="text" value={opts.fallbackLocale} placeholder="(pack default)" onChange={(e) => setOpts({ ...opts, fallbackLocale: e.target.value })} />
               </label>
               <label>
-                <span className="label">Coordinate scale</span>
-                <input type="number" value={opts.coordinateScale ?? 64} onChange={(e) => setOpts({ ...opts, coordinateScale: Number(e.target.value) || null })} />
-              </label>
-              <label>
-                <span className="label">Size scale</span>
-                <input type="number" value={opts.sizeScale ?? 48} onChange={(e) => setOpts({ ...opts, sizeScale: Number(e.target.value) || null })} />
-              </label>
-              <label>
-                <span className="label">Checks</span>
+                <span className="label">Strictness</span>
                 <span className="checkline"><input type="checkbox" checked={opts.strict} onChange={(e) => setOpts({ ...opts, strict: e.target.checked })} /> strict (warnings fail)</span>
+                <span className="help">For validating a pack: any warning fails the run instead of emitting a tree. Leave off to migrate.</span>
                 <span className="checkline"><input type="checkbox" checked={opts.allowLoss} onChange={(e) => setOpts({ ...opts, allowLoss: e.target.checked })} /> allow loss (unknown keys warn)</span>
+                <span className="help">For odd packs: fields the migrator doesn&rsquo;t know warn instead of failing. Leave off — failing is safer.</span>
               </label>
               <label>
                 <span className="label">Output</span>
                 <span className="checkline"><input type="checkbox" checked={opts.keepSource} onChange={(e) => setOpts({ ...opts, keepSource: e.target.checked })} /> keep source subtree</span>
+                <span className="help">Keep the original quest files beside the converted tree. Off for a smaller zip.</span>
                 <span className="checkline"><input type="checkbox" checked={opts.includeMigrator} onChange={(e) => setOpts({ ...opts, includeMigrator: e.target.checked })} /> include _migrator/</span>
+                <span className="help">Adds the conversion report and the old→new id map to the output. Keep on for audits and KubeJS fixes.</span>
               </label>
             </div>
             <p className="muted" style={{ fontSize: 13 }}>
