@@ -1,0 +1,605 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ellipog.dev/tenet/_schema/chapter.schema.json",
+  "title": "Tenet chapter manifest",
+  "description": "One chapter folder's chapter.json, under config/tenet/quests/. The folder it sits in must be named after the chapter's id, and `quests` lists the file names of that chapter's quests, in the order they should appear.",
+  "type": "object",
+  "required": ["id", "title"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Ignored by Tenet. For your editor. Depth-counted: three levels up from a chapter folder is the quest root."
+    },
+    "id": {
+      "$ref": "#/definitions/id",
+      "description": "Must equal the name of the folder this file is in. Tenet reports the mismatch naming both sides, and uses the folder name."
+    },
+    "title": { "$ref": "#/definitions/text" },
+    "subtitle": { "$ref": "#/definitions/text" },
+    "description": {
+      "oneOf": [
+        { "$ref": "#/definitions/text" },
+        { "type": "array", "items": { "$ref": "#/definitions/text" } }
+      ],
+      "description": "Paragraphs. A bare string is also accepted, for a one-line description."
+    },
+    "icon": { "$ref": "#/definitions/icon", "description": "Defaults to paper if absent." },
+    "aliases": { "type": "array", "items": { "$ref": "#/definitions/alias" } },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Words this chapter answers to in lookups by tag. Each tag is lowercase letters, digits and underscores, the same rule an id follows. FTB Quests calls this tags, present on every object."
+    },
+
+    "progressionMode": {
+      "enum": ["flexible", "linear"],
+      "default": "flexible",
+      "description": "In a linear chapter the order of the `quests` list *is* the progression: each unlocks when the one above it completes, and no dependsOn is needed. A linear chapter that also declares dependsOn is a warning, not an error - the explicit edges win and the list order is then doing nothing."
+    },
+    "defaultPrerequisiteMode": {
+      "enum": ["all_completed", "one_completed", "all_started", "one_started"],
+      "default": "all_completed",
+      "description": "What every quest in this chapter uses unless it says otherwise."
+    },
+    "defaultConsumeItems": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether item tasks in this chapter take the items unless the task says otherwise. The inherited default, which is why it lives here: an author sets it once for a whole trade chapter."
+    },
+    "defaultFlexibleProgress": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this chapter's quests may work their tasks before their dependencies are met, unless a quest says otherwise. Either this or a quest's flexibleProgress makes the quest flexible. Do not confuse with progressionMode, which chains the quest list in order."
+    },
+    "defaultMinWidth": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3000,
+      "default": 0,
+      "description": "What the quests in this chapter use for their detail-panel width unless a quest says otherwise: a quest's own minWidth wins over this, and 0 (unset) means the panel kind decides. FTB Quests calls this default_min_width."
+    },
+    "defaultSequentialTasks": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this chapter's quests require their tasks in order unless a quest says otherwise. Either the quest's own sequentialTasks or this makes its tasks sequential. FTB Quests calls this require_sequential_tasks."
+    },
+    "autofocus": {
+      "type": "string",
+      "description": "The quest this chapter centres on when it is selected, by id or alias, in this chapter. Absent centres on the chapter's bounding box. A name that resolves to nothing, or to a quest in another chapter, is an error. FTB Quests calls this autofocus_id."
+    },
+    "autoClaim": {
+      "enum": ["default", "disabled", "enabled", "no_toast", "invisible"],
+      "default": "default",
+      "description": "Whether this chapter's quests hand their rewards over on completion. `enabled` pays with a notification, `no_toast` silently, and `invisible` the same silence - the two silent names grant alike, the difference being FTB Quests' vocabulary rather than a behaviour; `disabled` waits for a claim, and `default` defers to the pack setting in index.json. A quest overrides this, and a reward's own `auto` overrides that. Rewards that need a decision - a choice reward - are never auto-granted whatever this says."
+    },
+    "dependencyStyle": {
+      "$ref": "#/definitions/dependencyStyle",
+      "description": "How this chapter's dependency lines are drawn unless a line overrides an axis. This is what a line's \"Use chapter default\" resets to. Only the axes named here are chosen: an axis left out falls back to the built-ins (chamfered, one, solid, thin), and a line that names the same axis overrides just that one."
+    },
+
+    "dependsOn": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/id" },
+      "description": "The chapters this one waits on, by id or alias, including chapters in another group. Until the rule below is met, every quest in this chapter is locked -- it cannot be started, finished or claimed -- whatever its own dependsOn says. A name that resolves to nothing is reported at load, because the chapter could then never be opened. A quest already completed keeps its completion if this chapter is gated afterwards."
+    },
+    "prerequisiteMode": {
+      "enum": ["all_completed", "one_completed", "all_started", "one_started"],
+      "default": "all_completed",
+      "description": "The rule over this chapter's own dependsOn, and not the same field as defaultPrerequisiteMode: that one is the mode this chapter's *quests* inherit for their quest dependencies, and this one is how many of the chapters above must be satisfied. all_completed is the default because a gate that let something through early is the surprising direction to be wrong in."
+    },
+    "minRequired": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64,
+      "default": 0,
+      "description": "How many of dependsOn must be satisfied, replacing the mode's own count - \"any two of these three chapters\". May not exceed the size of dependsOn, which is reported. It replaces the count and not the bar: the mode still decides whether a dependency has to be completed or merely started."
+    },
+    "completesWhen": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/id" },
+      "description": "The quests that finish this chapter, by id or alias, in any chapter. The chapter reports completed once every one of them is - a repeatable quest counts after its first completion. Empty means the chapter never reports completed, which is a real state: it is then only ever satisfiable as \"started\". A chapter that another chapter waits on as completed must declare this, and the loader reports the pair that does not."
+    },
+    "hideUntilDependenciesComplete": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this chapter is left out of the book for a reader until its own dependencies are met. Off, it is listed and drawn dimmed with what it is waiting for on hover. An author in edit mode always sees it, or the flag could not be authored. Note that this is presentation only: the gate itself is enforced whatever this says. Note also that it is not `defaultHideUntilDependenciesComplete` below: this one withholds the chapter's row, those decide what its quests do."
+    },
+    "alwaysInvisible": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this chapter is withheld from every reader, whatever its gate says. Beside hideUntilDependenciesComplete because they are the pair an author will confuse: that one withholds the row until the gate is met, this one withholds it always. The gate itself is unaffected."
+    },
+    "defaultHideUntilDependenciesComplete": {
+      "type": "boolean",
+      "default": false,
+      "description": "What the quests in this chapter do about their own prerequisites unless a quest says otherwise: with it on, a quest here is hidden until its own prerequisite rule is met. A quest can still write `false` to opt out - which is why the quest's own field is three-state - and a quest with no prerequisites is visible either way, because an empty rule is met. A chapter whose quests are all hidden this way is itself left out of a reader's book until one of them can be seen."
+    },
+    "defaultHideUntilDependenciesVisible": {
+      "type": "boolean",
+      "default": false,
+      "description": "The same default for `hideUntilDependenciesVisible`: with it on, a quest here is hidden until at least one of its prerequisites is itself visible, so a chain reveals itself one link at a time."
+    },
+    "theme": {
+      "type": "string",
+      "description": "A palette this chapter asks to be drawn in. A client concept: the catalogue of themes lives on the client, so this is a plain string here and is reported by the client that could not resolve it."
+    },
+    "themePatch": {
+      "$ref": "#/definitions/themePatch",
+      "description": "Token-level overrides for `theme`: individual colours, a corner radius and a canvas background applied over the named theme (or over the player's own when no theme is named). This is how a chapter sets \"raised #24242E and radius 4\" without shipping a whole theme file, and the Chapter tab's appearance section writes it."
+    },
+
+    "quests": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/name" },
+      "description": "The file names of this chapter's quests, in order. Load-bearing rather than cosmetic: a LINEAR chapter's progression *is* this order. A name here that is not on disk is reported; a quest file that is not named here is reported and never loads."
+    },
+
+    "elements": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/element" },
+      "description": "What is drawn on this chapter's canvas besides its quests: pictures, labels, lines and boxes. Decoration in every sense - an element holds no progress, gates nothing and is never counted for this chapter's completion, and all of them draw beneath the quest nodes. Each element's `type` chooses which of the fields in the definition below apply to it."
+    },
+
+    "links": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/link" },
+      "description": "Markers pointing at other quests: each draws in the node layer with its target's state and icon, and pressing it opens that quest, switching chapters when the quest lives elsewhere. A link holds no progress, gates nothing and is never counted for this chapter's completion; no dependency, gate or milestone may name one."
+    }
+  },
+
+  "definitions": {
+    "themePatch": {
+      "description": "Token-level overrides for a chapter's theme: individual palette colours, a corner radius and a canvas background, applied over the named theme (or over the player's own when the chapter names none). A client concept, like `theme` itself - the server carries it and the client composes it. The validator checks every token id and value with the toolkit's own reader.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "A name for the resulting palette. Usually omitted - the Chapter tab writes none, and the name only matters for a file that also wants a display name."
+        },
+        "colours": {
+          "type": "object",
+          "description": "Token id to colour, e.g. { \"raised\": \"#FF24242E\" }. A colour is #RRGGBB, #AARRGGBB, or a bare 0xAARRGGBB number. An unknown token id is reported by the validator, and the client ignores it.",
+          "additionalProperties": { "type": ["string", "integer"] }
+        },
+        "canvasBackground": {
+          "type": "object",
+          "description": "A pattern over the canvas's colour - the same object a theme file carries. `spacing` is content units under `graph` and screen pixels under `screen`; an image is screen-fixed and ignores it. The ink is the `canvasPattern` colour token, whose alpha is a pattern's strength - an image uses only its alpha and draws in white.",
+          "additionalProperties": false,
+          "properties": {
+            "pattern": {
+              "enum": ["none", "dot_grid", "grid_lines", "speckle", "hatch", "image"],
+              "description": "The pattern to draw."
+            },
+            "space": {
+              "enum": ["graph", "screen"],
+              "description": "What the pattern is anchored to: the content, or the screen. Ignored by `image`, which is always screen-fixed."
+            },
+            "spacing": {
+              "type": "integer",
+              "minimum": 6,
+              "maximum": 256,
+              "description": "Distance between repeats. Clamped to this range by the reader."
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4,
+              "description": "The edge of a dot or speck and the thickness of a line or hatch step, in pixels. Clamped to this range by the reader."
+            },
+            "density": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 16,
+              "description": "Speckle only: one cell in this many carries a mark. Clamped to this range by the reader."
+            },
+            "direction": {
+              "enum": ["slash", "backslash"],
+              "description": "Hatch only: which way the diagonal leans."
+            },
+            "fit": {
+              "enum": ["tile", "cover"],
+              "description": "Image only: repeat the texture at `tile` size, or draw it once scaled to cover and centred."
+            },
+            "texture": {
+              "type": "string",
+              "description": "Image only: the texture id, canonicalised to `ns:textures/path.png`. An unresolvable texture draws nothing."
+            },
+            "tile": {
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 256,
+              "description": "Image only, under `tile` fit: the width one repeat is drawn at, in pixels. Clamped to this range by the reader."
+            }
+          }
+        },
+        "cornerRadius": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Corner radius in pixels for the chapter's surfaces. Zero is square."
+        },
+        "motion": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Transition duration in milliseconds. Zero disables transitions."
+        },
+        "easing": {
+          "enum": ["LINEAR", "QUAD_IN", "QUAD_OUT", "QUAD_IN_OUT", "CUBIC_OUT", "SINE_IN_OUT", "BACK_OUT"],
+          "description": "The easing curve transitions use."
+        }
+      }
+    },
+
+    "text": {
+      "description": "Either a plain string, or a translation key with an English fallback.",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "required": ["translate"],
+          "additionalProperties": false,
+          "properties": {
+            "translate": { "type": "string" },
+            "fallback": {
+              "type": "string",
+              "description": "Shown if the translation is missing. Without it a player sees the raw key."
+            }
+          }
+        }
+      ]
+    },
+
+    "itemRef": {
+      "description": "An item, a count, and optional data components. Not an ItemStack - resolved at the moment it is used.",
+      "type": "object",
+      "required": ["item"],
+      "additionalProperties": false,
+      "properties": {
+        "item": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+:[a-z0-9_/.-]+$",
+          "description": "Namespaced item id, e.g. minecraft:oak_log. An item this build does not have keeps its id and the chapter still loads: the sidebar row draws no icon but says which item is missing on hover, so a removed mod can come back."
+        },
+        "count": { "type": "integer", "minimum": 1, "maximum": 6400, "default": 1 },
+        "components": {
+          "type": "object",
+          "description": "1.21 data components, keyed by component id in the datapack's own spelling. A text component's value is a string holding JSON, as the codec writes it -- the editor writes that form when you pick a renamed item for the chapter's icon.",
+          "additionalProperties": true
+        }
+      }
+    },
+
+    "icon": {
+      "description": "What a chapter shows as its picture: an item, a texture file, an atlas region, or an entity drawn as its spawn egg. An item object is the arm every file written before the union uses, so old files read unchanged.",
+      "anyOf": [
+        { "$ref": "#/definitions/itemRef" },
+        {
+          "type": "object",
+          "required": ["texture"],
+          "properties": {
+            "texture": {
+              "type": "string",
+              "description": "A texture file by its own path, e.g. my_pack:textures/gui/emblem.png. Drawn stretched into the icon's box; a path nothing holds draws the missing texture."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["sprite"],
+          "properties": {
+            "sprite": {
+              "type": "string",
+              "pattern": "^[a-z0-9_.-]+:[a-z0-9_/.-]+$",
+              "description": "An atlas region id, e.g. minecraft:block/sculk. Drawn from the atlas into the icon's box; a region nothing holds draws the missing mark."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["entity"],
+          "properties": {
+            "entity": {
+              "type": "string",
+              "pattern": "^[a-z0-9_.-]+:[a-z0-9_/.-]+$",
+              "description": "An entity id, e.g. minecraft:creeper. Drawn as its spawn egg where one exists; an entity with no egg draws the missing mark naming it."
+            }
+          }
+        }
+      ]
+    },
+
+    "dependencyStyle": {
+      "description": "A chapter's default line style. Only the axes it names are chosen; omitted axes fall back to the built-ins (chamfered, chevron at the target, solid, thin). Anchors and split control points are deliberately not settable here - which rim a line meets is a fact about that line's two ends, so they are per-line settings, declared in the quest schema's `dependencyLines`.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "form": {
+          "enum": ["orthogonal", "chamfered", "straight", "curved"],
+          "description": "The route's shape. Chamfered is the built-in default: the three-segment step with every 90-degree corner cut at 45 degrees, a circuit trace. Orthogonal is the same step left square, straight a direct line, and curved a smooth bow, which reads `bend`."
+        },
+        "arrowHead": {
+          "enum": ["chevron", "triangle", "dot", "diamond", "none"],
+          "description": "The glyph an arrowhead is drawn as. Chevron is the built-in; none is a blunt line end."
+        },
+        "arrowPlace": {
+          "enum": ["target", "both", "mid", "stream"],
+          "description": "Where the heads sit: one at the dependent end (the built-in), one at each end, one in the middle of the route, or a repeating run."
+        },
+        "arrowDensity": {
+          "enum": ["low", "medium", "high"],
+          "description": "How far apart a stream repeats: 64, 32 or 16 pixels. Ignored by the other placements."
+        },
+        "arrows": {
+          "enum": ["none", "one", "both", "many"],
+          "description": "Legacy, read but no longer written: the single axis the three arrow axes replaced. None is a blunt end, one a chevron at the target, both one at each end, and many a stream at its old 24-pixel spacing."
+        },
+        "dash": {
+          "enum": ["solid", "dashed", "dotted", "dash_dot", "double", "hazard"],
+          "description": "The line's pattern. Double is two hairlines either side of the route and ignores `weight`; hazard is the run plus diagonal hatch marks."
+        },
+        "weight": {
+          "enum": ["thin", "thick", "bold", "conduit"],
+          "description": "How many pixels wide: 1, 2, 3, or a 6-pixel conduit with dark borders around a lighter core."
+        },
+        "bend": {
+          "type": "number",
+          "minimum": -0.8,
+          "maximum": 0.8,
+          "description": "How far a curved line bows, as a fraction of the chord between its ends. Positive bows one way and negative the other."
+        }
+      }
+    },
+
+    "element": {
+      "description": "One thing drawn on the chapter's canvas that is not a quest. `type` chooses which of the fields below apply; `id`, `order`, `dev` and `requires` apply to every type. Elements are drawn beneath the quest nodes and the dependency lines, ordered among themselves by `order` and then by the order they are written in this array. Nothing here is counted for the chapter's completion and nothing here gates anything: an element is a label on the map rather than a place on it.",
+      "type": "object",
+      "required": ["type", "id"],
+      "properties": {
+        "type": {
+          "enum": ["image", "text", "line", "rect"],
+          "description": "Which kind of element this is. image is a picture drawn from a file or from a region of the block atlas; text is a label; line is a rule with an optional arrowhead at either end; rect is a filled box with an optional border. A type this build does not know is kept, reported once as a warning, and draws nothing - so a chapter from a newer build still loads."
+        },
+        "id": {
+          "$ref": "#/definitions/id",
+          "description": "Unique within this chapter, and the name a translation key uses (`element.<id>.text` for a label's words, `element.<id>.title` for a picture's). Two elements sharing one is reported, because the second could then never be addressed."
+        },
+        "order": {
+          "type": "integer",
+          "default": 0,
+          "description": "Draw order among this chapter's elements, ascending. Two elements with the same order keep the order they are written in this array, which is why a plain label needs no number at all."
+        },
+        "dev": {
+          "type": "boolean",
+          "default": false,
+          "description": "Drawn only while the editor's dev mode is on, and only for somebody who may edit. How an author drafts a layout without shipping it: a reader with dev mode off never sees it."
+        },
+        "requires": {
+          "type": "string",
+          "description": "A quest id or alias: the element is drawn only once that quest is completed. A name that resolves to nothing is reported at load, because the element would then never be drawn at all. Note that this reads a quest's state and changes nothing about it - an element is never a dependency."
+        },
+
+        "x": {
+          "type": "integer",
+          "description": "image, text and rect: the left edge in canvas pixels, measured the same way a quest node's `x` is. The migration tool converts FTB's centre-based coordinates to this corner."
+        },
+        "y": {
+          "type": "integer",
+          "description": "image, text and rect: the top edge in canvas pixels. For a text label this is the top of its first line."
+        },
+        "x1": { "type": "integer", "description": "line: the first endpoint's x, in canvas pixels." },
+        "y1": { "type": "integer", "description": "line: the first endpoint's y." },
+        "x2": { "type": "integer", "description": "line: the second endpoint's x." },
+        "y2": { "type": "integer", "description": "line: the second endpoint's y." },
+        "width": {
+          "type": "integer",
+          "description": "image and rect: how wide, in canvas pixels (1 to 4096 for a picture, 1 to 8192 for a box). line: how thick the stroke is, 1 to 16, which the arrowhead is also sized by. A picture or a box is stretched to fill its rectangle; nothing preserves an aspect ratio."
+        },
+        "height": {
+          "type": "integer",
+          "description": "image and rect: how tall, in canvas pixels, bounded exactly as `width` is."
+        },
+        "rotation": {
+          "type": "integer",
+          "default": 0,
+          "description": "image: degrees clockwise. Wrapped rather than clamped, so -90, 270 and 630 are all one quarter turn - a clamped -90 would be no turn at all, which is the opposite of what the file says. Turned about the element's centre, or about its own top-left when `corner` is true."
+        },
+        "corner": {
+          "type": "boolean",
+          "default": false,
+          "description": "image: turn about this element's own top-left corner instead of its centre. FTB Quests calls this alignToCorner, and it is what a logo pinned by its corner needs - the two pivots are visibly different pictures."
+        },
+        "locked": {
+          "type": "boolean",
+          "default": false,
+          "description": "image: pin the picture against the editor's drag - grips and moves leave it where it is. Readers are unaffected. FTB Quests calls this position_locked, and the migration tool maps it onto this key."
+        },
+        "image": { "$ref": "#/definitions/imageSource" },
+        "tint": {
+          "type": ["string", "integer"],
+          "default": "#FFFFFFFF",
+          "description": "image: a colour multiplied into the picture, alpha included. White leaves it exactly as authored."
+        },
+        "alpha": {
+          "type": "integer",
+          "default": 255,
+          "description": "image: 0 to 255, multiplied with `tint`'s own alpha. FTB carries the two separately, so both are kept and neither is lost in conversion."
+        },
+        "title": {
+          "$ref": "#/definitions/text",
+          "description": "image: a hover tooltip, or words painted into the picture when `label.onImage` is set. For a label's own words see `text` below."
+        },
+        "label": { "$ref": "#/definitions/elementLabel" },
+        "click": { "$ref": "#/definitions/click" },
+
+        "text": {
+          "$ref": "#/definitions/text",
+          "description": "text: the words. A newline starts a second line. Plain text with no markup - there is no emphasis in this format, so asterisks stay asterisks."
+        },
+        "scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "text: the size of the words, 0.25 to 4.0, multiplied by the player's own text-scale setting on top."
+        },
+        "color": {
+          "type": ["string", "integer"],
+          "description": "text and line: the ink. A colour is #RRGGBB, #AARRGGBB, or a number read as the same 32-bit pattern."
+        },
+        "shadow": {
+          "type": "boolean",
+          "default": false,
+          "description": "text: draw the font's own drop shadow under the words. Off by default, because a label with a backdrop behind it does not want one - on is for a label floating over a chapter, where there is no backdrop to draw."
+        },
+        "fixed": {
+          "type": "boolean",
+          "default": false,
+          "description": "text: fix the size to the canvas - positioned with the canvas like anything on it, but drawn at the file's own size times the zoom, the way a node is. Off by default, when the size stays the file's own on screen at every zoom."
+        },
+        "arrowhead": {
+          "enum": ["none", "start", "end", "both"],
+          "default": "none",
+          "description": "line: which ends carry an arrowhead. none is a blunt rule. This is its own vocabulary rather than the dependency lines' placement, because a free line means nothing and the only question is which way it points."
+        },
+        "fillColor": {
+          "type": ["string", "integer"],
+          "default": "#00000000",
+          "description": "rect: the fill, drawn first. A colour is #RRGGBB, #AARRGGBB, or a number. The default is fully transparent, so a box that names no colour draws nothing - the editor's own \"add a box\" writes a visible one."
+        },
+        "borderColor": {
+          "type": ["string", "integer"],
+          "default": "#00000000",
+          "description": "rect: the border, drawn over the fill."
+        },
+        "borderWidth": {
+          "type": "integer",
+          "default": 0,
+          "description": "rect: how thick the border is, 0 to 16. Zero draws none, which is the default."
+        }
+      }
+    },
+
+    "imageSource": {
+      "description": "Where a picture comes from: exactly one of a file or a region of the block atlas. The two are different lookups that fail differently - a file that is not there draws nothing, and a sprite the atlas does not hold draws the game's missing-texture marker - so which one is meant is written down rather than inferred from a suffix.",
+      "type": "object",
+      "oneOf": [
+        { "required": ["texture"] },
+        { "required": ["sprite"] }
+      ],
+      "properties": {
+        "texture": {
+          "type": "string",
+          "description": "A PNG by its own path, e.g. atm:textures/questpics/logo.png. Note the textures/ directory and the .png are part of it: this is a file's path, not an item's."
+        },
+        "sprite": {
+          "type": "string",
+          "description": "A region of the block atlas, e.g. minecraft:block/sculk or powah:item/uraninite_raw. Which sheet to look it up in is the reader's business, not the file's."
+        }
+      }
+    },
+
+    "elementLabel": {
+      "description": "How a picture's title is painted into it, rather than shown on hover. Each field has an FTB counterpart, so a converted chapter's text_on_image, text_shadow, text_inset, text_h_align and text_v_align all land here.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "onImage": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the title is drawn into the picture at all. Off means it is a hover tooltip, which is what a title usually wants."
+        },
+        "shadow": {
+          "type": "boolean",
+          "default": false,
+          "description": "Draw the words with the font's own shadow, for a picture whose area behind them is busy or bright."
+        },
+        "inset": {
+          "type": "number",
+          "default": 1.0,
+          "description": "How far the words sit from the edge their alignment names, in pixels, 0 to 64."
+        },
+        "hAlign": {
+          "enum": ["start", "middle", "end"],
+          "default": "middle",
+          "description": "Where the words sit across the picture: against its left edge, centred, or against its right."
+        },
+        "vAlign": {
+          "enum": ["start", "middle", "end"],
+          "default": "middle",
+          "description": "The same vertically."
+        }
+      }
+    },
+
+    "click": {
+      "description": "What pressing an element does. All seven names FTB Quests can write are readable here, and all seven run: a command through the server's dispatcher, an event through the script bus, a recipe through a viewer, a guide page as a message, a quest or a page straight.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": ["none", "open_quest", "open_uri", "run_command", "custom_event", "show_recipe", "show_docs"],
+          "default": "none",
+          "description": "What a press does. none is an element that is not pressable; open_quest opens another quest by id or alias; open_uri opens an http or https address in the browser; show_recipe opens the item's recipes in a viewer, or says there is none installed; show_docs names a guide page, which has no integration and answers with a message; run_command runs server-side as the pressing player at the pack's level; custom_event fires a script event by id."
+        },
+        "data": {
+          "type": "string",
+          "description": "What the action acts on: a quest id or alias for open_quest, an http or https URL for open_uri, an item id for show_recipe, mod and book for show_docs, a command for run_command, an event id for custom_event. Unused by none."
+        }
+      }
+    },
+
+    "link": {
+      "description": "One marker pointing at another quest. Drawn in the node layer with the target's state and icon; pressing it opens that quest. A link is never counted for its chapter's completion and no dependency, gate or milestone may name one.",
+      "type": "object",
+      "required": ["id", "quest"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/id",
+          "description": "Unique within this chapter, and never equal to any quest, chapter or group id or alias: two nodes addressed by one name means a press opens whichever the lookup finds first."
+        },
+        "quest": {
+          "type": "string",
+          "description": "The target quest, by id or alias, in any chapter. A name that resolves to nothing is reported at load, because the link would then mirror nothing and its press would do nothing. FTB Quests calls this linked_quest, and the migration tool maps it onto this key."
+        },
+        "x": {
+          "type": "integer",
+          "description": "The left edge in canvas pixels, measured the same way a quest node's `x` is. The migration tool converts FTB's centre-based doubles to this corner."
+        },
+        "y": {
+          "type": "integer",
+          "description": "The top edge in canvas pixels."
+        },
+        "shape": {
+          "enum": ["rounded", "square", "circle", "diamond", "hexagon", "octagon", "pentagon", "gear", "heart", "tome", "star", "none"],
+          "default": "rounded",
+          "description": "The node's shape. Absent draws as the target quest does."
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 512,
+          "default": 48,
+          "description": "The node's size in pixels, 16 to 512. Absent draws at the target quest's size."
+        }
+      }
+    },
+
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]{1,64}$",
+      "description": "Lowercase letters, digits and underscores. This id appears in player progress files, so changing it needs an entry in `aliases`."
+    },
+
+    "alias": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_]{1,64}$",
+      "description": "A former id, in any letter case. Lookups ignore case, so an uppercase alias resolves the same chapter; ids themselves stay lowercase."
+    },
+
+    "name": {
+      "type": "string",
+      "pattern": "^(?!\\.{1,2}$)(?!_)[^/\\\\]{1,128}$",
+      "description": "A single path segment: the name of something in the same folder as the file that declares it. No separator, not `.` or `..`, and not beginning with `_` (every `_`-prefixed name is skipped, everywhere, so a reference to one could never resolve). A dot inside the name is fine - this is how a chapter lists `punch_a_tree.json`."
+    }
+  }
+}

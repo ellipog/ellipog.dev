@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ellipog.dev/tenet/_schema/group.schema.json",
+  "title": "Tenet chapter group manifest",
+  "description": "One group folder's group.json, under config/tenet/quests/. The folder it sits in must be named after the group's id, and `chapters` lists the folder names of that group's chapters, in the order they should appear.",
+  "type": "object",
+  "required": ["id", "title"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Ignored by Tenet. For your editor, so it can autocomplete the rest of this file. Depth-counted: two levels up from a group folder is the quest root."
+    },
+    "id": {
+      "$ref": "#/definitions/id",
+      "description": "Must equal the name of the folder this file is in. Tenet reports the mismatch naming both sides, and uses the folder name, because that is what every path in the tree is built from."
+    },
+    "title": { "$ref": "#/definitions/text" },
+    "description": {
+      "oneOf": [
+        { "$ref": "#/definitions/text" },
+        { "type": "array", "items": { "$ref": "#/definitions/text" } }
+      ],
+      "description": "Paragraphs. A bare string is also accepted, for a one-line description."
+    },
+    "aliases": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/alias" },
+      "description": "Former ids. Add one when renaming, and nothing that referenced the old name breaks."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Words this group answers to in lookups by tag. Each tag is lowercase letters, digits and underscores, the same rule an id follows. FTB Quests calls this tags, present on every object."
+    },
+    "icon": {
+      "$ref": "#/definitions/icon",
+      "description": "The picture the book draws on this group's row: an item, a texture file, an atlas region, or an entity drawn as its spawn egg. Optional: without it the row falls back to the first chapter under the group."
+    },
+    "collapsedByDefault": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the book shows this group's chapters the first time it sees a tree. Applies once; what the player toggles afterwards is the player's, and is never written back to this file or to any other."
+    },
+    "chapters": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/name" },
+      "description": "The folder names of this group's chapters, in the order they should appear. Author-chosen: nothing above the chapter folders declares an order, so this list is the only place it can be expressed. A name here that is not on disk is reported; a chapter folder that is not named here is also reported."
+    }
+  },
+
+  "definitions": {
+    "itemRef": {
+      "description": "An item, a count, and optional data components. Not an ItemStack - resolved at the moment it is used.",
+      "type": "object",
+      "required": ["item"],
+      "additionalProperties": false,
+      "properties": {
+        "item": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+:[a-z0-9_/.-]+$",
+          "description": "Namespaced item id, e.g. minecraft:oak_log. An item this build does not have keeps its id and the quest still loads: the row draws a placeholder and says the item is missing, so a removed mod can come back."
+        },
+        "count": { "type": "integer", "minimum": 1, "maximum": 6400, "default": 1 },
+        "components": {
+          "type": "object",
+          "description": "1.21 data components, keyed by component id in the datapack's own spelling. A text component's value is a string holding JSON, as the codec writes it -- { \"minecraft:custom_name\": \"\\\"Tempered Pickaxe\\\"\" } -- and the editor writes that form when you pick a renamed item.",
+          "additionalProperties": true
+        }
+      }
+    },
+
+    "icon": {
+      "description": "What a group shows as its picture: an item, a texture file, an atlas region, or an entity drawn as its spawn egg. An item object is the arm every file written before the union uses, so old files read unchanged.",
+      "anyOf": [
+        { "$ref": "#/definitions/itemRef" },
+        {
+          "type": "object",
+          "required": ["texture"],
+          "properties": {
+            "texture": {
+              "type": "string",
+              "description": "A texture file by its own path, e.g. my_pack:textures/gui/emblem.png. Drawn stretched into the icon's box; a path nothing holds draws the missing texture."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["sprite"],
+          "properties": {
+            "sprite": {
+              "type": "string",
+              "pattern": "^[a-z0-9_.-]+:[a-z0-9_/.-]+$",
+              "description": "An atlas region id, e.g. minecraft:block/sculk. Drawn from the atlas into the icon's box; a region nothing holds draws the missing mark."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["entity"],
+          "properties": {
+            "entity": {
+              "type": "string",
+              "pattern": "^[a-z0-9_.-]+:[a-z0-9_/.-]+$",
+              "description": "An entity id, e.g. minecraft:creeper. Drawn as its spawn egg where one exists; an entity with no egg draws the missing mark naming it."
+            }
+          }
+        }
+      ]
+    },
+
+    "text": {
+      "description": "Either a plain string, or a translation key with an English fallback.",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "required": ["translate"],
+          "additionalProperties": false,
+          "properties": {
+            "translate": { "type": "string" },
+            "fallback": {
+              "type": "string",
+              "description": "Shown if the translation is missing. Without it a player sees the raw key."
+            }
+          }
+        }
+      ]
+    },
+
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]{1,64}$",
+      "description": "Lowercase letters, digits and underscores. This id appears in player progress files, so changing it needs an entry in `aliases`."
+    },
+
+    "alias": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_]{1,64}$",
+      "description": "A former id, in any letter case. Lookups ignore case, so an uppercase alias resolves the same group; ids themselves stay lowercase."
+    },
+
+    "name": {
+      "type": "string",
+      "pattern": "^(?!\\.{1,2}$)(?!_)[^/\\\\]{1,128}$",
+      "description": "A single path segment: the name of something in the same folder as the file that declares it. No separator, not `.` or `..`, and not beginning with `_` (every `_`-prefixed name is skipped, everywhere, so a reference to one could never resolve). A dot inside the name is fine - a flat one-file questline at the root is listed by its full file name."
+    }
+  }
+}

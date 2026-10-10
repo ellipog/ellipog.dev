@@ -23,9 +23,24 @@
         "typescript": "^7.0.2",
       },
     },
+    "apps/migrator": {
+      "name": "@ellipog/migrator",
+      "version": "0.1.0",
+      "dependencies": {
+        "@types/node": "^26.6.3",
+        "@types/react": "^19.3.0",
+        "@zip.js/zip.js": "^2.8.10",
+        "next": "^16.3.7",
+        "react": "^19.3.0",
+        "react-dom": "^19.3.0",
+        "typescript": "^7.0.2",
+      },
+    },
   },
   "packages": {
     "@ellipog/docs": ["@ellipog/docs@workspace:apps/docs"],
+
+    "@ellipog/migrator": ["@ellipog/migrator@workspace:apps/migrator"],
 
     "@emnapi/runtime": ["@emnapi/runtime@1.11.3", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA=="],
 
@@ -280,6 +295,8 @@
     "@yuku-analyzer/binding-win32-x64": ["@yuku-analyzer/binding-win32-x64@0.10.2", "", { "os": "win32", "cpu": "x64" }, "sha512-sKHkmLK8BsindMfyIThoN0bWC5uqSJEVNaLRD/ifA99mtb0UDin1ZCg4WYSVQAmM4k2iOTl4UZx/p3zcBiBgYw=="],
 
     "@yuku-toolchain/types": ["@yuku-toolchain/types@0.10.2", "", {}, "sha512-sSeo4SSSToiS+sSD+bwn/s94EEcaLJ7tG5LCp8gFYC1G5VzxzX7fqB6m9RU1yMD8KTpu6zdU/I1NlQf8hVBJ9Q=="],
+
+    "@zip.js/zip.js": ["@zip.js/zip.js@2.23.0", "", {}, "sha512-K5obAqfrO7zhycnCupM9aaoZ9kx0SA0kv7+Z2oOUsdpWquv4s/Z4zyD7AdTqxrK3pgPM+ozaUi8kdRQbCWaIrQ=="],
 
     "acorn": ["acorn@8.18.0", "", { "bin": "bin/acorn" }, "sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ=="],
 

@@ -1,0 +1,266 @@
+/*
+ * Migrator-only additions. Tokens, shell, masthead, grid and prose all come from
+ * global.css (copied from apps/docs — same look, no new visual language). What is
+ * here is behaviour the docs site has no equivalent for: a dropzone, staged
+ * bands, a progress log, file/report tables, and form controls drawn as cells.
+ */
+
+.dropzone {
+  border: 1px dashed var(--fg-faint);
+  padding: var(--s7) var(--s4);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.12s linear, color 0.12s linear, border-color 0.12s linear;
+}
+
+.dropzone:hover,
+.dropzone[data-over="true"] {
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+  border-color: var(--inv-bg);
+}
+
+.dropzone:hover .muted,
+.dropzone[data-over="true"] .muted {
+  color: var(--inv-faint);
+}
+
+.dropzone h2 {
+  font-size: 17px;
+}
+
+.dropzone p {
+  margin-top: var(--s2);
+  font-size: 13px;
+}
+
+.btnrow {
+  display: flex;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  margin-top: var(--s4);
+  justify-content: center;
+}
+
+/* A control drawn as a cell: same height language as the masthead nav cells. */
+.btn {
+  border: 1px solid var(--line-ink);
+  background: none;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: var(--s2) var(--s4);
+  cursor: pointer;
+  transition: background-color 0.12s linear, color 0.12s linear;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn[data-primary="true"] {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.stage {
+  border-bottom: 1px solid var(--line);
+}
+
+.stage-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+
+.stage-body {
+  padding: var(--s4);
+}
+
+.stage-body > * + * {
+  margin-top: var(--s3);
+}
+
+.optgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.optgrid > label {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: var(--s3) var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  font-size: 13px;
+}
+
+.optgrid .label {
+  margin-bottom: 2px;
+}
+
+.optgrid input[type="text"],
+.optgrid input[type="number"] {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: var(--s1) var(--s2);
+  width: 100%;
+}
+
+.optgrid input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--fg);
+}
+
+.checkline {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.log {
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  padding: var(--s3) var(--s4);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.prog {
+  height: 8px;
+  border: 1px solid var(--line-ink);
+  position: relative;
+}
+
+.prog > span {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  background: var(--fg);
+}
+
+.filetable,
+.reporttable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.filetable th,
+.filetable td,
+.reporttable th,
+.reporttable td {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: var(--s2) var(--s3) var(--s2) 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.filetable th,
+.reporttable th {
+  background: var(--bg-sunken);
+  border-bottom-color: var(--line-ink);
+  font-size: 12px;
+}
+
+.filetable tr[data-sel="true"] td {
+  background: var(--bg-sunken);
+}
+
+.filetable tbody tr {
+  cursor: pointer;
+}
+
+.pill {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.pill[data-tone="bad"] {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.preview {
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  padding: var(--s3) var(--s4);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.toolbar {
+  display: flex;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.toolbar input[type="text"] {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: var(--s1) var(--s2);
+  min-width: 220px;
+}
+
+.counts {
+  display: flex;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.evidence {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--fg-muted);
+}
+
+.detection {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.detection:last-child {
+  border-bottom: 0;
+}
