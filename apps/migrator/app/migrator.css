@@ -214,6 +214,59 @@
   color: var(--fg-muted);
 }
 
+/*
+ * Reference tables: full shell width, rows not gridlines. .prose would squeeze
+ * them into the 68ch measure — these are read across, not down. Identifier
+ * columns never wrap mid-token; the notes column takes the rest. Overflow
+ * scrolls on narrow screens rather than crushing the chips.
+ */
+.refwrap {
+  padding: var(--s4);
+  overflow-x: auto;
+}
+
+.reftable {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.reftable th,
+.reftable td {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: var(--s3) var(--s4) var(--s3) 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.reftable td + td,
+.reftable th + th {
+  padding-left: var(--s4);
+}
+
+.reftable th {
+  background: var(--bg-sunken);
+  border-bottom-color: var(--line-ink);
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.reftable td:first-child,
+.reftable td:nth-child(2) {
+  white-space: nowrap;
+}
+
+.reftable code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+
 .log {
   background: var(--bg-sunken);
   border: 1px solid var(--line);

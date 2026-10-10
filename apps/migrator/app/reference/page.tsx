@@ -9,7 +9,8 @@ export const metadata: Metadata = {
 
 function Table({ head, rows }: { head: [string, string, string]; rows: Array<[string, string, string]> }) {
   return (
-    <table>
+    <div className="refwrap">
+      <table className="reftable">
       <thead>
         <tr>
           <th>{head[0]}</th>
@@ -26,7 +27,8 @@ function Table({ head, rows }: { head: [string, string, string]; rows: Array<[st
           </tr>
         ))}
       </tbody>
-    </table>
+      </table>
+    </div>
   );
 }
 
@@ -46,7 +48,7 @@ export default function ReferencePage() {
 
       <section className="band">
         <div className="band-head"><span className="label">Tasks that map 1:1</span></div>
-        <div className="prose" style={{ padding: 'var(--s4)' }}>
+        <div>
           <Table
             head={['FTB task', 'Tenet type', 'Notes for the tool']}
             rows={[
@@ -71,7 +73,7 @@ export default function ReferencePage() {
 
       <section className="band">
         <div className="band-head"><span className="label">Rewards that map 1:1</span></div>
-        <div className="prose" style={{ padding: 'var(--s4)' }}>
+        <div>
           <Table
             head={['FTB reward', 'Tenet field', 'Notes for the tool']}
             rows={[
@@ -95,7 +97,7 @@ export default function ReferencePage() {
 
       <section className="band">
         <div className="band-head"><span className="label">Quest · chapter · file</span></div>
-        <div className="prose" style={{ padding: 'var(--s4)' }}>
+        <div>
           <Table
             head={['FTB field', 'Tenet field', 'Notes for the tool']}
             rows={[
@@ -121,7 +123,7 @@ export default function ReferencePage() {
 
       <section className="band">
         <div className="band-head"><span className="label">Dependencies</span></div>
-        <div className="prose" style={{ padding: 'var(--s4)' }}>
+        <div>
           <Table
             head={['FTB field', 'Tenet field', 'Notes for the tool']}
             rows={[
@@ -141,7 +143,7 @@ export default function ReferencePage() {
 
       <section className="band">
         <div className="band-head"><span className="label">Commands rewritten</span></div>
-        <div className="prose" style={{ padding: 'var(--s4)' }}>
+        <div>
           <Table
             head={['FTB Quests command', 'Tenet command', '']}
             rows={[
@@ -153,13 +155,18 @@ export default function ReferencePage() {
               ['/ftbteams teamstage …', '/tenet stage add/remove-team', 'Named by a member\u2019s player id.'],
             ]}
           />
-          <p><code>editing_mode</code>, <code>locked</code> and the rest have no Tenet home: reported as manual work.</p>
+          <div className="refwrap">
+            <div className="prose">
+              <p><code>editing_mode</code>, <code>locked</code> and the rest have no Tenet home: reported as manual work.</p>
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="band">
         <div className="band-head"><span className="label">Inlined at import</span></div>
-        <div className="prose" style={{ padding: 'var(--s4)' }}>
+        <div className="refwrap">
+          <div className="prose">
           <p>
             Visual presets and chapter appearance defaults resolve into explicit quest values — Tenet reads
             the result, never the preset. Geometry: coordinates ×64, sizes ×48 (measured against FTB
@@ -171,6 +178,7 @@ export default function ReferencePage() {
             Tenet schema stamp: <code>{SCHEMA_STAMP.tenetCommit}</code> · vendored {SCHEMA_STAMP.vendored} ·{' '}
             {SCHEMA_STAMP.files.join(', ')}
           </p>
+          </div>
         </div>
       </section>
     </main>
