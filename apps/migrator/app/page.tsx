@@ -21,6 +21,7 @@ import {
   filesFromDirectoryPicker,
   filesFromFileList,
 } from '@/lib/vfs-adapter';
+import type { SkippedFile } from '@/lib/vfs-adapter';
 import { runPipeline } from '@/lib/worker-client';
 import { DEFAULT_OPTIONS } from '@/lib/pipeline';
 import type { PipelineOptions, PipelineResult } from '@/lib/pipeline';
@@ -81,6 +82,7 @@ function download(blob: Blob, filename: string): void {
 
 export default function MigratorPage() {
   const [files, setFiles] = useState<Array<VfsFile> | null>(null);
+  const [skipped, setSkipped] = useState<Array<SkippedFile>>([]);
   const [inputName, setInputName] = useState('');
   const [oversize, setOversize] = useState(false);
   const [intakeError, setIntakeError] = useState<string | null>(null);
@@ -104,8 +106,9 @@ export default function MigratorPage() {
   const zipRef = useRef<HTMLInputElement>(null);
   const cancelRef = useRef<(() => void) | null>(null);
 
-  function takeIntake(incoming: Array<VfsFile>, name: string, tooBig: boolean): void {
+  function takeIntake(incoming: Array<VfsFile>, name: string, tooBig: boolean, leftOut: Array<SkippedFile> = []): void {
     setFiles(incoming);
+    setSkipped(leftOut);
     setInputName(name);
     setOversize(tooBig);
     setDetections(detectBooks(incoming));
@@ -122,8 +125,8 @@ export default function MigratorPage() {
 
   async function onZipFile(file: File): Promise<void> {
     try {
-      const { files: unpacked, oversize: big } = await filesFromZipBlob(file);
-      takeIntake(unpacked, file.name.replace(/\.zip$/i, ''), big);
+      const { files: unpacked, skipped: leftOut, oversize: big } = await filesFromZipBlob(file);
+      takeIntake(unpacked, file.name.replace(/\.zip$/i, ''), big, leftOut);
     } catch (error) {
       setIntakeError(error instanceof Error ? error.message : String(error));
     }
@@ -137,7 +140,12 @@ export default function MigratorPage() {
       await onZipFile(dropped[0]);
       return;
     }
-    takeIntake(await filesFromDataTransfer(event.dataTransfer), 'dropped-folder', false);
+    try {
+      const r = await filesFromDataTransfer(event.dataTransfer);
+      takeIntake(r.files, 'dropped-folder', false, r.skipped);
+    } catch (error) {
+      setIntakeError(error instanceof Error ? error.message : String(error));
+    }
   }
 
   async function onPicker(): Promise<void> {
@@ -171,7 +179,7 @@ export default function MigratorPage() {
     const handle = runPipeline(files, opts, selectedRoot, (stage, done, total) => {
       setProgress({ stage, done, total });
       setLog((lines) => [...lines, `${stage} — ${done}/${total}`]);
-    });
+    }, skipped);
     cancelRef.current = () => handle.cancel();
     try {
       const res = await handle.done;
@@ -201,7 +209,7 @@ export default function MigratorPage() {
     if (!result || !files || result.failed) return;
     setVerifyMsg('re-running…');
     try {
-      const second = await runPipeline(files, opts, selectedRoot, () => {}).done;
+      const second = await runPipeline(files, opts, selectedRoot, () => {}, skipped).done;
       if (second.failed) {
         setVerifyMsg('re-run failed — see the report');
         return;
@@ -258,7 +266,7 @@ export default function MigratorPage() {
       <section className="stage">
         <div className="stage-head">
           <span className="label">1 · Intake</span>
-          <span className="faint mono">{files ? `${files.length} files · ${fmtBytes(totalBytes(files))}` : 'nothing loaded'}</span>
+          <span className="faint mono">{files ? `${files.length} files · ${fmtBytes(totalBytes(files))}${skipped.length > 0 ? ` · ${skipped.length} too big, listed not copied` : ''}` : 'nothing loaded'}</span>
         </div>
         <div className="stage-body">
           <div
@@ -273,7 +281,7 @@ export default function MigratorPage() {
             onKeyDown={(e) => { if (e.key === 'Enter') folderRef.current?.click(); }}
           >
             <h2>Drop a quest folder or .zip here</h2>
-            <p className="muted">…or pick below. A whole-instance zip works — the book is found where it lives.</p>
+            <p className="muted">…or pick below. Anything from the quest book up to the whole profile or instance zip works — the book is found where it lives, and files too big to hold (jars, saves) are listed, not copied.</p>
             <div className="btnrow" onClick={(e) => e.stopPropagation()}>
               <button type="button" className="btn" onClick={() => folderRef.current?.click()}>Choose folder</button>
               <button type="button" className="btn" onClick={() => filesRef.current?.click()}>Choose files</button>
@@ -286,14 +294,14 @@ export default function MigratorPage() {
             type="file"
             hidden
             {...({ webkitdirectory: '' } as Record<string, string>)}
-            onChange={(e) => { const l = e.target.files; if (l && l.length > 0) void filesFromFileList(l).then((f) => takeIntake(f, 'folder', false)); e.target.value = ''; }}
+            onChange={(e) => { const l = e.target.files; if (l && l.length > 0) void filesFromFileList(l).then((r) => takeIntake(r.files, 'folder', false, r.skipped)).catch((err: unknown) => setIntakeError(err instanceof Error ? err.message : String(err))); e.target.value = ''; }}
           />
           <input
             ref={filesRef}
             type="file"
             hidden
             multiple
-            onChange={(e) => { const l = e.target.files; if (l && l.length > 0) void filesFromFileList(l).then((f) => takeIntake(f, 'files', false)); e.target.value = ''; }}
+            onChange={(e) => { const l = e.target.files; if (l && l.length > 0) void filesFromFileList(l).then((r) => takeIntake(r.files, 'files', false, r.skipped)).catch((err: unknown) => setIntakeError(err instanceof Error ? err.message : String(err))); e.target.value = ''; }}
           />
           <input
             ref={zipRef}
@@ -421,6 +429,7 @@ export default function MigratorPage() {
               <span><b>{result.errors}</b> errors</span>
               <span><b>{result.warnings}</b> warnings</span>
               <span><b>{result.notes}</b> notes</span>
+              {skipped.length > 0 && <span><b>{skipped.length}</b> too big, in report</span>}
             </div>
             {result.evidence && <p className="evidence">{result.evidence} → {result.outputRoot === '' ? '(book root)' : <span className="mono">{result.outputRoot}/</span>}</p>}
 

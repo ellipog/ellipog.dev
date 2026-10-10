@@ -7,6 +7,7 @@
 
 import { convertVfs } from './pipeline';
 import type { PipelineOptions, PipelineResult, ProgressFn } from './pipeline';
+import type { SkippedFile } from './vfs-adapter';
 import type { VfsFile } from './core';
 
 export interface RunHandle {
@@ -19,6 +20,7 @@ export function runPipeline(
   options: PipelineOptions,
   rootOverride: string | undefined,
   onProgress: ProgressFn,
+  skipped: ReadonlyArray<SkippedFile> = [],
 ): RunHandle {
   try {
     const worker = new Worker(new URL('./worker.ts', import.meta.url));
@@ -43,7 +45,7 @@ export function runPipeline(
         worker.terminate();
         reject(new Error(`worker failed: ${event.message}`));
       };
-      worker.postMessage({ files, options, rootOverride });
+      worker.postMessage({ files, options, rootOverride, skipped });
     });
     return { done, cancel: () => cancel() };
   } catch {
@@ -53,7 +55,7 @@ export function runPipeline(
         onProgress(stage, s, t);
         await new Promise((r) => setTimeout(r, 0));
       };
-      return convertVfs(files, options, rootOverride, (s, d, t) => void tick(s, d, t));
+      return convertVfs(files, options, rootOverride, (s, d, t) => void tick(s, d, t), skipped);
     })();
     return { done, cancel: () => {} };
   }

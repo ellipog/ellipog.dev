@@ -5,12 +5,14 @@
  */
 import { convertVfs } from './pipeline';
 import type { PipelineOptions } from './pipeline';
+import type { SkippedFile } from './vfs-adapter';
 import type { VfsFile } from './core';
 
 interface RunMessage {
   readonly files: ReadonlyArray<VfsFile>;
   readonly options: PipelineOptions;
   readonly rootOverride?: string;
+  readonly skipped?: ReadonlyArray<SkippedFile>;
 }
 
 const scope = self as unknown as {
@@ -23,7 +25,7 @@ scope.onmessage = async (event: MessageEvent<RunMessage>) => {
     const { files, options, rootOverride } = event.data;
     const result = await convertVfs(files, options, rootOverride, (stage, done, total) => {
       scope.postMessage({ type: 'progress', stage, done, total });
-    });
+    }, event.data.skipped ?? []);
     scope.postMessage({ type: 'done', result });
   } catch (error) {
     scope.postMessage({ type: 'error', message: error instanceof Error ? error.message : String(error) });

@@ -113,4 +113,15 @@ check('ftbquests folder converts', !picked.failed, picked.fatal ?? '');
 check('nested book detected', picked.detectedRoot === 'quests', picked.detectedRoot);
 check('stray README passes through', picked.placed.some((f) => f.path === 'quests/README.md'));
 
+// 7. Profile-depth drop with a skipped giant: book deep, jars listed not copied.
+const deep = [
+  ...bare.map((f) => ({ path: `config/ftbquests/quests/${f.path}`, bytes: f.bytes })),
+  { path: 'config/other-mod/settings.json', bytes: new TextEncoder().encode('{}\n') },
+];
+const giants = [{ path: 'mods/huge.jar', size: 500 * 1024 * 1024, reason: 'test giant' }];
+const profile = await convertVfs(deep, DEFAULT_OPTIONS, undefined, () => {}, giants);
+check('profile-depth converts', !profile.failed, profile.fatal ?? '');
+const skipNotes = profile.reportJson.entries.filter((e) => e.code === 'passthrough-skipped');
+check('giant accounted in report', skipNotes.length === 1 && skipNotes[0].path === 'mods/huge.jar');
+
 process.exit(failures === 0 ? 0 : 1);

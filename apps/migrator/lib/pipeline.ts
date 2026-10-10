@@ -19,6 +19,7 @@ import {
 } from './core';
 import type { VfsFile } from './core';
 import { alreadyMigrated, detectBooks, outputRootFor, rebaseToRoot } from './detect';
+import type { SkippedFile } from './vfs-adapter';
 
 export interface PipelineOptions {
   readonly canonicalLocale: string;
@@ -71,8 +72,13 @@ export type ProgressFn = (stage: string, done: number, total: number) => void;
 
 const noop: ProgressFn = () => {};
 
-function versionOf(book: { data: { root: Parameters<typeof snbtGet>[0] } }): number | null {
-  const version = snbtGet(book.data.root, 'version');
+function fmtSize(n: number): string {
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function versionOf(book: { data: { root: Parameters<typeof snbtGet>[0] } }): number | null {  const version = snbtGet(book.data.root, 'version');
   if (
     version !== undefined &&
     (version.kind === 'int' || version.kind === 'long' || version.kind === 'short' || version.kind === 'byte')
@@ -108,16 +114,26 @@ function fail(
 
 /**
  * Convert one dropped tree. `rootOverride` pins the book root when the user
- * picks a Detection other than the default.
+ * picks a Detection other than the default. `skipped` names input files the
+ * intake saw but refused to hold (too big) — each gets a report note, so the
+ * report accounts for every file seen, not just every file converted.
  */
 export async function convertVfs(
   allFiles: ReadonlyArray<VfsFile>,
   options: PipelineOptions,
   rootOverride?: string,
   onProgress: ProgressFn = noop,
+  skipped: ReadonlyArray<SkippedFile> = [],
 ): Promise<PipelineResult> {
   const report = new Report();
   onProgress('detect', 0, 7);
+  for (const s of skipped) {
+    report.note({
+      code: 'passthrough-skipped',
+      message: `${fmtSize(s.size)} — ${s.reason}`,
+      path: s.path,
+    });
+  }
 
   const migrated = alreadyMigrated(allFiles);
   if (migrated !== null) {

@@ -17,6 +17,79 @@ export function shouldSkip(path: string): boolean {
   );
 }
 
+/** A file seen but deliberately not read: too big to hold beside the book. */
+export interface SkippedFile {
+  readonly path: string;
+  readonly size: number;
+  readonly reason: string;
+}
+
+export interface IntakeResult {
+  readonly files: Array<VfsFile>;
+  readonly skipped: Array<SkippedFile>;
+}
+
+/** Passthrough cap: bigger files are listed in the report, never read. */
+export const MAX_PASSTHROUGH_BYTES = 32 * 1024 * 1024;
+/** Backstop on what one drop may hold in memory at once. */
+export const HARD_TOTAL_BYTES = 1024 * 1024 * 1024;
+export const MAX_INTAKE_FILES = 50_000;
+
+function fmtSize(n: number): string {
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+export function skipReason(): string {
+  return `over ${MAX_PASSTHROUGH_BYTES / 1024 / 1024} MB — left out of the output, copy it back yourself`;
+}
+
+/**
+ * Sizes are known upfront (File.size, zip headers), so big files never get
+ * read: a profile folder's jars and saves are listed, not slurped. A quest
+ * file over the cap is a hard error instead — converting without book members
+ * would fail confusingly downstream.
+ */
+async function realize(pairs: ReadonlyArray<{ path: string; file: File }>): Promise<IntakeResult> {
+  if (pairs.length > MAX_INTAKE_FILES) {
+    throw new Error(
+      `that input holds ${pairs.length} files (limit ${MAX_INTAKE_FILES}) — drop the config folder or a smaller zip instead`,
+    );
+  }
+  const files: Array<VfsFile> = [];
+  const skipped: Array<SkippedFile> = [];
+  const pending: Array<{ path: string; file: File }> = [];
+  let total = 0;
+  for (const { path, file } of pairs) {
+    if (shouldSkip(path)) continue;
+    let norm: string;
+    try {
+      norm = normalizePath(path);
+    } catch {
+      continue;
+    }
+    if (file.size > MAX_PASSTHROUGH_BYTES) {
+      if (norm.endsWith('.snbt')) {
+        throw new Error(`${norm} is ${fmtSize(file.size)} — over the readable limit; quest files this big can't convert in the browser`);
+      }
+      skipped.push({ path: norm, size: file.size, reason: skipReason() });
+      continue;
+    }
+    total += file.size;
+    pending.push({ path: norm, file });
+  }
+  if (total > HARD_TOTAL_BYTES) {
+    throw new Error(
+      `that input is ${fmtSize(total)} — too large to hold in memory. Drop the config folder (or a zip of it) instead of the whole profile.`,
+    );
+  }
+  for (const { path, file } of pending) {
+    files.push({ path, bytes: new Uint8Array(await file.arrayBuffer()) });
+  }
+  return { files, skipped };
+}
+
 function safeFile(path: string, bytes: Uint8Array): VfsFile | null {
   if (shouldSkip(path)) return null;
   try {
@@ -27,16 +100,13 @@ function safeFile(path: string, bytes: Uint8Array): VfsFile | null {
 }
 
 /** A flat FileList/File[] (picker or <input webkitdirectory>). */
-export async function filesFromFileList(list: FileList | Array<File>): Promise<Array<VfsFile>> {
-  const files = Array.from(list);
-  const out: Array<VfsFile> = [];
-  for (const file of files) {
-    const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const vfs = safeFile(rel, bytes);
-    if (vfs !== null) out.push(vfs);
-  }
-  return out;
+export async function filesFromFileList(list: FileList | Array<File>): Promise<IntakeResult> {
+  return realize(
+    Array.from(list).map((file) => ({
+      path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
+      file,
+    })),
+  );
 }
 
 /** Single path+bytes into a VfsFile (null when skipped or unsafe). */
@@ -56,8 +126,12 @@ interface PickerDir {
   values(): AsyncIterable<PickerEntry>;
 }
 
+export interface PickerResult extends IntakeResult {
+  readonly name: string;
+}
+
 /** File System Access directory picker, recursed into VfsFiles. */
-export async function filesFromDirectoryPicker(): Promise<{ files: Array<VfsFile>; name: string }> {
+export async function filesFromDirectoryPicker(): Promise<PickerResult> {
   const picker = (
     window as unknown as { showDirectoryPicker?: (this: Window) => Promise<PickerDir> }
   ).showDirectoryPicker;
@@ -65,21 +139,20 @@ export async function filesFromDirectoryPicker(): Promise<{ files: Array<VfsFile
     throw new Error('this browser has no folder picker — use Choose files or a zip instead');
   }
   const root = await picker.call(window);
-  const out: Array<VfsFile> = [];
+  const pairs: Array<{ path: string; file: File }> = [];
   const walk = async (dir: PickerDir, base: string): Promise<void> => {
     for await (const entry of dir.values()) {
       const path = base === '' ? entry.name : `${base}/${entry.name}`;
       if (entry.kind === 'file' && typeof entry.getFile === 'function') {
-        const file = await entry.getFile();
-        const vfs = safeFile(path, new Uint8Array(await file.arrayBuffer()));
-        if (vfs !== null) out.push(vfs);
+        pairs.push({ path, file: await entry.getFile() });
       } else if (entry.kind === 'directory' && typeof entry.values === 'function') {
         await walk({ name: entry.name, values: entry.values }, path);
       }
     }
   };
   await walk(root, '');
-  return { files: out, name: root.name };
+  const { files, skipped } = await realize(pairs);
+  return { files, skipped, name: root.name };
 }
 
 interface FsEntry {
@@ -99,7 +172,7 @@ interface FsReader {
 }
 
 /** Folder drag-drop via webkitGetAsEntry, recursed; FileList fallback when absent. */
-export async function filesFromDataTransfer(data: DataTransfer): Promise<Array<VfsFile>> {
+export async function filesFromDataTransfer(data: DataTransfer): Promise<IntakeResult> {
   const items = Array.from(data.items ?? []);
   const withEntry = items.filter(
     (item) => typeof (item as DataTransferItem & { webkitGetAsEntry?: unknown }).webkitGetAsEntry === 'function',
@@ -107,23 +180,25 @@ export async function filesFromDataTransfer(data: DataTransfer): Promise<Array<V
   if (withEntry.length === 0) {
     return filesFromFileList(Array.from(data.files ?? []));
   }
-  const out: Array<VfsFile> = [];
+  const pairs: Array<{ path: string; file: File }> = [];
   for (const item of withEntry) {
     const entry = (item as unknown as { webkitGetAsEntry(): FsEntry | null }).webkitGetAsEntry();
-    if (entry !== null) await walkEntry(entry, '', out);
+    if (entry !== null) await walkEntry(entry, '', pairs);
   }
-  return out;
+  return realize(pairs);
 }
 
-async function walkEntry(entry: FsEntry, base: string, out: Array<VfsFile>): Promise<void> {
+async function walkEntry(
+  entry: FsEntry,
+  base: string,
+  pairs: Array<{ path: string; file: File }>,
+): Promise<void> {
   const path = base === '' ? entry.name : `${base}/${entry.name}`;
   if (entry.isFile) {
     const file = await new Promise<File>((resolve, reject) =>
       (entry as FsFileEntry).file(resolve, reject),
     );
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const vfs = safeFile(path, bytes);
-    if (vfs !== null) out.push(vfs);
+    pairs.push({ path, file });
     return;
   }
   if (entry.isDirectory) {
@@ -133,7 +208,7 @@ async function walkEntry(entry: FsEntry, base: string, out: Array<VfsFile>): Pro
         reader.readEntries(resolve, reject),
       );
       if (batch.length === 0) break;
-      for (const child of batch) await walkEntry(child, path, out);
+      for (const child of batch) await walkEntry(child, path, pairs);
     }
   }
 }
