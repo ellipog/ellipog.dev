@@ -12,7 +12,6 @@
  */
 import { Fragment, useRef, useState } from 'react';
 
-import { SCHEMA_STAMP } from '@/lib/core';
 import type { ReportEntry, VfsFile } from '@/lib/core';
 import { alreadyMigrated, detectBooks } from '@/lib/detect';
 import type { Detection } from '@/lib/detect';
@@ -342,8 +341,7 @@ export default function MigratorPage() {
         <h1>Config migrator.</h1>
         <p className="sub">
           Drop a quest export, get back a Tenet tree. Parsing and conversion run in this page —{' '}
-          <strong>files never leave the browser</strong>. Tenet schema stamp{' '}
-          <span className="mono">{SCHEMA_STAMP.tenetCommit} · {SCHEMA_STAMP.vendored}</span>.
+          <strong>files never leave the browser</strong>.
         </p>
       </section>
 

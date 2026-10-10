@@ -6,9 +6,23 @@ import './migrator.css';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 export const metadata: Metadata = {
-  title: { default: 'ellipog migrator', template: 'ellipog migrator | %s' },
+  title: { default: 'tenet migrator', template: 'tenet migrator | %s' },
   description:
     'Client-side FTB Quests → Tenet config migrator. Files never leave the browser.',
+  /*
+   * The tab icon: ellipog.dev's own mark pair, copied by hand like everything
+   * under public/site/. A favicon cannot read [data-theme], so the pair switches
+   * on prefers-color-scheme instead — resolved before first paint, same OS
+   * preference the theme toggle falls back to. Last file wins for consumers
+   * that ignore media, so the dark-ink mark is the accidental default.
+   */
+  icons: {
+    icon: [
+      { url: '/site/mark-on-dark.png', type: 'image/png', media: '(prefers-color-scheme: dark)' },
+      { url: '/site/mark-on-light.png', type: 'image/png', media: '(prefers-color-scheme: light)' },
+    ],
+    apple: [{ url: '/site/mark-on-light.png', type: 'image/png' }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -31,8 +45,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <div className="shell">
           <header className="masthead">
             <a className="brand" href="/">
-              <span className="site-portrait" aria-hidden="true" />
-              migrator
+              <span className="brand-mark" aria-hidden="true" />
+              ftbq&nbsp;→&nbsp;tenet migrator
             </a>
             <nav aria-label="Primary">
               <a href="/reference/">Reference</a>

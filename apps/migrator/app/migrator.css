@@ -5,6 +5,28 @@
  * bands, a progress log, file/report tables, and form controls drawn as cells.
  */
 
+/* The wordmark never wraps: the masthead is 56px tall and a second line would break it. */
+.brand {
+  white-space: nowrap;
+}
+
+/*
+ * The masthead mark: ellipog.dev's own pair, like the tab icon. A raster cannot
+ * take currentColor, so the file flips with the theme — the same pair the
+ * colophon-mark rules in global.css switch, on the same attribute.
+ */
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: block;
+  background: center / contain no-repeat url("/site/mark-on-light.png");
+}
+
+[data-theme="dark"] .brand-mark {
+  background-image: url("/site/mark-on-dark.png");
+}
+
 .dropzone {
   border: 1px dashed var(--fg-faint);
   padding: var(--s7) var(--s4);
