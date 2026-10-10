@@ -229,6 +229,7 @@ thing it affects:
 | `emergencyItems` | `[]` | What `/tenet emergency` hands out: item references with counts and components, exactly as a task writes them. Empty means the command answers that there is nothing to grant. See [Commands](/docs/tenet/commands/). |
 | `bookTitle` | `""` | What the book calls itself, drawn top-left in its header; empty uses the client's own title. Translatable via `book.title` in `lang/` — see [Languages](/docs/tenet/authoring/languages/) |
 | `bookIcon` | `""` | The item id the book wears in its header; an id a client cannot resolve is drawn as a missing-item mark |
+| `fallbackLocale` | `en_us` | The locale the tree's own strings are written in. Every other locale is merged over it, so a player whose language has no file still reads this one — see [Languages](/docs/tenet/authoring/languages/) |
 
 The last two are the book's identity, synced to every client with the tree. They can be set by hand
 here or in game from the **Book** section of the tools panel — an operator's tool. Unlike every other

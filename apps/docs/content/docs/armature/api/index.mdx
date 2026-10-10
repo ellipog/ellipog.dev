@@ -24,7 +24,7 @@ vanilla equivalent:
 | `isModLoaded(modId)` | Whether a mod is loaded. Safe to ask about any id, including ones that do not exist. |
 | `modVersion(modId)` | The version a loaded mod reports, as the string it reports. Empty when absent. |
 | `isClient()` | Whether this is a client. On a dedicated server, `false`. |
-| `isDevelopmentEnvironment()` | Whether this is a development environment rather than a player's install. |
+| `isDevelopmentEnvironment()`, `environmentName()` | Whether this is a development environment rather than a player's install — and that answer as the word `development` or `production`. |
 | `gameDir()`, `configDir()`, `configDir(child)` | The instance folder, the config folder, and a folder inside config. |
 
 <Callout kind="warning">

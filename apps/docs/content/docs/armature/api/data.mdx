@@ -39,9 +39,11 @@ List<String> tags = Checks.stringList(document, "$.tags", problems);
 ```
 
 `string`/`optionalString`, `integer`/`optionalInt`, `optionalBool`, `object`/`optionalObject`,
-`array`/`optionalArray`, `stringList`/`optionalStringList`, `exists`, and `nameOf` — the last takes the
+`array`/`optionalArray`, `stringList`/`optionalStringList`, `id`/`idList` (lowercase letters, digits
+and underscores, at most 64 characters), `exists`, and `nameOf` — the last takes the
 field name off the end of a path, which is how a "missing required field" message can say *which* field.
-The path syntax is the same one throughout: `$.tasks[2].count`.
+`rejectUnknown` reports every field outside the allowed set, with a did-you-mean where one is close;
+`kindOf` and `describe` say what a value is, for the message. The path syntax is the same one throughout: `$.tasks[2].count`.
 
 ## `Problems` and `DataProblem`
 
