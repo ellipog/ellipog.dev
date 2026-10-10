@@ -113,6 +113,7 @@ export default function ReferencePage() {
               ['tags', 'tags', 'Same list on every object; lowercase-letters-digits-underscores.'],
               ['guide_page', 'guidePage', 'Shown as a Guide: reference; no integration.'],
               ['show_lock_icons', 'showLockIcons', 'Tool writes explicit true unless FTB says false (absent readings diverge).'],
+              ['(no FTB field — FTB has no zoom tiers)', 'disableCanvasLod', 'Tool writes explicit true: preserves the always-drawn canvas. Chapter writes explicit false to opt back into tiers.'],
               ['pause_game / disable_gui', 'pauseGame / disableGui', 'Same switches under Tenet\u2019s names.'],
               ['drop_loot_crates / loot_crate_no_drop', 'tool-reported', 'No Tenet home (crates out of scope): manual work.'],
               ['verify_on_load', 'tool-reported', 'A loader flag with no quest-file meaning.'],

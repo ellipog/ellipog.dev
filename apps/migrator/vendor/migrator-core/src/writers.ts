@@ -24,10 +24,11 @@
  *
  * <h2>Settings honesty</h2>
  *
- * Most settings emit only when off-default. Three always emit because their absent readings
+ * Most settings emit only when off-default. Four always emit because their absent readings
  * diverge: `defaultAutoClaim` (FTB's absent read is ambiguous; Tenet defaults `disabled`),
- * `emergencyItemsCooldown` (FTB absent reads `0`; Tenet defaults `300`), and `showLockIcons`
- * (FTB absent draws; Tenet hides). `drop_loot_crates`, `loot_crate_no_drop` and
+ * `emergencyItemsCooldown` (FTB absent reads `0`; Tenet defaults `300`), `showLockIcons`
+ * (FTB absent draws; Tenet hides), and `disableCanvasLod` (FTB has no zoom tiers at all;
+ * Tenet tiers unless asked out). `drop_loot_crates`, `loot_crate_no_drop` and
  * `verify_on_load` have no Tenet home and report instead — a warning when set (real loss),
  * a note when inert.
  *
@@ -344,6 +345,18 @@ function writeIndex(
   if (showLocks !== false) {
     settings["showLockIcons"] = true;
   }
+  // FTB Quests draws every icon at every zoom — it has no LOD tiers, no icon culling, no
+  // shrinking detail — and Tenet's absent reads tiered. Unconditional: there is no per-pack
+  // variation to configure, exactly like the dependencyStyle below. A chapter opts back
+  // into tiers with its own explicit `false`; deleting the key opts the whole book in.
+  settings["disableCanvasLod"] = true;
+  report.note({
+    code: "lod-off",
+    message:
+      "the book draws without Tenet's zoom tiers (disableCanvasLod), as FTB Quests did; delete the key to opt into tiers",
+    path: book.data.path,
+    line: book.data.root.line,
+  });
   writeBoolSetting(book, "hide_excluded_quests", "hideExcludedQuests", settings, report);
   writeBoolSetting(book, "pause_game", "pauseGame", settings, report);
   writeBoolSetting(book, "disable_gui", "disableGui", settings, report);
