@@ -192,6 +192,21 @@ export default function MigratorPage() {
   const effectiveRoot =
     selectedRoot ?? detections.find((d) => d.confidence === 'high')?.root ?? detections[0]?.root;
 
+  // Locales present in the detected book's lang/ (merged build artefacts excluded,
+  // same rule as the core) — shown under the canonical input so the choice is informed.
+  const langRoot =
+    effectiveRoot === undefined ? null : effectiveRoot === '' ? 'lang' : `${effectiveRoot}/lang`;
+  const foundLocales =
+    langRoot === null || !files
+      ? []
+      : [...new Set(
+          files.flatMap((f) => {
+            if (!f.path.startsWith(`${langRoot}/`) || !f.path.endsWith('.snbt')) return [];
+            const base = f.path.slice(langRoot.length + 1, -'.snbt'.length);
+            return base.includes('/') || base.endsWith('_merged') ? [] : [base];
+          }),
+        )].sort();
+
   async function run(): Promise<void> {
     if (!files || files.length === 0 || running) return;
     setRunning(true);
@@ -402,6 +417,9 @@ export default function MigratorPage() {
               <label>
                 <span className="label">Canonical locale</span>
                 <input type="text" value={opts.canonicalLocale} onChange={(e) => setOpts({ ...opts, canonicalLocale: e.target.value })} />
+                {foundLocales.length > 0 && (
+                  <span className="help">In this pack: {foundLocales.join(', ')}</span>
+                )}
               </label>
               <label>
                 <span className="label">Fallback locale</span>
