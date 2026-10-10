@@ -408,11 +408,9 @@ export default function MigratorPage() {
                 <input type="text" value={opts.fallbackLocale} placeholder="(pack default)" onChange={(e) => setOpts({ ...opts, fallbackLocale: e.target.value })} />
               </label>
               <label>
-                <span className="label">Strictness</span>
-                <span className="checkline"><input type="checkbox" checked={opts.strict} onChange={(e) => setOpts({ ...opts, strict: e.target.checked })} /> strict (warnings fail)</span>
-                <span className="help">For validating a pack: any warning fails the run instead of emitting a tree. Leave off to migrate.</span>
+                <span className="label">Unknown fields</span>
                 <span className="checkline"><input type="checkbox" checked={opts.allowLoss} onChange={(e) => setOpts({ ...opts, allowLoss: e.target.checked })} /> allow loss (unknown keys warn)</span>
-                <span className="help">For odd packs: fields the migrator doesn&rsquo;t know warn instead of failing. Leave off — failing is safer.</span>
+                <span className="help">Other packs aren&rsquo;t ATM10: modded or newer FTB fields fail here by default, each named. On to convert anyway with them reported as warnings.</span>
               </label>
               <label>
                 <span className="label">Output</span>
@@ -424,7 +422,8 @@ export default function MigratorPage() {
             </div>
             <p className="muted" style={{ fontSize: 13 }}>
               Every locale found is emitted as a <span className="mono">lang/</span> overlay; canonical text is
-              inlined. Unknown keys fail unless allow-loss is on; strict fails on any warning instead of emitting.
+              inlined. Unknown fields fail the run unless allow-loss is on. ATM10 converts with zero errors;
+              everything approximated is listed in the report.
             </p>
           </div>
         </section>
