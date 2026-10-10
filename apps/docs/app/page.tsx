@@ -342,7 +342,7 @@ export default function Home() {
         <p className="eyebrow">fabric + neoforge · minecraft</p>
         <h1>Minecraft mods.</h1>
         <p className="sub">
-          Some released, some still being built. Everything published is on Modrinth and CurseForge.
+          Everything I release is on Modrinth and CurseForge, for Fabric and NeoForge.
         </p>
         {total > 0 ? (
           <p className="hero-total">
