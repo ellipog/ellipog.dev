@@ -915,6 +915,10 @@
  * the title on every Tenet page, so an ink-bordered box there would out-weigh the page head —
  * the manual would open with its exit rather than its name. Destinations still invert on hover;
  * quiet is about the resting state, not the affordance.
+ *
+ * No side borders: the top and bottom rules run the whole width of the strip, so it reads as
+ * a divider with words in it rather than a box. The span above is what gives those rules the
+ * full width to run in.
  */
 .migrator-band {
   grid-column: 1 / -1;
@@ -924,7 +928,8 @@
   gap: var(--s3);
   margin-bottom: var(--s4);
   padding: var(--s2) var(--s4);
-  border: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   transition: background-color 0.12s linear, color 0.12s linear;
 }
 
