@@ -67,6 +67,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
           <footer className="band">
             <div className="band-head">
+              <span className="label">Something looks wrong?</span>
+              <span className="faint mono">
+                <a href="https://github.com/ellipog/tenet/issues" target="_blank" rel="noreferrer noopener">Report it on GitHub ↗</a>
+                {' · '}
+                <a href="https://discord.gg/uy9QFaQWR7" target="_blank" rel="noreferrer noopener">Ask on Discord ↗</a>
+              </span>
+            </div>
+            <div className="band-head">
               <span className="label">Private by default</span>
               <span className="faint mono">
                 parsing + conversion run in this page — no upload, no telemetry
