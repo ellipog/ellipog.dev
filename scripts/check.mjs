@@ -686,6 +686,28 @@ check(
 );
 check('neither half is hardcoded', !/\.docs-body\{[^}]*padding:0 var\(--s6\)/.test(allCss));
 
+console.log('\n== the migrator band does not steal the grid ==');
+/*
+ * The band atop every Tenet page is a third child of a two-track grid: the article and the
+ * contents rail are the two it was built for. Without a placement of its own, auto-placement
+ * puts the band in the wide track and the article in the rail's 200px track — prose squeezed
+ * into a column with a void standing where it should have been, exactly as shipped once. The
+ * span keeps the band on a row of its own, with the article and the rail below it, on pages
+ * with a rail and on pages without one alike.
+ */
+check(
+  'the band spans the grid',
+  /grid-column:\s*1\s*\/\s*-1/.test(declarationsFor(allCss, '.migrator-band')),
+  show('.migrator-band{'),
+);
+if (tenetIndex) {
+  check('the band renders on a Tenet page', tenetIndex.includes('migrator-band'));
+}
+const armatureIndex = read(`${OUT}/docs/armature/index.html`);
+if (armatureIndex) {
+  check("the band stays off other mods' pages", !armatureIndex.includes('migrator-band'));
+}
+
 console.log('\n== every mod can be built from a pin ==');
 /*
  * THE DEPLOY BLOCKER, ASSERTED.
