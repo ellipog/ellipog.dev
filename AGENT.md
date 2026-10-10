@@ -1428,6 +1428,23 @@ parser tolerating them.
 `check.mjs` asserts both halves of this — that `vercel.json` carries no comment key, and that the
 six keys above are the whole file — so the mistake fails locally rather than in Washington.
 
+### The migrator is a second project, on a subdomain
+
+`apps/migrator` is its own static export (the FTB Quests → Tenet converter, client-side only) and it
+is served from `tenet.ellipog.dev`, not from a path on this site — the migrator band atop every
+Tenet page links there. One Vercel project cannot serve two static exports, so this is a second
+project from the same repository, with **Root Directory `apps/migrator`**, and it carries its own
+`apps/migrator/vercel.json` pinning the other half: `npm run build` into `out/`.
+
+**The failure this records:** a Ready deployment 404ing on every route, including its own
+`*.vercel.app` address. That is an empty deployment — the build succeeded and produced nothing the
+output directory points at. `apps/docs/out` does not exist under `apps/migrator/`, and `out/` does
+not exist at the repository root, so either half pointed at the other half's tree 404s everything
+while reporting Ready. The fix is the Root Directory, not a rebuild: set it to `apps/migrator`,
+clear any dashboard Build/Output overrides so the committed `vercel.json` is what runs, and
+redeploy. The two domains (`tenet.ellipog.dev`, assigned; the `*.vercel.app` one, automatic) stay
+where they are — neither was the problem, and the DNS CNAME already points at Vercel.
+
 ---
 
 ## Running it
