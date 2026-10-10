@@ -94,7 +94,7 @@ Tenet shows may be its own or another mod's, depending on what is installed.
 | `/tenet party uninvite <player>` | Withdraw an invitation before it is answered. Whoever sent it may always withdraw their own. |
 | `/tenet party open [on\|off]` | Read, or set, whether anybody may join without an invitation. Owner only. |
 | `/tenet party member-invites [on\|off]` | Read, or set, whether ordinary members may invite. Owner only. On by default. |
-| `/tenet party leave` | Leave the party you are in. An owner with members present is sent to the successor picker by the panel; by command the ownership fallback applies. |
+| `/tenet party leave` | Leave the party you are in. An owner with members present is sent to the successor picker by the panel; by command the ownership fallback applies — the most senior remaining member, ties broken arbitrarily but stably. |
 | `/tenet party kick <player>` | Remove a member. |
 | `/tenet party disband` | End the party for everyone in it. |
 | `/tenet party mode [mode]` | Read, or set, how the party's counts combine. |

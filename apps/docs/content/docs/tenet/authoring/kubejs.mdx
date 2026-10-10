@@ -106,8 +106,9 @@ Tenet.registerReward('my_pack:announce', (player, context) => {
 ```
 
 Register handlers at the top level of a server script, not inside a listener: the registry is
-consulted when a quest file is read, and handlers are forgotten before every script load — so a reload
-replaces them rather than stacking them, and a deleted script's handler stops existing.
+consulted when a quest file is read, and handlers are forgotten on a server reload — so a reload
+replaces them rather than stacking them, and a deleted script's handler stops existing. A client
+script reload does not clear them, only a server one does.
 
 <Callout kind="note">
 

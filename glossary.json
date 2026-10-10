@@ -42,7 +42,7 @@
     {
       "id": "canvas",
       "term": "Canvas",
-      "definition": "The pannable, zoomable surface quests are drawn on. A quest's x/y are its position on it, in canvas units rather than pixels, so the layout survives a window resize."
+      "definition": "The pannable, zoomable surface quests are drawn on. A quest's x/y are its position on it, in canvas pixels."
     },
     {
       "id": "frame",
