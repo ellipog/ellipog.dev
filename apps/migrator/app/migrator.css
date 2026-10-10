@@ -65,6 +65,7 @@
 /* A control drawn as a cell: same height language as the masthead nav cells. */
 .btn {
   border: 1px solid var(--line-ink);
+  border-radius: 0;
   background: none;
   color: var(--fg);
   font-family: var(--font-mono);
@@ -153,10 +154,51 @@
   width: 100%;
 }
 
-.optgrid input[type="checkbox"] {
+.optgrid input[type="text"],
+.optgrid input[type="number"],
+.toolbar input[type="text"] {
+  border-radius: 0;
+}
+
+/*
+ * Square options. Native checkboxes and radios bring their own rounding (and
+ * radios are circles), so both are drawn from scratch: a 14px ink-bordered
+ * square, filled ink with a paper check when on. Stated radius, like every
+ * other corner on this site.
+ */
+.optgrid input[type="checkbox"],
+.detection input[type="radio"] {
+  -webkit-appearance: none;
+  appearance: none;
   width: 14px;
   height: 14px;
-  accent-color: var(--fg);
+  flex: none;
+  border: 1px solid var(--line-ink);
+  border-radius: 0;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+}
+
+.optgrid input[type="checkbox"]:checked,
+.detection input[type="radio"]:checked {
+  background: var(--fg);
+}
+
+.optgrid input[type="checkbox"]:checked::before,
+.detection input[type="radio"]:checked::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--bg);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+.detection input[type="radio"] {
+  align-self: center;
 }
 
 .checkline {
