@@ -27,8 +27,6 @@ import type { PipelineOptions, PipelineResult, PlacedFile } from '@/lib/pipeline
 import { canSaveToFolder, saveToFolder } from '@/lib/save-folder';
 import { filesFromZipBlob, placedToZipBlob } from '@/lib/zip';
 
-type SeverityFilter = 'all' | 'error' | 'warning' | 'note';
-
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -55,6 +53,26 @@ function kindOf(path: string, outputRoot: string): 'converted' | 'passthrough' |
     return 'converted';
   }
   return 'passthrough';
+}
+
+const FILE_KINDS = ['converted', 'passthrough', 'report'] as const;
+type FileKind = (typeof FILE_KINDS)[number];
+const FILE_KIND_LABEL: Record<FileKind, string> = {
+  converted: 'Converted',
+  passthrough: 'Passthrough',
+  report: 'Report files',
+};
+
+const REPORT_SEVS = ['error', 'warning', 'note'] as const;
+type ReportSev = (typeof REPORT_SEVS)[number];
+const REPORT_SEV_LABEL: Record<ReportSev, string> = {
+  error: 'Errors',
+  warning: 'Warnings',
+  note: 'Notes',
+};
+
+function fileSize(f: PlacedFile): number {
+  return f.text !== undefined ? f.text.length : (f.bytes?.length ?? 0);
 }
 
 const PREVIEW_LINES = 300;
@@ -138,7 +156,8 @@ export default function MigratorPage() {
       return next;
     });
   }
-  const [sev, setSev] = useState<SeverityFilter>('all');
+  const [foldFiles, setFoldFiles] = useState({ converted: true, passthrough: false, report: true });
+  const [foldReport, setFoldReport] = useState({ error: true, warning: true, note: false });
   const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
@@ -327,9 +346,7 @@ export default function MigratorPage() {
     }
   }
 
-  const entries = ((result?.reportJson.entries as ReadonlyArray<ReportEntry> | undefined) ?? []).filter(
-    (e) => sev === 'all' || e.severity === sev,
-  );
+  const entries = (result?.reportJson.entries as ReadonlyArray<ReportEntry> | undefined) ?? [];
   const placed = (result && !result.failed ? result.placed : []).filter((f) =>
     filter === '' ? true : f.path.toLowerCase().includes(filter.toLowerCase()),
   );
@@ -559,66 +576,109 @@ export default function MigratorPage() {
 
                 <div className="toolbar">
                   <input type="text" placeholder="filter files…" value={filter} onChange={(e) => setFilter(e.target.value)} />
-                  {openPaths.size > 0 && (
-                    <button type="button" className="btn" onClick={() => setOpenPaths(new Set())}>
-                      Collapse all ({openPaths.size})
-                    </button>
-                  )}
                 </div>
-                <table className="filetable">
-                  <thead><tr><th>Path</th><th>Kind</th><th>Size</th></tr></thead>
-                  <tbody>
-                    {placed.slice(0, 500).map((f) => {
-                      const open = openPaths.has(f.path);
-                      return (
-                        <Fragment key={f.path}>
-                          <tr
-                            data-sel={open}
-                            onClick={() => togglePath(f.path)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') togglePath(f.path); }}
-                            tabIndex={0}
-                            aria-expanded={open}
-                          >
-                            <td className="mono">{f.path}</td>
-                            <td><span className="pill">{kindOf(f.path, result.outputRoot)}</span></td>
-                            <td className="mono">{fmtBytes(f.text !== undefined ? f.text.length : (f.bytes?.length ?? 0))}</td>
-                          </tr>
-                          {open && (
-                            <tr className="previewrow">
-                              <td colSpan={3}>
-                                <FilePreview file={f} />
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {placed.length > 500 && <p className="muted">showing 500 of {placed.length} — narrow the filter.</p>}
+                {FILE_KINDS.map((kind) => {
+                  const rows = placed.filter(
+                    (f) =>
+                      (filter === '' || f.path.toLowerCase().includes(filter.toLowerCase())) &&
+                      kindOf(f.path, result.outputRoot) === kind,
+                  );
+                  if (rows.length === 0) return null;
+                  const folded = !foldFiles[kind];
+                  const bytes = rows.reduce((sum, f) => sum + fileSize(f), 0);
+                  return (
+                    <div key={kind}>
+                      <button
+                        type="button"
+                        className="fold-head"
+                        aria-expanded={!folded}
+                        onClick={() => setFoldFiles({ ...foldFiles, [kind]: folded })}
+                      >
+                        <span className="fold-title">
+                          <span className="fold-caret" aria-hidden>{folded ? '▸' : '▾'}</span>
+                          {FILE_KIND_LABEL[kind]}
+                        </span>
+                        <span className="fold-count">{rows.length} files · {fmtBytes(bytes)}</span>
+                      </button>
+                      {!folded && (
+                        <>
+                          <table className="filetable">
+                            <thead><tr><th>Path</th><th>Kind</th><th>Size</th></tr></thead>
+                            <tbody>
+                              {rows.slice(0, 500).map((f) => {
+                                const open = openPaths.has(f.path);
+                                return (
+                                  <Fragment key={f.path}>
+                                    <tr
+                                      data-sel={open}
+                                      onClick={() => togglePath(f.path)}
+                                      onKeyDown={(e) => { if (e.key === 'Enter') togglePath(f.path); }}
+                                      tabIndex={0}
+                                      aria-expanded={open}
+                                    >
+                                      <td className="mono">{f.path}</td>
+                                      <td><span className="pill">{kind}</span></td>
+                                      <td className="mono">{fmtBytes(fileSize(f))}</td>
+                                    </tr>
+                                    {open && (
+                                      <tr className="previewrow">
+                                        <td colSpan={3}>
+                                          <FilePreview file={f} />
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </Fragment>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                          {rows.length > 500 && <p className="muted">showing 500 of {rows.length} — narrow the filter.</p>}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </>
             )}
 
-            <div className="toolbar" role="group" aria-label="Report severity filter">
-              {(['all', 'error', 'warning', 'note'] as const).map((s) => (
-                <button key={s} type="button" className="btn" data-primary={sev === s} onClick={() => setSev(s)}>{s}</button>
-              ))}
-            </div>
-            <table className="reporttable">
-              <thead><tr><th>Severity</th><th>Code</th><th>Where</th><th>Message</th></tr></thead>
-              <tbody>
-                {entries.slice(0, 500).map((e, i) => (
-                  <tr key={i}>
-                    <td><span className="pill" data-tone={e.severity === 'error' ? 'bad' : undefined}>{e.severity}</span></td>
-                    <td className="mono">{e.code}</td>
-                    <td className="mono">{e.path ?? ''}{e.line !== undefined && e.line > 0 ? `:${e.line}` : ''}</td>
-                    <td>{e.message}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {entries.length > 500 && <p className="muted">showing 500 of {entries.length} — download report.json for the rest.</p>}
-            {entries.length === 0 && <p className="muted">No entries at this severity.</p>}
+            {REPORT_SEVS.map((sev) => {
+              const rows = entries.filter((e) => e.severity === sev);
+              if (rows.length === 0) return null;
+              const folded = !foldReport[sev];
+              return (
+                <div key={sev}>
+                  <button
+                    type="button"
+                    className="fold-head"
+                    aria-expanded={!folded}
+                    onClick={() => setFoldReport({ ...foldReport, [sev]: folded })}
+                  >
+                    <span className="fold-title">
+                      <span className="fold-caret" aria-hidden>{folded ? '▸' : '▾'}</span>
+                      {REPORT_SEV_LABEL[sev]}
+                    </span>
+                    <span className="fold-count">{rows.length}</span>
+                  </button>
+                  {!folded && (
+                    <>
+                      <table className="reporttable">
+                        <thead><tr><th>Code</th><th>Where</th><th>Message</th></tr></thead>
+                        <tbody>
+                          {rows.slice(0, 500).map((e, i) => (
+                            <tr key={i}>
+                              <td className="mono">{e.code}</td>
+                              <td className="mono">{e.path ?? ''}{e.line !== undefined && e.line > 0 ? `:${e.line}` : ''}</td>
+                              <td>{e.message}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {rows.length > 500 && <p className="muted">showing 500 of {rows.length} — download report.json for the rest.</p>}
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
