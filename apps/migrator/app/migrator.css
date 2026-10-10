@@ -370,17 +370,59 @@
   border-color: var(--danger);
 }
 
-.preview {
+/*
+ * Inline file preview: a drawer under its own row, one sunken block with the
+ * row above. Numbered lines, paper highlight tracking the pointer, long lines
+ * scrolling sideways rather than wrapping the numbers off their text.
+ */
+.previewrow > td {
+  padding: 0;
   background: var(--bg-sunken);
-  border: 1px solid var(--line);
+}
+
+.fileview {
+  border-top: 1px solid var(--line);
   padding: var(--s3) var(--s4);
   font-family: var(--font-mono);
   font-size: 12px;
-  line-height: 1.55;
-  max-height: 420px;
+  line-height: 1.6;
+}
+
+.fileview p {
+  margin: 0;
+}
+
+.fileview-lines {
   overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
+  max-height: 420px;
+}
+
+.fileview-line {
+  display: flex;
+  gap: var(--s3);
+  white-space: pre;
+}
+
+.fileview-line:hover {
+  background: var(--bg);
+}
+
+.fileview-no {
+  flex: none;
+  width: 44px;
+  text-align: right;
+  color: var(--fg-faint);
+  user-select: none;
+}
+
+.fileview-code {
+  min-width: 0;
+}
+
+.fileview-more {
+  margin-top: var(--s2);
+  color: var(--fg-muted);
+  font-size: 12px;
 }
 
 .toolbar {

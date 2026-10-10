@@ -10,7 +10,7 @@
  * tree browser shows every emitted file's kind and full text instead, and
  * passthrough files are byte-identical by construction.
  */
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 
 import { SCHEMA_STAMP } from '@/lib/core';
 import type { ReportEntry, VfsFile } from '@/lib/core';
@@ -24,7 +24,7 @@ import {
 import type { SkippedFile } from '@/lib/vfs-adapter';
 import { runPipeline } from '@/lib/worker-client';
 import { DEFAULT_OPTIONS } from '@/lib/pipeline';
-import type { PipelineOptions, PipelineResult } from '@/lib/pipeline';
+import type { PipelineOptions, PipelineResult, PlacedFile } from '@/lib/pipeline';
 import { canSaveToFolder, saveToFolder } from '@/lib/save-folder';
 import { filesFromZipBlob, placedToZipBlob } from '@/lib/zip';
 
@@ -56,6 +56,37 @@ function kindOf(path: string, outputRoot: string): 'converted' | 'passthrough' |
     return 'converted';
   }
   return 'passthrough';
+}
+
+const PREVIEW_LINES = 300;
+
+/** One open file: numbered lines in a sunken drawer, or the binary note. */
+function FilePreview({ file }: { file: PlacedFile }) {
+  if (file.text === undefined) {
+    return (
+      <div className="fileview">
+        <p className="muted">binary — {fmtBytes(file.bytes?.length ?? 0)} (passes through untouched)</p>
+      </div>
+    );
+  }
+  const body = file.text.endsWith('\n') ? file.text.slice(0, -1) : file.text;
+  const lines = body.split('\n');
+  const shown = lines.slice(0, PREVIEW_LINES);
+  return (
+    <div className="fileview">
+      <div className="fileview-lines">
+        {shown.map((line, i) => (
+          <div className="fileview-line" key={i}>
+            <span className="fileview-no">{i + 1}</span>
+            <span className="fileview-code">{line}</span>
+          </div>
+        ))}
+      </div>
+      {lines.length > shown.length && (
+        <p className="fileview-more">…{lines.length - shown.length} more lines — download the zip for the full file</p>
+      )}
+    </div>
+  );
 }
 
 async function sha256(blob: Blob): Promise<string | null> {
@@ -98,7 +129,16 @@ export default function MigratorPage() {
   const scanAt = useRef(0);
   const [dragOver, setDragOver] = useState(false);
   const [filter, setFilter] = useState('');
-  const [selPath, setSelPath] = useState<string | null>(null);
+  const [openPaths, setOpenPaths] = useState<ReadonlySet<string>>(new Set());
+
+  function togglePath(path: string): void {
+    setOpenPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
   const [sev, setSev] = useState<SeverityFilter>('all');
   const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
@@ -120,7 +160,7 @@ export default function MigratorPage() {
     setResult(null);
     setRunError(null);
     setVerifyMsg(null);
-    setSelPath(null);
+    setOpenPaths(new Set());
     setLog([]);
     setIntakeError(
       incoming.length === 0 ? 'Nothing readable in that input — try a quest folder or .zip.' : null,
@@ -294,7 +334,6 @@ export default function MigratorPage() {
   const placed = (result && !result.failed ? result.placed : []).filter((f) =>
     filter === '' ? true : f.path.toLowerCase().includes(filter.toLowerCase()),
   );
-  const selected = result?.placed.find((f) => f.path === selPath) ?? null;
 
   return (
     <main>
@@ -522,27 +561,43 @@ export default function MigratorPage() {
 
                 <div className="toolbar">
                   <input type="text" placeholder="filter files…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+                  {openPaths.size > 0 && (
+                    <button type="button" className="btn" onClick={() => setOpenPaths(new Set())}>
+                      Collapse all ({openPaths.size})
+                    </button>
+                  )}
                 </div>
                 <table className="filetable">
                   <thead><tr><th>Path</th><th>Kind</th><th>Size</th></tr></thead>
                   <tbody>
-                    {placed.slice(0, 500).map((f) => (
-                      <tr key={f.path} data-sel={selPath === f.path} onClick={() => setSelPath(f.path)}>
-                        <td className="mono">{f.path}</td>
-                        <td><span className="pill">{kindOf(f.path, result.outputRoot)}</span></td>
-                        <td className="mono">{fmtBytes(f.text !== undefined ? f.text.length : (f.bytes?.length ?? 0))}</td>
-                      </tr>
-                    ))}
+                    {placed.slice(0, 500).map((f) => {
+                      const open = openPaths.has(f.path);
+                      return (
+                        <Fragment key={f.path}>
+                          <tr
+                            data-sel={open}
+                            onClick={() => togglePath(f.path)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') togglePath(f.path); }}
+                            tabIndex={0}
+                            aria-expanded={open}
+                          >
+                            <td className="mono">{f.path}</td>
+                            <td><span className="pill">{kindOf(f.path, result.outputRoot)}</span></td>
+                            <td className="mono">{fmtBytes(f.text !== undefined ? f.text.length : (f.bytes?.length ?? 0))}</td>
+                          </tr>
+                          {open && (
+                            <tr className="previewrow">
+                              <td colSpan={3}>
+                                <FilePreview file={f} />
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
                 {placed.length > 500 && <p className="muted">showing 500 of {placed.length} — narrow the filter.</p>}
-                {selected && (
-                  <div className="preview">
-                    {selected.text !== undefined
-                      ? selected.text.slice(0, 6000) + (selected.text.length > 6000 ? '\n… (truncated)' : '')
-                      : `binary — ${fmtBytes(selected.bytes?.length ?? 0)} (passes through untouched)`}
-                  </div>
-                )}
               </>
             )}
 
