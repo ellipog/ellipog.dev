@@ -53,6 +53,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <a href="/reference/">Reference</a>
               <a
                 href="https://ellipog.dev/docs/tenet/"
+                className="nav-secondary"
                 target="_blank"
                 rel="noreferrer noopener"
               >

@@ -498,6 +498,9 @@ export default function MigratorPage() {
             <span className="faint mono">{progress.stage || 'idle'}</span>
           </div>
           <div className="stage-body">
+            {files && detections.length === 0 && (
+              <p className="muted">No quest book in this input — an FTB Quests export contains data.snbt.</p>
+            )}
             {migratedReason && (
               <div>
                 <p style={{ color: 'var(--danger)' }}>Already migrated — input {migratedReason}.</p>
@@ -506,7 +509,7 @@ export default function MigratorPage() {
               </div>
             )}
             <div className="toolbar">
-              <button type="button" className="btn" data-primary="true" disabled={running} onClick={() => void run()}>
+              <button type="button" className="btn" data-primary="true" disabled={running || detections.length === 0} onClick={() => void run()}>
                 {running ? 'Converting…' : 'Convert'}
               </button>
               {running && (
@@ -549,6 +552,13 @@ export default function MigratorPage() {
 
             {!result.failed && (
               <>
+                <p className="muted" style={{ fontSize: 13 }}>
+                  {result.outputRoot === '' ? (
+                    <>Next: the zip holds the Tenet book at its root — merge it into <span className="mono">config/tenet/quests/</span> in your instance, then <span className="mono">/tenet reload</span> in game.</>
+                  ) : (
+                    <>Next: extract the zip over your instance — the book lands at <span className="mono">{result.outputRoot}/</span> — then <span className="mono">/tenet reload</span> in game.</>
+                  )}
+                </p>
                 <div className="toolbar">
                   <button type="button" className="btn" data-primary="true" onClick={() => void downloadZip()}>Download .zip</button>
                   {typeof window !== 'undefined' && canSaveToFolder() && (
@@ -631,6 +641,9 @@ export default function MigratorPage() {
               </>
             )}
 
+            {placed.length > 0 && placed.filter((f) => filter === '' || f.path.toLowerCase().includes(filter.toLowerCase())).length === 0 && (
+              <p className="muted">No files match this filter.</p>
+            )}
             {REPORT_SEVS.map((sev) => {
               const rows = entries.filter((e) => e.severity === sev);
               if (rows.length === 0) return null;
