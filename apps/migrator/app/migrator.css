@@ -25,6 +25,26 @@
   color: var(--inv-faint);
 }
 
+/*
+ * Buttons on the inverted ground. Hovering the zone flips it to ink, which
+ * would strand ink-bordered, ink-text buttons on it — and a hovered button
+ * filling ink would vanish the other way. So buttons under a hovered zone wear
+ * paper, and the hovered one fills paper. A hovered button always has a hovered
+ * zone behind it, so the two rules never fight.
+ */
+.dropzone:hover .btn,
+.dropzone[data-over="true"] .btn {
+  color: var(--inv-fg);
+  border-color: var(--inv-line);
+}
+
+.dropzone .btn:hover:not(:disabled),
+.dropzone .btn:focus-visible {
+  background: var(--inv-fg);
+  color: var(--inv-bg);
+  border-color: var(--inv-fg);
+}
+
 .dropzone h2 {
   font-size: 17px;
 }
@@ -68,6 +88,16 @@
 .btn[data-primary="true"] {
   background: var(--fg);
   color: var(--bg);
+}
+
+/*
+ * A filled button has nowhere left to go on hover unless it reverses: without
+ * this the primary actions (Convert, Download .zip) sit pixel-identical under
+ * the pointer, which reads as a dead control.
+ */
+.btn[data-primary="true"]:hover:not(:disabled) {
+  background: var(--bg);
+  color: var(--fg);
 }
 
 .stage {
