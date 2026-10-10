@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import { Arrow } from '@/components/arrow';
 import { DocsContents } from '@/components/docs-contents';
 import { DocsFooter } from '@/components/docs-footer';
 import { TableOfContents } from '@/components/toc';
@@ -109,6 +110,23 @@ export default async function DocsPage({ params }: Props) {
       {/* Parsed back out of the built HTML by `check.mjs`, like the home page's own block: a
           malformed trail is invisible in a browser. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMBS) }} />
+      {/* The way out to the browser migrator, on Tenet pages only. It lives here
+          rather than in any document because synced content is wiped by sync.mjs,
+          and outside the article so the search index never sees it. */}
+      {mod?.id === 'tenet' ? (
+        <a
+          className="migrator-band"
+          href="https://tenet.ellipog.dev/"
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label="FTB Quests to Tenet migrator (opens in a new tab)"
+        >
+          <span className="label">FTB Quests → Tenet</span>
+          <span className="migrator-go">
+            Migrating a quest book? Convert it in the browser <Arrow />
+          </span>
+        </a>
+      ) : null}
       <article className="prose" {...searchMeta}>
         <div className="page-head">
           <h1>{page.data.title}</h1>

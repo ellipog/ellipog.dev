@@ -891,6 +891,43 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* The migrator band                                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The way out to the FTB Quests → Tenet migrator, on every Tenet page. A band
+ * rather than a chip: it is a destination, not a fact, so it takes the
+ * inversion every other destination here takes. Rendered by the page chrome
+ * for the tenet section — never authored into synced content, which sync.mjs
+ * wipes on every build — and outside the search-index boundary, so Pagefind
+ * never sees it.
+ */
+.migrator-band {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  margin-bottom: var(--s5);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line-ink);
+  transition: background-color 0.12s linear, color 0.12s linear;
+}
+
+.migrator-band:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.migrator-band .migrator-go {
+  font-size: 13px;
+  text-align: right;
+}
+
+.migrator-band:hover .label {
+  color: var(--inv-faint);
+}
+
+/* ------------------------------------------------------------------ */
 /* A glossary term in prose                                            */
 /* ------------------------------------------------------------------ */
 
