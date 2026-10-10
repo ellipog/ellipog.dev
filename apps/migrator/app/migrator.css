@@ -280,9 +280,9 @@
 }
 
 .prog {
+  position: relative;
   height: 8px;
   border: 1px solid var(--line-ink);
-  position: relative;
 }
 
 .prog > span {
@@ -290,6 +290,36 @@
   inset: 0;
   width: 0%;
   background: var(--fg);
+}
+
+/*
+ * Intake scan while the walk size is still unknown: a block sliding across
+ * rather than a fill. (Without position: relative above, the absolute fill
+ * anchors to the viewport instead of the bar.)
+ */
+.prog[data-mode="ind"] {
+  overflow: hidden;
+}
+
+.prog[data-mode="ind"] > span {
+  width: 35%;
+  animation: scan-slide 1.15s linear infinite;
+}
+
+@keyframes scan-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(310%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prog[data-mode="ind"] > span {
+    animation: none;
+    width: 100%;
+  }
 }
 
 .filetable,

@@ -29,6 +29,9 @@ export interface IntakeResult {
   readonly skipped: Array<SkippedFile>;
 }
 
+/** Live intake progress. total is null while the walk size is still unknown. */
+export type ScanFn = (done: number, total: number | null, label: string) => void;
+
 /** Passthrough cap: bigger files are listed in the report, never read. */
 export const MAX_PASSTHROUGH_BYTES = 32 * 1024 * 1024;
 /** Backstop on what one drop may hold in memory at once. */
@@ -51,7 +54,10 @@ export function skipReason(): string {
  * file over the cap is a hard error instead — converting without book members
  * would fail confusingly downstream.
  */
-async function realize(pairs: ReadonlyArray<{ path: string; file: File }>): Promise<IntakeResult> {
+async function realize(
+  pairs: ReadonlyArray<{ path: string; file: File }>,
+  onScan?: ScanFn,
+): Promise<IntakeResult> {
   if (pairs.length > MAX_INTAKE_FILES) {
     throw new Error(
       `that input holds ${pairs.length} files (limit ${MAX_INTAKE_FILES}) — drop the config folder or a smaller zip instead`,
@@ -84,8 +90,10 @@ async function realize(pairs: ReadonlyArray<{ path: string; file: File }>): Prom
       `that input is ${fmtSize(total)} — too large to hold in memory. Drop the config folder (or a zip of it) instead of the whole profile.`,
     );
   }
-  for (const { path, file } of pending) {
-    files.push({ path, bytes: new Uint8Array(await file.arrayBuffer()) });
+  for (let i = 0; i < pending.length; i++) {
+    const item = pending[i] as { path: string; file: File };
+    files.push({ path: item.path, bytes: new Uint8Array(await item.file.arrayBuffer()) });
+    onScan?.(i + 1, pending.length, 'reading');
   }
   return { files, skipped };
 }
@@ -100,12 +108,16 @@ function safeFile(path: string, bytes: Uint8Array): VfsFile | null {
 }
 
 /** A flat FileList/File[] (picker or <input webkitdirectory>). */
-export async function filesFromFileList(list: FileList | Array<File>): Promise<IntakeResult> {
+export async function filesFromFileList(
+  list: FileList | Array<File>,
+  onScan?: ScanFn,
+): Promise<IntakeResult> {
   return realize(
     Array.from(list).map((file) => ({
       path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
       file,
     })),
+    onScan,
   );
 }
 
@@ -131,7 +143,7 @@ export interface PickerResult extends IntakeResult {
 }
 
 /** File System Access directory picker, recursed into VfsFiles. */
-export async function filesFromDirectoryPicker(): Promise<PickerResult> {
+export async function filesFromDirectoryPicker(onScan?: ScanFn): Promise<PickerResult> {
   const picker = (
     window as unknown as { showDirectoryPicker?: (this: Window) => Promise<PickerDir> }
   ).showDirectoryPicker;
@@ -145,13 +157,14 @@ export async function filesFromDirectoryPicker(): Promise<PickerResult> {
       const path = base === '' ? entry.name : `${base}/${entry.name}`;
       if (entry.kind === 'file' && typeof entry.getFile === 'function') {
         pairs.push({ path, file: await entry.getFile() });
+        onScan?.(pairs.length, null, 'scanning');
       } else if (entry.kind === 'directory' && typeof entry.values === 'function') {
         await walk({ name: entry.name, values: entry.values }, path);
       }
     }
   };
   await walk(root, '');
-  const { files, skipped } = await realize(pairs);
+  const { files, skipped } = await realize(pairs, onScan);
   return { files, skipped, name: root.name };
 }
 
@@ -172,7 +185,7 @@ interface FsReader {
 }
 
 /** Folder drag-drop via webkitGetAsEntry, recursed; FileList fallback when absent. */
-export async function filesFromDataTransfer(data: DataTransfer): Promise<IntakeResult> {
+export async function filesFromDataTransfer(data: DataTransfer, onScan?: ScanFn): Promise<IntakeResult> {
   const items = Array.from(data.items ?? []);
   const withEntry = items.filter(
     (item) => typeof (item as DataTransferItem & { webkitGetAsEntry?: unknown }).webkitGetAsEntry === 'function',
@@ -183,15 +196,16 @@ export async function filesFromDataTransfer(data: DataTransfer): Promise<IntakeR
   const pairs: Array<{ path: string; file: File }> = [];
   for (const item of withEntry) {
     const entry = (item as unknown as { webkitGetAsEntry(): FsEntry | null }).webkitGetAsEntry();
-    if (entry !== null) await walkEntry(entry, '', pairs);
+    if (entry !== null) await walkEntry(entry, '', pairs, onScan);
   }
-  return realize(pairs);
+  return realize(pairs, onScan);
 }
 
 async function walkEntry(
   entry: FsEntry,
   base: string,
   pairs: Array<{ path: string; file: File }>,
+  onScan?: ScanFn,
 ): Promise<void> {
   const path = base === '' ? entry.name : `${base}/${entry.name}`;
   if (entry.isFile) {
@@ -199,6 +213,7 @@ async function walkEntry(
       (entry as FsFileEntry).file(resolve, reject),
     );
     pairs.push({ path, file });
+    onScan?.(pairs.length, null, 'scanning');
     return;
   }
   if (entry.isDirectory) {
@@ -208,7 +223,7 @@ async function walkEntry(
         reader.readEntries(resolve, reject),
       );
       if (batch.length === 0) break;
-      for (const child of batch) await walkEntry(child, path, pairs);
+      for (const child of batch) await walkEntry(child, path, pairs, onScan);
     }
   }
 }

@@ -7,7 +7,7 @@ import { BlobReader, BlobWriter, Uint8ArrayReader, Uint8ArrayWriter, ZipReader, 
 import type { VfsFile } from './core';
 import { normalizePath } from './core';
 import { HARD_TOTAL_BYTES, MAX_INTAKE_FILES, MAX_PASSTHROUGH_BYTES, shouldSkip, skipReason } from './vfs-adapter';
-import type { SkippedFile } from './vfs-adapter';
+import type { ScanFn, SkippedFile } from './vfs-adapter';
 import type { PlacedFile } from './pipeline';
 
 /** Guards from the spec: warn at 512 MB total, refuse past 50 000 entries. */
@@ -23,9 +23,10 @@ export interface ZipIntake {
 }
 
 /** A .zip Blob into VfsFiles, with zip-slip, skip-list and bomb guards. */
-export async function filesFromZipBlob(blob: Blob): Promise<ZipIntake> {
+export async function filesFromZipBlob(blob: Blob, onScan?: ScanFn): Promise<ZipIntake> {
   const reader = new ZipReader(new BlobReader(blob));
   try {
+    onScan?.(0, null, 'reading zip');
     const entries = await reader.getEntries();
     if (entries.length > MAX_INTAKE_FILES) {
       throw new Error(`zip holds ${entries.length} entries (limit ${MAX_INTAKE_FILES}) — zip the config folder instead of the whole instance`);
@@ -33,7 +34,10 @@ export async function filesFromZipBlob(blob: Blob): Promise<ZipIntake> {
     const files: Array<VfsFile> = [];
     const skipped: Array<SkippedFile> = [];
     let total = 0;
+    let done = 0;
     for (const entry of entries) {
+      done++;
+      onScan?.(done, entries.length, 'extracting');
       if (entry.directory) continue;
       const raw = entry.filename;
       if (shouldSkip(raw)) continue;

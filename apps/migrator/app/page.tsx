@@ -94,6 +94,8 @@ export default function MigratorPage() {
   const [log, setLog] = useState<Array<string>>([]);
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+  const [scan, setScan] = useState<{ label: string; done: number; total: number | null } | null>(null);
+  const scanAt = useRef(0);
   const [dragOver, setDragOver] = useState(false);
   const [filter, setFilter] = useState('');
   const [selPath, setSelPath] = useState<string | null>(null);
@@ -109,6 +111,7 @@ export default function MigratorPage() {
   function takeIntake(incoming: Array<VfsFile>, name: string, tooBig: boolean, leftOut: Array<SkippedFile> = []): void {
     setFiles(incoming);
     setSkipped(leftOut);
+    setScan(null);
     setInputName(name);
     setOversize(tooBig);
     setDetections(detectBooks(incoming));
@@ -125,11 +128,25 @@ export default function MigratorPage() {
 
   async function onZipFile(file: File): Promise<void> {
     try {
-      const { files: unpacked, skipped: leftOut, oversize: big } = await filesFromZipBlob(file);
+      const { files: unpacked, skipped: leftOut, oversize: big } = await filesFromZipBlob(
+        file,
+        (d, t) => reportScan(t === null ? 'Reading zip' : 'Extracting zip', d, t),
+      );
       takeIntake(unpacked, file.name.replace(/\.zip$/i, ''), big, leftOut);
     } catch (error) {
+      setScan(null);
       setIntakeError(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  /** Intake callbacks fire per file; the bar moves at most ~8 times a second. */
+  function reportScan(label: string, done: number, total: number | null): void {
+    const now = Date.now();
+    if (total === null || done < total) {
+      if (now - scanAt.current < 120) return;
+    }
+    scanAt.current = now;
+    setScan({ label, done, total });
   }
 
   async function onDrop(event: React.DragEvent<HTMLDivElement>): Promise<void> {
@@ -141,22 +158,29 @@ export default function MigratorPage() {
       return;
     }
     try {
-      const r = await filesFromDataTransfer(event.dataTransfer);
+      const r = await filesFromDataTransfer(
+        event.dataTransfer,
+        (d, t) => reportScan('Scanning drop', d, t),
+      );
       takeIntake(r.files, 'dropped-folder', false, r.skipped);
     } catch (error) {
+      setScan(null);
       setIntakeError(error instanceof Error ? error.message : String(error));
     }
   }
 
   async function onPicker(): Promise<void> {
     try {
-      const { files: picked, name } = await filesFromDirectoryPicker();
+      const { files: picked, name } = await filesFromDirectoryPicker((d, t) =>
+        reportScan('Scanning folder', d, t),
+      );
       takeIntake(picked, name, false);
     } catch (error) {
       // Cancel is silent. Anything else is either a missing API (friendly already)
       // or the browser refusing the folder — Chrome blocks some locations ("contains
       // system files") with no override, so point at the pickers that always work.
       if (error instanceof DOMException && error.name === 'AbortError') return;
+      setScan(null);
       setIntakeError(
         error instanceof Error && error.message.startsWith('this browser')
           ? error.message
@@ -292,19 +316,42 @@ export default function MigratorPage() {
               <button type="button" className="btn" onClick={() => void onPicker()}>Browse…</button>
             </div>
           </div>
+          {scan && (
+            <div>
+              <div
+                className="prog"
+                data-mode={scan.total === null ? 'ind' : undefined}
+                role="progressbar"
+                aria-label={scan.label}
+                aria-valuenow={scan.total === null ? undefined : scan.done}
+                aria-valuemax={scan.total ?? undefined}
+              >
+                <span
+                  style={
+                    scan.total === null || scan.total === 0
+                      ? undefined
+                      : { width: `${(scan.done / scan.total) * 100}%` }
+                  }
+                />
+              </div>
+              <p className="mono muted" style={{ fontSize: 12 }}>
+                {scan.label}… {scan.total === null ? `${scan.done} files so far` : `${scan.done}/${scan.total} files`}
+              </p>
+            </div>
+          )}
           <input
             ref={folderRef}
             type="file"
             hidden
             {...({ webkitdirectory: '' } as Record<string, string>)}
-            onChange={(e) => { const l = e.target.files; if (l && l.length > 0) void filesFromFileList(l).then((r) => takeIntake(r.files, 'folder', false, r.skipped)).catch((err: unknown) => setIntakeError(err instanceof Error ? err.message : String(err))); e.target.value = ''; }}
+            onChange={(e) => { const l = e.target.files; if (l && l.length > 0) void filesFromFileList(l, (d, t) => reportScan('Scanning folder', d, t)).then((r) => takeIntake(r.files, 'folder', false, r.skipped)).catch((err: unknown) => { setScan(null); setIntakeError(err instanceof Error ? err.message : String(err)); }); e.target.value = ''; }}
           />
           <input
             ref={filesRef}
             type="file"
             hidden
             multiple
-            onChange={(e) => { const l = e.target.files; if (l && l.length > 0) void filesFromFileList(l).then((r) => takeIntake(r.files, 'files', false, r.skipped)).catch((err: unknown) => setIntakeError(err instanceof Error ? err.message : String(err))); e.target.value = ''; }}
+            onChange={(e) => { const l = e.target.files; if (l && l.length > 0) void filesFromFileList(l, (d, t) => reportScan('Scanning files', d, t)).then((r) => takeIntake(r.files, 'files', false, r.skipped)).catch((err: unknown) => { setScan(null); setIntakeError(err instanceof Error ? err.message : String(err)); }); e.target.value = ''; }}
           />
           <input
             ref={zipRef}
