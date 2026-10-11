@@ -192,23 +192,6 @@ export default function AlternativePage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">When to stay</span>
-          <span className="faint mono">no churn for its own sake</span>
-        </div>
-        <div className="refwrap">
-          <div className="prose">
-            <p>
-              A stable pack on an older Minecraft version has nothing to gain from moving — Tenet targets
-              1.21.1. Heavy KubeJS quest scripting on Fabric should stay put too, since Tenet&rsquo;s KubeJS
-              support is NeoForge-only. And a playthrough in progress should finish what it started. Switch
-              for your next pack, not this one.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="band">
-        <div className="band-head">
           <span className="label">Questions</span>
           <span className="faint mono">short answers</span>
         </div>
@@ -227,6 +210,10 @@ export default function AlternativePage() {
                 team resolution order
               </a>{' '}
               is documented.
+            </p>
+            <p>
+              <strong>Anything that doesn&rsquo;t carry over?</strong> Heavy KubeJS quest scripting on Fabric —
+              Tenet&rsquo;s KubeJS support is NeoForge-only. That is the one case to check before migrating.
             </p>
             <p>
               <strong>What does it cost?</strong> Nothing — Tenet is MIT open source and the migrator runs
