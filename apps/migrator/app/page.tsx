@@ -342,7 +342,7 @@ export default function MigratorPage() {
     <main>
       <section className="hero">
         <p className="eyebrow">ftb quests 1.21.1 → tenet · client-side</p>
-        <h1>Config migrator.</h1>
+        <h1>FTB Quests → Tenet migrator.</h1>
         <p className="sub">
           Drop a quest export, get back a Tenet tree. Parsing and conversion run in this page —{' '}
           <strong>files never leave the browser</strong>.
@@ -685,6 +685,17 @@ export default function MigratorPage() {
           </div>
         </section>
       )}
+
+      <section className="band">
+        <div className="band-head">
+          <span className="label">Switching from FTB Quests?</span>
+          <span className="faint mono"><a href="/ftb-quests-alternative/">Tenet as the alternative →</a></span>
+        </div>
+        <div className="band-head">
+          <span className="label">Surveying questing mods?</span>
+          <span className="faint mono"><a href="/minecraft-questing-mods/">every option, compared →</a></span>
+        </div>
+      </section>
 
       <section className="band">
         <div className="band-head">

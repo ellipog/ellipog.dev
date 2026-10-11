@@ -1,10 +1,39 @@
 import type { Metadata } from 'next';
 
 import { SCHEMA_STAMP } from '@/lib/core';
+import { absoluteUrl, SITE, social } from '@/lib/metadata';
+
+const TITLE = 'Reference';
+const DESCRIPTION =
+  'Every FTB Quests 1.21.1 field and its Tenet home: tasks, rewards, chapters, dependencies and rewritten commands. The migrator contract.';
 
 export const metadata: Metadata = {
-  title: 'Reference',
-  description: 'Every FTB Quests 1.21.1 field and its Tenet home — the migrator contract.',
+  title: TITLE,
+  ...social({ title: `tenet migrator | ${TITLE}`, description: DESCRIPTION, path: '/reference/' }),
+};
+
+/*
+ * Where this page sits, for a crawler that reads schema.org. Absolute URLs by
+ * construction — a relative URL in structured data is a claim about nothing.
+ */
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      name: `tenet migrator | ${TITLE}`,
+      url: absoluteUrl('/reference/'),
+      description: DESCRIPTION,
+      isPartOf: { '@type': 'WebSite', name: SITE.title, url: SITE.url },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: SITE.title, item: SITE.url + '/' },
+        { '@type': 'ListItem', position: 2, name: TITLE, item: absoluteUrl('/reference/') },
+      ],
+    },
+  ],
 };
 
 function Table({ head, rows }: { head: [string, string, string]; rows: Array<[string, string, string]> }) {
@@ -35,6 +64,7 @@ function Table({ head, rows }: { head: [string, string, string]; rows: Array<[st
 export default function ReferencePage() {
   return (
     <main>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
       <section className="hero">
         <p className="eyebrow">the mapping bible, condensed</p>
         <h1>Reference.</h1>

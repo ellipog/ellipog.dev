@@ -5,11 +5,21 @@ import './global.css';
 import './migrator.css';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Colophon } from '@/components/colophon';
+import { SITE, social } from '@/lib/metadata';
+
+const HOME_TITLE = 'FTB Quests → Tenet migrator';
 
 export const metadata: Metadata = {
-  title: { default: 'tenet migrator', template: 'tenet migrator | %s' },
-  description:
-    'Client-side FTB Quests → Tenet config migrator. Files never leave the browser.',
+  /*
+   * The base every absolute URL in the metadata is resolved against — the canonical links, the
+   * icons' hrefs, and the share card. Without it Next emits paths, and a path is not a URL to
+   * anything that reads a link from somewhere else. The domain is tenet.ellipog.dev: this app is
+   * its own Vercel project (Root Directory apps/migrator), not a path on ellipog.dev.
+   */
+  metadataBase: new URL(SITE.url),
+
+  title: { default: HOME_TITLE, template: 'tenet migrator | %s' },
+  ...social({ title: HOME_TITLE, description: SITE.description, path: '/' }),
   /*
    * The tab icon: ellipog.dev's own mark pair, copied by hand like everything
    * under public/site/. A favicon cannot read [data-theme], so the pair switches
@@ -36,6 +46,33 @@ export const viewport: Viewport = {
 /** Set the theme before first paint (same construction as apps/docs). */
 const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`;
 
+/*
+ * What this site is, for a crawler that reads schema.org.
+ *
+ * One `WebApplication` node: the tool is free, runs in the browser, and makes
+ * no claims worth a rich result — so no ratings, no offers beyond free, and
+ * no SoftwareApplication-per-mod markup. Lives in the layout (a server
+ * component) so it is in the static HTML, not injected by script. The home
+ * page is 'use client' and cannot carry this itself.
+ */
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: HOME_TITLE,
+  url: SITE.url,
+  description: SITE.description,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Web',
+  browserRequirements: 'Requires JavaScript. Requires HTML5.',
+  offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
+  author: { '@type': 'Person', name: 'Ellipog' },
+  sameAs: [
+    'https://modrinth.com/user/Ellipog',
+    'https://www.curseforge.com/members/ellipog/projects',
+    'https://github.com/ellipog',
+  ],
+};
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -43,6 +80,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
         <div className="shell">
           <header className="masthead">
             <a className="brand" href="/">
@@ -50,6 +88,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               ftbq&nbsp;→&nbsp;tenet migrator
             </a>
             <nav aria-label="Primary">
+              <a href="/ftb-quests-alternative/">Alternative</a>
               <a href="/reference/">Reference</a>
               <a
                 href="https://ellipog.dev/docs/tenet/"
