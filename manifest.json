@@ -67,9 +67,9 @@
       "summary": "A visual questing engine that ships no questlines of its own. JSON files in, a pannable canvas out, and the server, not the client, decides what counts as done.",
       "repo": "https://github.com/ellipog/tenet",
       "issues": "https://github.com/ellipog/tenet/issues",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "localPath": "../tenet",
-      "pin": "253c6928263e983bb7bad889df5395456f87115f",
+      "pin": "2e1abd69a9acbb21e17082c80d6430e6f3a5c8c0",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [
@@ -85,9 +85,9 @@
       "summary": "A shared library mod. One loader seam, a strict JSON reader, and a client UI toolkit for layout, text, shapes, themes and widgets.",
       "repo": "https://github.com/ellipog/armature",
       "issues": "https://github.com/ellipog/armature/issues",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "localPath": "../armature",
-      "pin": "c9b86ccc7c3dedd25dbf3588a6d9ae793d9d4665",
+      "pin": "386c08525decf35c296f43da8460586c56582808",
       "docsPath": "docs",
       "minecraft": "1.21.1",
       "loaders": [
