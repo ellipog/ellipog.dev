@@ -141,7 +141,7 @@ export default function AlternativePage() {
             rows={[
               ['quest files', 'SNBT (data.snbt)', 'JSON in config/tenet/quests/'],
               ['editing', 'in-game editor', 'in-game editor, per-chapter undo'],
-              ['team play', 'FTB Teams parties', 'your parties — or built-in ones, no party mod needed'],
+              ['team play', 'FTB Teams parties', 'Armature parties, built in — FTB Teams and OPAC supported'],
               ['editions', 'separate Forge, Fabric, NeoForge editions', 'one mod: Fabric + NeoForge'],
               ['recipe viewers', 'EMI / JEI / REI', 'full EMI pages, JEI/REI fallback'],
               ['scripting', 'KubeJS on all loaders', 'KubeJS on NeoForge'],
