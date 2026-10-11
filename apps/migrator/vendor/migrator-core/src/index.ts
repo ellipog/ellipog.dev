@@ -50,7 +50,7 @@ export type { ModelOptions, ParsedFile, ChapterInput, QuestBookInput } from "./m
 export { buildIds, resolveQuestRef, resolveQuestSlug, remapTableId, idsJson } from "./ids";
 export { buildSlugs, slugifyTitle, questTitleCandidate, readableItem } from "./slugs";
 export type { SlugMaps, TitleCandidate, TitleOrigin } from "./slugs";
-export type { IdMap, IdEntry, QuestIdEntry, FileIdEntry, TaskIdEntry, DeadEdge } from "./ids";
+export type { IdMap, IdEntry, QuestIdEntry, FileIdEntry, TaskIdEntry, DeadEdge, ChapterEdge } from "./ids";
 export { LangPool, collectImageIds, proseBreaks, proseLine } from "./lang";
 export type { LangOptions } from "./lang";
 export {
@@ -90,6 +90,8 @@ export {
 export type { EmittedFile, SchemaIssue } from "./validate";
 export { mapTask } from "./tasks";
 export type { TaskContext } from "./tasks";
+export { checkGateCycles, dependencyBar, planChapterGates, EMPTY_GATES } from "./gates";
+export type { GateBar, GatePlan, GateSlugs, PlannedGate } from "./gates";
 export { mapReward, mapTableFile } from "./rewards";
 export type { RewardContext, TableFile } from "./rewards";
 export { rewriteCommand } from "./commands";

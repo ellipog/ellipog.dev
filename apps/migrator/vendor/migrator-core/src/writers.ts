@@ -49,6 +49,7 @@ import { SnbtNode, snbtGet } from "./snbt";
 import { VfsFile } from "./vfs";
 import { DEFAULT_GEOM, GeomOptions } from "./geometry";
 import { emitChapterQuests } from "./quests";
+import { checkGateCycles, planChapterGates } from "./gates";
 import { mapTableFile } from "./rewards";
 import { SlugMaps, buildSlugs } from "./slugs";
 import { emitChapterCanvas } from "./canvas";
@@ -94,6 +95,9 @@ export function convertBook(
   );
   const slugs = buildSlugs(book, ids, pool);
   pool.checkOrphans(ids, collectImageIds(book));
+  // Chapter gates before any quest maps: retargets read the plan, and emission places
+  // the gates. A book with no chapter edges plans nothing and reports nothing.
+  const gates = planChapterGates(book, ids, slugs, pool, report);
 
   const groups = orderedGroups(book, ids, slugs);
   const chaptersByGroup = new Map<string, Array<ChapterInput>>();
@@ -129,6 +133,9 @@ export function convertBook(
       text: emitJson(writeGroup(pool, group, chaptersByGroup.get(group.id) ?? [], slugs, report)),
     });
   }
+  // Emitted slug graph for the gate-cycle check: quest and gate `dependsOn` alike,
+  // accumulated across chapters as each chapter emits.
+  const questGraph = new Map<string, { deps: ReadonlyArray<string>; path: string }>();
   for (const chapter of book.chapters) {
     const entry = ids.chapters.get((chapter.id ?? "").toLowerCase());
     if (entry === undefined) {
@@ -146,7 +153,18 @@ export function convertBook(
       chapterDefaults: defaults,
       geom,
       report,
+      gates,
     }, ids);
+    for (const quest of emitted) {
+      const id = quest.json["id"];
+      const rawDeps = quest.json["dependsOn"];
+      const deps = Array.isArray(rawDeps)
+        ? rawDeps.filter((dep): dep is string => typeof dep === "string")
+        : [];
+      if (typeof id === "string") {
+        questGraph.set(id, { deps, path: `${dir}/${quest.filename}` });
+      }
+    }
     const canvas = emitChapterCanvas(chapter, {
       chapterPath: chapter.path,
       ids,
@@ -169,6 +187,10 @@ export function convertBook(
       files.push({ path: `${dir}/${quest.filename}`, text: emitJson(quest.json) });
     }
   }
+  // A cycle through a gate deadlocks in FTB too (it expands chapter references the
+  // same way when verifying), so it fails here naming the chain rather than emitting
+  // a tree Tenet would refuse. Quest-only cycles stay Tenet's to report at load.
+  checkGateCycles(questGraph, new Set(gates.gates.map((gate) => gate.slug)), report);
   for (const table of book.tables) {
     const emitted = emitRewardTable(table.path, table.root, book, ids, slugs, pool, report);
     if (emitted !== null) {
@@ -640,9 +662,12 @@ function readAutofocus(chapter: ChapterInput, ids: IdMap, slugs: SlugMaps, repor
   }
   const target = resolveQuestSlug(ids, slugs, raw.value);
   if (target === null) {
-    report.error({
+    // FTB centres on nothing in particular when the named quest is gone; Tenet refuses
+    // a focus that resolves nowhere (and says to remove the field), so the chapter
+    // centres on its bounding box on both sides. Warned: the author's pointer is broken.
+    report.warn({
       code: "bad-autofocus",
-      message: `autofocus names ${JSON.stringify(raw.value)}, which resolves to no quest`,
+      message: `autofocus names ${JSON.stringify(raw.value)}, which resolves to no quest; the chapter centres on its bounding box`,
       path: chapter.path,
       line: raw.line,
       key: "autofocus_id",
@@ -652,7 +677,7 @@ function readAutofocus(chapter: ChapterInput, ids: IdMap, slugs: SlugMaps, repor
   }
   const entry = ids.quests.get(raw.value.toLowerCase());
   if (entry === undefined || entry.chapter !== chapter.path) {
-    report.error({
+    report.warn({
       code: "bad-autofocus",
       message: `autofocus names ${JSON.stringify(raw.value)}, which lives in another chapter; the canvas centres on its own chapter`,
       path: chapter.path,

@@ -30,6 +30,8 @@
  */
 
 import { DeadEdge, IdMap } from "./ids";
+import { dependencyBar } from "./gates";
+import type { GatePlan, GateSlugs, PlannedGate } from "./gates";
 import { LangPool } from "./lang";
 import { mapIcon } from "./icons";
 import { ChapterInput } from "./model";
@@ -61,6 +63,8 @@ export interface QuestContext {
   readonly geom: GeomOptions;
   readonly report: Report;
   readonly deadEdges: ReadonlyArray<DeadEdge>;
+  /** Chapter-hex to gate slugs, planned from the book's chapter edges. */
+  readonly chapterGates: ReadonlyMap<string, GateSlugs>;
 }
 
 const PREREQUISITE_MODES: ReadonlySet<string> = new Set([
@@ -95,7 +99,9 @@ export interface EmittedQuest {
 /** A chapter's quests mapped in authored order, positions nudged so none share a pixel. */
 export function emitChapterQuests(
   chapter: ChapterInput,
-  base: Omit<QuestContext, "questId" | "sourceHex" | "slug" | "deadEdges">,
+  base: Omit<QuestContext, "questId" | "sourceHex" | "slug" | "deadEdges" | "chapterGates"> & {
+    gates: GatePlan;
+  },
   ids: IdMap,
 ): Array<EmittedQuest> {
   const resolved: Array<{ node: SnbtNode; id: string; source: string; resolution: QuestResolution }> = [];
@@ -141,6 +147,7 @@ export function emitChapterQuests(
       sourceHex: entry.source,
       slug,
       slugs: base.slugs,
+      chapterGates: base.gates.slugsByChapter,
       deadEdges: ids.deadEdges.filter((edge) => edge.quest === entry.id),
     };
     const json = mapQuestBody(entry.node, entry.resolution, { x: point.x, y: point.y }, ctx);
@@ -148,7 +155,59 @@ export function emitChapterQuests(
       out.push({ filename: `${slug}.json`, json });
     }
   });
+  // Chapter gates land below the chapter's own quests in a deterministic row: the
+  // positions are invented, so they sit out of the way rather than among authored
+  // nodes, and the taken-set (every resolved pixel, mapped or not) keeps them off
+  // any quest's pixel without moving anything the pack placed.
+  const chapterHex = (chapter.id ?? "").toLowerCase();
+  const chapterGates = base.gates.gates.filter((gate) => gate.chapterHex === chapterHex);
+  if (chapterGates.length > 0) {
+    let minX = 0;
+    let maxY = -64;
+    for (const point of nudged) {
+      if (point.x < minX) {
+        minX = point.x;
+      }
+      if (point.y > maxY) {
+        maxY = point.y;
+      }
+    }
+    const taken = new Set<string>(nudged.map((point) => `${point.x},${point.y}`));
+    chapterGates.forEach((gate, index) => {
+      let x = minX + index * 64;
+      let y = maxY + 64;
+      while (taken.has(`${x},${y}`)) {
+        y += 64;
+      }
+      taken.add(`${x},${y}`);
+      out.push(emitGateQuest(gate, x, y));
+    });
+  }
   return out;
+}
+
+/**
+ * A planned gate into its Tenet file: id, title, position and gate edges only. No
+ * tasks or rewards — a taskless quest with dependants loads quietly and completes on
+ * the tick its gate opens — and no `dependsOn` key when the chapter has no required
+ * quests (an empty rule is met). The completed arm omits its mode (the default); the
+ * started arm writes `all_started`.
+ */
+function emitGateQuest(gate: PlannedGate, x: number, y: number): EmittedQuest {
+  const json: Record<string, unknown> = {
+    $schema: "https://ellipog.dev/tenet/_schema/quest.schema.json",
+    id: gate.slug,
+    title: gate.title,
+    x,
+    y,
+  };
+  if (gate.dependsOn.length > 0) {
+    json["dependsOn"] = [...gate.dependsOn];
+  }
+  if (gate.bar === "started") {
+    json["prerequisiteMode"] = "all_started";
+  }
+  return { filename: `${gate.slug}.json`, json };
 }
 
 function mapQuestBody(
@@ -317,10 +376,23 @@ function questDependencies(node: SnbtNode, ctx: QuestContext): ReadonlyArray<str
       continue;
     }
     // Every dependency names its assumed name: the slug the target quest file carries.
-    const slug = ctx.slugs.quests.get(target);
+    let slug = ctx.slugs.quests.get(target);
     if (slug === undefined) {
-      fail(ctx, dep, "dependencies", `the quest depends on ${dep.value}, which resolves to no quest`);
-      return null;
+      // A chapter id retargets onto the chapter's gate quest, planned from the book's
+      // chapter edges: the gate completes exactly when the chapter does, so the edge
+      // keeps its meaning — and its single place in prerequisiteMode/minRequired
+      // counting. Anything else names nothing and fails here.
+      const gate = ctx.chapterGates.get(target);
+      const gated = gate === undefined
+        ? undefined
+        : dependencyBar(node) === "started"
+          ? (gate.started ?? gate.completed)
+          : gate.completed;
+      if (gated === undefined) {
+        fail(ctx, dep, "dependencies", `the quest depends on ${dep.value}, which resolves to no quest`);
+        return null;
+      }
+      slug = gated;
     }
     if (slug === ctx.slug) {
       fail(ctx, dep, "dependencies", "the quest depends on itself, so it could never start");

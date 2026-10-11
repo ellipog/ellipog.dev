@@ -28,9 +28,12 @@
  * progression-safe reading, keeping the gate a gate — and the quest mapper reports every
  * lift naming both sides. They collect here as DeadEdges - recorded, never failed -
  * because failing the whole book over nine pack quirks FTB itself loads would be the
- * converter refusing real packs. A dependency on a chapter id is different: chapters do
- * complete, so the edge may satisfy in FTB and no Tenet quest edge can carry it - that
- * one fails, for an author to rewire.
+ * converter refusing real packs. A dependency on a chapter id is different from a
+ * dangling one but the same shape of problem: chapters do complete, so the edge may
+ * satisfy in FTB and no Tenet quest edge can carry it directly. It collects here as a
+ * ChapterEdge - recorded, never failed - and the quest mapper retargets it onto the
+ * chapter's synthesised gate quest, which completes under exactly the chapter-complete
+ * condition (see `gates.ts`), reporting the rewrite.
 
  *
  * <h2>What this module does not scan</h2>
@@ -44,6 +47,8 @@
 import { Report } from "./report";
 import { QuestBookInput } from "./model";
 import { SnbtNode, snbtGet } from "./snbt";
+import { dependencyBar } from "./gates";
+import type { GateBar } from "./gates";
 
 const HEX_ID = /^[0-9A-Fa-f]{16}$/;
 
@@ -81,6 +86,24 @@ export interface DeadEdge {
   readonly line: number;
 }
 
+/**
+ * A dependency edge naming a chapter: the quest waits on the whole chapter, read on the
+ * bar its own `dependency_requirement` asks for. The gate planner retargets each one
+ * onto the chapter's synthesised gate quest.
+ */
+export interface ChapterEdge {
+  /** Lowercase id of the quest carrying the edge. */
+  readonly quest: string;
+  /** The chapter reference exactly as the pack wrote it. */
+  readonly ref: string;
+  /** Lowercase chapter id. */
+  readonly chapter: string;
+  /** The referring quest's chapter file. */
+  readonly file: string;
+  readonly line: number;
+  readonly bar: GateBar;
+}
+
 export interface IdMap {
   /** Lowercase quest id to its entry. */
   readonly quests: ReadonlyMap<string, QuestIdEntry>;
@@ -93,6 +116,8 @@ export interface IdMap {
   readonly rewards: ReadonlyMap<string, TaskIdEntry>;
   /** Edges for the quest mapper to drop and report, in file order. */
   readonly deadEdges: ReadonlyArray<DeadEdge>;
+  /** Chapter edges for the gate planner to retarget, in file order. */
+  readonly chapterEdges: ReadonlyArray<ChapterEdge>;
 }
 
 /**
@@ -191,6 +216,7 @@ class IdBuilder {
   private readonly tasks = new Map<string, TaskIdEntry>();
   private readonly rewards = new Map<string, TaskIdEntry>();
   private readonly deadEdges: Array<DeadEdge> = [];
+  private readonly chapterEdges: Array<ChapterEdge> = [];
   private readonly questOrder: Array<{ chapter: string; quest: SnbtNode; id: string }> = [];
 
   constructor(report: Report) {
@@ -206,6 +232,7 @@ class IdBuilder {
       tasks: this.tasks,
       rewards: this.rewards,
       deadEdges: this.deadEdges,
+      chapterEdges: this.chapterEdges,
     };
   }
 
@@ -466,17 +493,18 @@ class IdBuilder {
         });
         continue;
       }
-      // A dependency on a chapter id fails outright: chapters do complete, so the edge may
-      // satisfy in FTB, and no Tenet quest edge can carry it. An author rewires it by hand.
+      // A dependency on a chapter id records a chapter edge: chapters do complete,
+      // so the edge may satisfy in FTB, and the quest mapper retargets it onto the
+      // chapter's gate quest (see gates.ts) instead of failing the run over it.
       const chapterHit = this.chapters.get(lowered);
       if (chapterHit !== undefined) {
-        this.report.error({
-          code: "chapter-reference",
-          message: `the quest ${id} depends on ${dep.value}, which is the chapter id of ${chapterHit.file}: quests cannot depend on chapters, so this edge needs an author to rewire it`,
-          path: chapter,
+        this.chapterEdges.push({
+          quest: id,
+          ref: dep.value,
+          chapter: lowered,
+          file: chapter,
           line: dep.line,
-          key: "dependencies",
-          value: dep.value,
+          bar: dependencyBar(quest),
         });
         continue;
       }

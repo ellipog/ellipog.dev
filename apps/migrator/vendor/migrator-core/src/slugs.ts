@@ -40,6 +40,12 @@ export interface SlugMaps {
   readonly tables: Map<string, string>;
   readonly images: Map<string, string>;
   readonly links: Map<string, string>;
+  /**
+   * Stand-in slugs for images with no id, keyed by node identity: FTB draws id-less
+   * images, Tenet elements require ids, so the planner claims `img_<chapter>_<n>` in
+   * authored order from the same taken-set. Read at use in canvas, never serialised.
+   */
+  readonly imageNodes: Map<SnbtNode, string>;
 }
 
 const MAX_ID = 64;
@@ -236,7 +242,14 @@ export function readableItem(id: string): string {
     .join(" ");
 }
 
-function assign(taken: Set<string>, base: string, fallback: string): string {
+/**
+ * Claim one slug from a taken-set shared by every kind: the stem slugified (or the
+ * fallback hex when the stem yields nothing), suffixed `_2`, `_3`, … until free.
+ * The set must already hold every slug the book owns — buildSlugs fills it in authored
+ * order, and later claimants (synthesised quests) extend the same set, so a synthesis
+ * can never steal a name an author already holds.
+ */
+export function claimSlug(taken: Set<string>, base: string, fallback: string): string {
   const stem = slugifyTitle(base);
   const root = (stem !== "" ? stem : fallback).slice(0, MAX_ID - 8);
   let candidate = root.slice(0, MAX_ID);
@@ -258,6 +271,7 @@ export function buildSlugs(book: QuestBookInput, ids: IdMap, pool: LangPool): Sl
   const tables = new Map<string, string>();
   const images = new Map<string, string>();
   const links = new Map<string, string>();
+  const imageNodes = new Map<SnbtNode, string>();
 
   if (book.groups !== null && book.groups.root.kind === "compound") {
     const list = snbtGet(book.groups.root, "chapter_groups");
@@ -276,7 +290,7 @@ export function buildSlugs(book: QuestBookInput, ids: IdMap, pool: LangPool): Sl
         }
         const entry = ids.groups.get(hex);
         const title = entry !== undefined ? pool.groupTitle(entry.source) : null;
-        groups.set(hex, assign(taken, title ?? "", hex));
+        groups.set(hex, claimSlug(taken, title ?? "", hex));
       }
     }
   }
@@ -287,7 +301,7 @@ export function buildSlugs(book: QuestBookInput, ids: IdMap, pool: LangPool): Sl
     }
     const entry = ids.chapters.get(hex);
     const title = entry !== undefined ? pool.chapterTitle(entry.source) : null;
-    chapters.set(hex, assign(taken, title ?? "", hex));
+    chapters.set(hex, claimSlug(taken, title ?? "", hex));
     if (chapter.node.kind !== "compound") {
       continue;
     }
@@ -301,22 +315,38 @@ export function buildSlugs(book: QuestBookInput, ids: IdMap, pool: LangPool): Sl
       if (qhex === "" || quests.has(qhex)) {
         continue;
       }
-      quests.set(qhex, assign(taken, questTitleCandidate(quest, pool, source, qhex).title, qhex));
+      quests.set(qhex, claimSlug(taken, questTitleCandidate(quest, pool, source, qhex).title, qhex));
     }
     const imageList = snbtGet(chapter.node, "images");
     if (imageList !== undefined && imageList.kind === "list") {
+      let nameless = 0;
       for (const image of imageList.items) {
         if (image.kind !== "compound") {
           continue;
         }
         const raw = snbtGet(image, "id");
-        const source = raw !== undefined && raw.kind === "string" ? raw.value : "";
+        if (raw === undefined || (raw.kind === "string" && raw.value === "")) {
+          // FTB draws images with no id; Tenet elements require one, so claim a
+          // deterministic stand-in in authored order. A non-string id is malformed
+          // rather than missing: it stays for imageId to refuse downstream.
+          nameless += 1;
+          const chapterSlug = chapters.get(hex) ?? hex;
+          imageNodes.set(
+            image,
+            claimSlug(taken, `img_${chapterSlug}_${nameless}`, `img_${hex.slice(0, 8)}_${nameless}`),
+          );
+          continue;
+        }
+        if (raw.kind !== "string") {
+          continue;
+        }
+        const source = raw.value;
         const ihex = source.toLowerCase();
         if (ihex === "" || images.has(ihex)) {
           continue;
         }
         const title = pool.imageTitle(source);
-        images.set(ihex, assign(taken, title ?? "", ihex));
+        images.set(ihex, claimSlug(taken, title ?? "", ihex));
       }
     }
     const linkList = snbtGet(chapter.node, "quest_links");
@@ -334,7 +364,7 @@ export function buildSlugs(book: QuestBookInput, ids: IdMap, pool: LangPool): Sl
         const rawTarget = snbtGet(link, "linked_quest");
         const target = rawTarget !== undefined && rawTarget.kind === "string" ? rawTarget.value.toLowerCase() : "";
         const targetSlug = quests.get(target);
-        links.set(lhex, assign(taken, targetSlug !== undefined ? `link_${targetSlug}` : "", lhex));
+        links.set(lhex, claimSlug(taken, targetSlug !== undefined ? `link_${targetSlug}` : "", lhex));
       }
     }
   }
@@ -351,7 +381,7 @@ export function buildSlugs(book: QuestBookInput, ids: IdMap, pool: LangPool): Sl
     const stem = table.path.split("/").pop()?.replace(/\.snbt$/, "") ?? "";
     const entry = ids.tables.get(thex);
     const title = entry !== undefined ? pool.tableTitle(entry.source) : null;
-    tables.set(thex, assign(taken, slugifyTitle(stem) !== "" ? stem : (title ?? ""), thex));
+    tables.set(thex, claimSlug(taken, slugifyTitle(stem) !== "" ? stem : (title ?? ""), thex));
   }
-  return { groups, chapters, quests, tables, images, links };
+  return { groups, chapters, quests, tables, images, links, imageNodes };
 }

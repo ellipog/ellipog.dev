@@ -110,7 +110,24 @@ function rewardKind(node: SnbtNode): string | null {
 function mapItemReward(node: SnbtNode, ctx: RewardContext): Record<string, unknown> | null {
   const item = snbtGet(node, "item");
   if (item === undefined || item.kind !== "compound") {
-    fail(ctx, node, "item", "an item reward names no item object");
+    // An item reward with no stack grants nothing in FTB (empty hands stay empty), so
+    // there is nothing to carry: it drops with a note naming the count it orphaned, if
+    // any. A guess at the intended item would be exactly that — a guess — so the run
+    // keeps going and the author reads the note. A present-but-malformed count rides
+    // along unjudged: with no item it means nothing here or in FTB.
+    const count = snbtGet(node, "count");
+    const orphaned =
+      count !== undefined &&
+      (count.kind === "byte" || count.kind === "short" || count.kind === "int" || count.kind === "long")
+        ? ` (count ${count.value} with nothing to count)`
+        : "";
+    ctx.report.note({
+      code: "empty-item-reward",
+      message: `an item reward of the quest ${ctx.questId} names no item object${orphaned}; it grants nothing here or in FTB`,
+      path: ctx.chapter,
+      line: node.line,
+      key: "item",
+    });
     return null;
   }
   const ref = mapItemStack(item, ctx, `a reward of quest ${ctx.questId}`);
@@ -441,19 +458,79 @@ function mapTableBody(root: SnbtNode, ctx: RewardContext): Record<string, unknow
     return null;
   }
   const entries: Array<unknown> = [];
+  let blankWeight = 0;
   for (const item of rewards.items) {
+    if (isBlankEntry(item)) {
+      // An entry with no reward payload grants nothing when rolled: its weight folds
+      // into the table's empty mass rather than failing the table (or shifting the
+      // odds by vanishing). Named per entry: a synthesis, never silent.
+      const weight = blankEntryWeight(item, ctx);
+      if (weight === null) {
+        return null;
+      }
+      blankWeight += weight;
+      ctx.report.note({
+        code: "blank-table-entry",
+        message: `a table entry names no reward; its ${weight} weight rolls empty with the table's empty mass`,
+        path: ctx.chapter,
+        line: item.line,
+        key: "rewards",
+      });
+      continue;
+    }
+    // A null with no new error is a skip with its own report (a custom kind left out
+    // as manual work); only a new error stops the table.
+    const errorsBefore = ctx.report.errorCount;
     const entry = mapTableEntry(item, ctx);
     if (entry === null) {
-      return null;
+      if (ctx.report.errorCount > errorsBefore) {
+        return null;
+      }
+      continue;
     }
     entries.push(entry);
+  }
+  if (blankWeight > 0) {
+    const base = out["emptyWeight"];
+    out["emptyWeight"] = (typeof base === "number" ? base : 0) + blankWeight;
   }
   out["entries"] = entries;
   return out;
 }
 
+/** A table entry with no reward payload: nothing but an id and a weight, if that. */
+function isBlankEntry(item: SnbtNode): boolean {
+  if (item.kind !== "compound") {
+    return false;
+  }
+  for (const [key] of item.entries) {
+    if (key !== "id" && key !== "weight") {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** A blank entry's weight: the stated one, else the single roll it costs by default. */
+function blankEntryWeight(item: SnbtNode, ctx: RewardContext): number | null {
+  const raw = snbtGet(item, "weight");
+  if (raw === undefined) {
+    return 1;
+  }
+  const value = decimalField(raw, ctx, "weight");
+  if (value === null) {
+    return null;
+  }
+  if (value < 0) {
+    fail(ctx, raw, "weight", "a negative weight means nothing");
+    return null;
+  }
+  return value;
+}
+
 function mapTableEntry(item: SnbtNode, ctx: RewardContext): Record<string, unknown> | null {
   if (item.kind !== "compound") {
+    fail(ctx, item, "rewards", "a reward table entry is not an object");
     return null;
   }
   const kind = rewardKind(item);

@@ -20,6 +20,13 @@
  * the same rules; the string form wins when several are present, mirroring FTB's own
  * precedence.
  *
+ * <h2>Pictures without ids</h2>
+ *
+ * FTB draws images that name no id; Tenet elements require one. The slug planner
+ * claims `img_<chapter>_<n>` stand-ins in authored order from the shared taken-set,
+ * so a synthesis can never steal an author's name, and each one is a report note
+ * naming the image's line — never a silent rename.
+ *
  * <h2>Gates and mirrors that resolve to nothing</h2>
  *
  * An image gate (`dependency`) naming nothing shows its picture in FTB (`null` gates open),
@@ -155,7 +162,32 @@ export function mapImage(node: SnbtNode, sourceHex: string, ctx: CanvasContext):
 
 function imageId(node: SnbtNode, ctx: CanvasContext): string | null {
   const id = snbtGet(node, "id");
-  if (id === undefined || id.kind !== "string" || id.value === "") {
+  if (id === undefined || (id.kind === "string" && id.value === "")) {
+    // FTB draws images with no id; Tenet elements require one, so the slug planner
+    // claimed a stand-in in authored order. Named in the report: a synthesis, never
+    // silent. A direct mapImage caller bypassing the planner has nothing to stand in.
+    const slug = ctx.slugs.imageNodes.get(node);
+    if (slug === undefined) {
+      ctx.report.error({
+        code: "malformed-image",
+        message: `an image in ${ctx.chapterPath} names no id`,
+        path: ctx.chapterPath,
+        line: node.line,
+        key: "id",
+      });
+      return null;
+    }
+    ctx.report.note({
+      code: "synthesised-image-id",
+      message: `an image in ${ctx.chapterPath} names no id; it reads ${slug}`,
+      path: ctx.chapterPath,
+      line: node.line,
+      key: "id",
+      value: slug,
+    });
+    return slug;
+  }
+  if (id.kind !== "string") {
     ctx.report.error({
       code: "malformed-image",
       message: `an image in ${ctx.chapterPath} names no id`,

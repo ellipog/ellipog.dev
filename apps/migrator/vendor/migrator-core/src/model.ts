@@ -199,6 +199,11 @@ export const TASK_KEYS: ReadonlySet<string> = new Set([
   "structure",
   "stage",
   "team_stage",
+  // NOTE: parameters of pack-custom temperature tasks (a threshold plus a direction flag).
+  // The custom-task placeholder carries the task itself; these ride along unmapped, read
+  // by the handler the placeholder's warning sends the author to write.
+  "comparison",
+  "target_temperature",
 ]);
 
 /** Every key a reward — or a table entry — may carry (census + jar-real reward fields). */
@@ -269,6 +274,10 @@ export const IMAGE_KEYS: ReadonlySet<string> = new Set([
   "text_v_align",
   "hover",
   "dependency",
+  // NOTE: the legacy press spelling — a bare URL, `#quest`, `custom:` or `command:` string.
+  // canvas reads it through the same rules as `click_action`; without this entry the book
+  // fails before the mapper ever runs.
+  "click",
   "position_locked",
   "dev",
   "click_action",

@@ -516,17 +516,51 @@ function mapSimpleTargetTask(
 
 function mapFluidTask(node: SnbtNode, ctx: TaskContext): Record<string, unknown> | null {
   const out: Record<string, unknown> = { type: "tenet:fluid" };
-  const fluid = stringField(node, "fluid");
+  const stack = snbtGet(node, "fluid");
+  let fluid = stringField(node, "fluid");
+  let stackAmount: number | null = null;
+  if (fluid === null && stack !== undefined && stack.kind === "compound") {
+    // Newer packs write the fluid as a stack object ({id, amount}) rather than a bare
+    // id string beside a top-level amount: the id reads the same either way.
+    const stacked = snbtGet(stack, "id");
+    if (stacked !== undefined && stacked.kind === "string" && stacked.value !== "") {
+      fluid = stacked.value;
+    }
+    const stackedAmount = snbtGet(stack, "amount");
+    if (stackedAmount !== undefined) {
+      const parsed = integerField(stackedAmount, "amount", ctx);
+      if (parsed === null) {
+        return null;
+      }
+      stackAmount = parsed;
+    }
+  }
   if (fluid === null) {
     fail(ctx, node, "fluid", "a fluid task names no fluid");
     return null;
   }
   out["fluid"] = fluid;
-  const amount = longField(node, "amount", ctx);
-  if (amount === null) {
+  if (snbtGet(node, "amount") !== undefined) {
+    const amount = longField(node, "amount", ctx);
+    if (amount === null) {
+      return null;
+    }
+    out["amount"] = amount;
+  } else if (stackAmount !== null) {
+    // The stack carries the only amount stated: it is the task's amount, named aloud.
+    ctx.report.note({
+      code: "fluid-stack-amount",
+      message: `a ${ctx.questId} task sets no amount; the fluid stack's ${stackAmount} carries it`,
+      path: ctx.chapter,
+      line: node.line,
+      key: "amount",
+      value: stackAmount,
+    });
+    out["amount"] = stackAmount;
+  } else {
+    fail(ctx, node, "amount", `a ${ctx.questId} task names no amount`);
     return null;
   }
-  out["amount"] = amount;
   mapManual(node, ctx, out, true);
   return finishTask(node, ctx, out);
 }
