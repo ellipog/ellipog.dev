@@ -118,9 +118,10 @@ export default function AlternativePage() {
               and validated against a published JSON Schema on <span className="mono">/tenet reload</span>.
             </p>
             <p>
-              Progress is server-authoritative, and parties are your existing parties: Tenet reads FTB Teams
-              when it is installed, then Open Parties and Claims, then its own stored fallback — no re-forming,
-              no migration step for teams. The quest book renders full EMI pages (with JEI/REI fallback), chapters
+              Progress is server-authoritative, and parties need no party mod: Armature ships its own
+              world-persisted parties, and only reads FTB Teams or Open Parties and Claims when one is installed
+              and actually holds parties — your existing parties carry over with no re-forming, no migration step
+              for teams. The quest book renders full EMI pages (with JEI/REI fallback), chapters
               can be edited in game with per-chapter undo, and counting is per-party: one member, pooled, or
               owner-only. On NeoForge, KubeJS scripts can drive quests directly. Still surveying the field?{' '}
               <a href="/minecraft-questing-mods/">Every questing mod, compared</a>.
@@ -140,7 +141,7 @@ export default function AlternativePage() {
             rows={[
               ['quest files', 'SNBT (data.snbt)', 'JSON in config/tenet/quests/'],
               ['editing', 'in-game editor', 'in-game editor, per-chapter undo'],
-              ['team play', 'FTB Teams parties', 'same parties — FTB Teams, then OPAC, then stored'],
+              ['team play', 'FTB Teams parties', 'your parties — or built-in ones, no party mod needed'],
               ['editions', 'separate Forge, Fabric, NeoForge editions', 'one mod: Fabric + NeoForge'],
               ['recipe viewers', 'EMI / JEI / REI', 'full EMI pages, JEI/REI fallback'],
               ['scripting', 'KubeJS on all loaders', 'KubeJS on NeoForge'],
@@ -218,9 +219,10 @@ export default function AlternativePage() {
               versions stay on FTB Quests.
             </p>
             <p>
-              <strong>Do my FTB teams carry over?</strong> Yes — keep FTB Teams (or Open Parties and Claims)
-              installed and Tenet reads those parties automatically, in that order, before its own stored
-              fallback. Counting is per party: one member by default, pooled, or owner-only FTB-style. The{' '}
+              <strong>Do my FTB teams carry over?</strong> Both ways. Keep FTB Teams (or Open Parties and
+              Claims) installed and Tenet reads those parties automatically — or install no party mod at all and
+              Armature keeps its own world-persisted parties instead. Counting is per party: one member by
+              default, pooled, or owner-only FTB-style. The{' '}
               <a href="https://ellipog.dev/docs/armature/api/teams/" target="_blank" rel="noreferrer noopener">
                 team resolution order
               </a>{' '}
