@@ -688,17 +688,6 @@ export default function MigratorPage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">Switching from FTB Quests?</span>
-          <span className="faint mono"><a href="/ftb-quests-alternative/">Tenet as the alternative →</a></span>
-        </div>
-        <div className="band-head">
-          <span className="label">Surveying questing mods?</span>
-          <span className="faint mono"><a href="/minecraft-questing-mods/">every option, compared →</a></span>
-        </div>
-      </section>
-
-      <section className="band">
-        <div className="band-head">
           <span className="label">Mapping reference</span>
           <span className="faint mono"><a href="/reference/">every FTB field and its Tenet home →</a></span>
         </div>

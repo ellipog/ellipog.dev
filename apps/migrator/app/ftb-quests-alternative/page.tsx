@@ -122,7 +122,8 @@ export default function AlternativePage() {
               when it is installed, then Open Parties and Claims, then its own stored fallback — no re-forming,
               no migration step for teams. The quest book renders full EMI pages (with JEI/REI fallback), chapters
               can be edited in game with per-chapter undo, and counting is per-party: one member, pooled, or
-              owner-only. On NeoForge, KubeJS scripts can drive quests directly.
+              owner-only. On NeoForge, KubeJS scripts can drive quests directly. Still surveying the field?{' '}
+              <a href="/minecraft-questing-mods/">Every questing mod, compared</a>.
             </p>
           </div>
         </div>
