@@ -13,8 +13,8 @@ export const metadata: Metadata = {
 
 /*
  * Same pattern as the sibling pages: WebPage + BreadcrumbList, absolute URLs
- * throughout. Ranked how the page ranks them — actively maintained for modern
- * versions first — and the ranking criteria are stated on the page itself.
+ * throughout. No ranking imposed — the page presents each option with who it
+ * fits, and the choosing criteria are stated on the page itself.
  */
 const STRUCTURED_DATA = {
   '@context': 'https://schema.org',
@@ -46,21 +46,21 @@ export default function QuestingModsPage() {
         <h1>Minecraft questing mods.</h1>
         <p className="sub">
           Every serious questing mod for modern Minecraft on one page: what each one is for, and which pack
-          should pick it. Tenet is ours — the ranking below says so where it matters.
+          should pick which. Tenet is ours — the page says so where it matters.
         </p>
       </section>
 
       <section className="band">
         <div className="band-head">
-          <span className="label">How this is ranked</span>
-          <span className="faint mono">the criteria, stated</span>
+          <span className="label">How to pick</span>
+          <span className="faint mono">choosing, not ranking</span>
         </div>
         <div className="refwrap">
           <div className="prose">
             <p>
-              Maintained for current versions first, loader coverage second, migration path third. A mod nobody
-              maintains can still be the right answer for an old pack — and the wrong answer for a new one.
-              Last updated October 2026.
+              Maintained for current versions, loader coverage, migration path. A mod nobody maintains can
+              still be the right answer for an old pack — and the wrong answer for a new one. Last updated
+              October 2026.
             </p>
           </div>
         </div>
@@ -68,7 +68,7 @@ export default function QuestingModsPage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">1 · FTB Quests</span>
+          <span className="label">FTB Quests</span>
           <span className="faint mono">the incumbent</span>
         </div>
         <div className="refwrap">
@@ -89,7 +89,7 @@ export default function QuestingModsPage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">2 · Tenet</span>
+          <span className="label">Tenet</span>
           <span className="faint mono">ours — for new 1.21.1 packs</span>
         </div>
         <div className="refwrap">
@@ -112,7 +112,7 @@ export default function QuestingModsPage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">3 · The legacy options</span>
+          <span className="label">The legacy options</span>
           <span className="faint mono">for old packs only</span>
         </div>
         <div className="refwrap">
