@@ -18,6 +18,7 @@ gradients, no webfonts. Nothing that can fail to load at screenshot time.
 | `tenet-migrator.html` | `out/tenet-migrator.png` | Mid-page CTA on **Tenet's** pages only: FTB Quests → migrator funnel |
 | `bisect.html` | `out/bisect.png` | Bottom of descriptions: BisectHosting affiliate banner |
 | `discord.html` | `out/discord.png` (1920×180) | Directly above bisect: Discord community strip |
+| `studio.html` | `out/studio.png` (1920×80) | Under bisect, closes the page: studio credit strip |
 | `tenet-modrinth.md` / `armature-modrinth.md` | copy-paste | Full Modrinth bodies: banners + copy, Alt text included, CTAs link-wrapped |
 
 `out/` is where exports land. It is not committed. Upload the PNG through

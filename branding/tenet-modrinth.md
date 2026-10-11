@@ -40,5 +40,5 @@ Underneath, it is all JSON: `config/tenet/quests/`, one folder per group, one fi
 
 - [Manual](https://ellipog.dev/docs/tenet) · [Source](https://github.com/ellipog/tenet) · [Issues](https://github.com/ellipog/tenet/issues)
 
-[![Join the ellipog Discord server](https://files.catbox.moe/tcwngu.png)](https://discord.gg/uy9QFaQWR7)
 [![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://files.catbox.moe/mjxxb8.png)](https://www.bisecthosting.com/mcstellar)
+[![Engineered by Aaen Studios: aaenz.no](https://files.catbox.moe/qq1h88.png)](https://aaenz.no)

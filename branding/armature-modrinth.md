@@ -22,5 +22,5 @@ For mod developers: compile against the published artifact (see the releases pag
 
 - [Manual](https://ellipog.dev/docs/armature) · [Source](https://github.com/ellipog/armature) · [Issues](https://github.com/ellipog/armature/issues)
 
-[![Join the ellipog Discord server](https://files.catbox.moe/tcwngu.png)](https://discord.gg/uy9QFaQWR7)
 [![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://files.catbox.moe/mjxxb8.png)](https://www.bisecthosting.com/mcstellar)
+[![Engineered by Aaen Studios: aaenz.no](https://files.catbox.moe/qq1h88.png)](https://aaenz.no)

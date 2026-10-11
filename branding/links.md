@@ -11,6 +11,7 @@ the URL here. A PNG edit does not move the hosted copy.
 | tenet-migrator | https://files.catbox.moe/3sal6z.png |
 | bisect | https://files.catbox.moe/mjxxb8.png |
 | discord | https://files.catbox.moe/tcwngu.png |
+| studio | https://files.catbox.moe/qq1h88.png |
 
 ## Copy-paste
 
@@ -41,6 +42,12 @@ Discord banner (directly above the Bisect banner):
 
 ```md
 [![Join the ellipog Discord server](https://files.catbox.moe/tcwngu.png)](https://discord.gg/uy9QFaQWR7)
+```
+
+Studio banner (under the Bisect banner, closes the page):
+
+```md
+[![Engineered by Aaen Studios: aaenz.no](https://files.catbox.moe/qq1h88.png)](https://aaenz.no)
 ```
 
 ## Modrinth AI content disclosure
