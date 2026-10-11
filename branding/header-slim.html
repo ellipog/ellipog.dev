@@ -1,0 +1,120 @@
+<!doctype html>
+<!--
+  header-slim.html - slim mod header for project descriptions
+  (Modrinth / CurseForge / GitHub README).
+
+  Canvas: 1920x320 (6:1). Icon on the left, title + description on the
+  right. Nothing else - it is a header, not a poster. No versions, no
+  loader list: those live on the download page and would rot in a PNG.
+  Generic: ?mod=tenet | ?mod=armature. Defaults to tenet.
+
+  Export: open in a Chromium browser at 100% zoom, DevTools -> select
+  div.canvas -> three-dot menu -> "Capture node screenshot" -> save as
+  branding/out/header-<mod>.png (1920x320).
+
+  Embed (alt text is mandatory on Modrinth - rejection without it):
+    ![Tenet, a visual questing engine for Minecraft 1.21.1 by ellipog](header-tenet.png)
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>header-slim - ellipog branding</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #09090b;
+    --fg-muted: #52525b;
+    --fg-faint: #a1a1aa;
+    --grid-line: rgba(9, 9, 11, 0.06);
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #555;
+    display: flex; align-items: flex-start; justify-content: flex-start;
+    font-family: var(--font-sans);
+  }
+  /* The export frame. Nothing outside this box ships. */
+  .canvas {
+    width: 1920px; height: 320px; flex: none;
+    display: flex;
+    background: var(--bg);
+    background-image:
+      repeating-linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(to bottom, var(--grid-line) 0 1px, transparent 1px 48px);
+    border: 4px solid var(--fg);
+    color: var(--fg);
+    overflow: hidden;
+  }
+  .mono { font-family: var(--font-mono); }
+
+  /* Icon cell: inverted - ink ground, paper mark. The mod's own glyph is
+     a black PNG, so brightness(0) invert(1) turns it paper-white; the
+     integer 5x scale keeps its edges crisp. Same inversion the site's
+     hover states use, for the same reason: structure, not decoration. */
+  .icon-cell {
+    width: 320px; flex: none;
+    border-right: 4px solid var(--fg);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--fg);
+  }
+  .icon-cell img {
+    width: 240px; height: 240px; flex: none;
+    image-rendering: pixelated;
+    filter: brightness(0) invert(1);
+  }
+
+  /* Main cell: title over description, vertically centred. */
+  .main {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 24px 64px; gap: 10px;
+  }
+  .main h1 {
+    font-size: 68px; line-height: 1; font-weight: 800;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .desc {
+    font-size: 40px; line-height: 1.4; color: var(--fg-muted);
+    min-height: 2.8em;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="icon-cell">
+      <img id="modIcon" src="../apps/docs/public/icons/tenet.png" alt="mod icon">
+    </div>
+    <div class="main">
+      <h1 id="modName">Tenet</h1>
+      <p class="desc" id="modDesc"></p>
+    </div>
+  </div>
+
+<script>
+  // One fact per mod, from manifest.json. A mod not listed here is a mod
+  // whose banner does not exist yet - add it when the mod is certain.
+  var MODS = {
+    tenet: {
+      name: "Tenet", icon: "../apps/docs/public/icons/tenet.png",
+      desc: "A visual questing engine that ships no questlines of its own. JSON files in, a pannable canvas out.",
+      alt: "Tenet, a visual questing engine for Minecraft 1.21.1 by ellipog"
+    },
+    armature: {
+      name: "Armature", icon: "../apps/docs/public/icons/armature.png",
+      desc: "A shared library mod. One loader seam, a strict JSON reader, and a client UI toolkit.",
+      alt: "Armature, a shared library mod for Minecraft 1.21.1 by ellipog"
+    }
+  };
+  var q = new URLSearchParams(location.search);
+  var mod = MODS[q.get("mod")] || MODS.tenet;
+  document.getElementById("modIcon").src = mod.icon;
+  document.getElementById("modName").textContent = mod.name;
+  document.getElementById("modDesc").textContent = mod.desc;
+  document.title = "header-" + mod.name.toLowerCase() + " - 1920x320 - alt: " + mod.alt;
+</script>
+</body>
+</html>

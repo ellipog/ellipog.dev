@@ -1,0 +1,52 @@
+# links.md: hosted banner URLs (Catbox)
+
+The four `branding/out/` PNGs, uploaded to Catbox so one URL works in
+every description. If a banner is re-exported, re-upload it and replace
+the URL here. A PNG edit does not move the hosted copy.
+
+| Banner | URL |
+|---|---|
+| header-tenet | https://files.catbox.moe/ww3cgj.png |
+| header-armature | https://files.catbox.moe/asp22t.png |
+| tenet-migrator | https://files.catbox.moe/3sal6z.png |
+| bisect | https://files.catbox.moe/mjxxb8.png |
+| discord | https://files.catbox.moe/tcwngu.png |
+
+## Copy-paste
+
+Headers (top of the description, alt text mandatory on Modrinth):
+
+```md
+![Tenet, a visual questing engine for Minecraft 1.21.1 by ellipog](https://files.catbox.moe/ww3cgj.png)
+```
+
+```md
+![Armature, a shared library mod for Minecraft 1.21.1 by ellipog](https://files.catbox.moe/asp22t.png)
+```
+
+Migrator CTA (mid-page on Tenet's pages only. The PNG cannot be clicked,
+so the markdown wraps it in the destination):
+
+```md
+[![Coming from FTB Quests? Convert your quest books to Tenet JSON at tenet.ellipog.dev](https://files.catbox.moe/3sal6z.png)](https://tenet.ellipog.dev)
+```
+
+Bisect banner (bottom of the description):
+
+```md
+[![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://files.catbox.moe/mjxxb8.png)](https://www.bisecthosting.com/mcstellar)
+```
+
+Discord banner (directly above the Bisect banner):
+
+```md
+[![Join the ellipog Discord server](https://files.catbox.moe/tcwngu.png)](https://discord.gg/uy9QFaQWR7)
+```
+
+## Modrinth AI content disclosure
+
+For the disclosure tab on each project page. Copy-paste as-is:
+
+```
+AI tools assisted with code, version-porting, and documentation drafting. Architecture, debugging, and in-game testing are handled entirely by the maintainer.
+```

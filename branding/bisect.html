@@ -1,0 +1,106 @@
+<!doctype html>
+<!--
+  bisect.html - BisectHosting affiliate banner for project descriptions.
+
+  Canvas: 1920x400. Logo, disclosure badge, and the code CTA.
+  Facts from manifest.json: BisectHosting, "Minecraft server hosting",
+  code mcstellar, 25% off, https://www.bisecthosting.com/mcstellar.
+
+  The relationship is named IN the banner (the HOSTING PARTNER badge) and
+  must stay there - a paid link that does not declare itself is a link
+  pretending to be a recommendation. Same rule as the site's sponsor band.
+
+  Export: open in Chromium at 100% zoom, DevTools -> select div.canvas ->
+  "Capture node screenshot" -> branding/out/bisect.png.
+
+  Embed as a LINKED image, at the BOTTOM of the description (CurseForge asks
+  partnership banners to live at the bottom, civil in size):
+    [![BisectHosting Minecraft server hosting - 25 percent off with code mcstellar, affiliate link](bisect.png)](https://www.bisecthosting.com/mcstellar)
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>bisect - ellipog branding</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #09090b;
+    --fg-muted: #52525b;
+    --fg-faint: #a1a1aa;
+    --grid-line: rgba(9, 9, 11, 0.06);
+    --inv-bg: #09090b;
+    --inv-fg: #ffffff;
+    --inv-faint: rgba(255, 255, 255, 0.6);
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #555; font-family: var(--font-sans); }
+  .canvas {
+    width: 1920px; height: 400px;
+    display: flex;
+    background: var(--bg);
+    background-image:
+      repeating-linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(to bottom, var(--grid-line) 0 1px, transparent 1px 48px);
+    border: 4px solid var(--fg);
+    color: var(--fg);
+    overflow: hidden;
+  }
+  .mono { font-family: var(--font-mono); }
+
+  .main {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 40px 64px; gap: 20px;
+  }
+  .eyebrow {
+    display: flex; align-items: center; gap: 18px;
+    font-size: 26px; letter-spacing: 6px; color: var(--fg-muted);
+  }
+  .badge {
+    font-size: 24px; letter-spacing: 3px; color: var(--fg);
+    border: 2px solid var(--fg); padding: 6px 16px; white-space: nowrap;
+  }
+  h1 { font-size: 124px; line-height: 0.95; font-weight: 800; letter-spacing: -3px; }
+  /* The host's own artwork, committed at design/brand-source/ - the same
+     file the site's monochrome mark is generated from. Bleached to pure
+     black and white: the artwork is only black, near-black and one cyan
+     field, so grayscale + hard contrast lands the cyan on paper and keeps
+     the ink. (The generated monochrome glyph cannot be used here: its
+     paper knockouts point at a page variable an <img> cannot see.) */
+  .logo { width: 720px; height: auto; display: block; filter: grayscale(1) contrast(3); }
+
+  /* Inverted offer cell: ink ground, paper figures. Same construction as the
+     migrator CTA - the price is the destination, so it carries the inversion. */
+  .cta {
+    width: 600px; flex: none;
+    background: var(--inv-bg); color: var(--inv-fg);
+    display: flex; flex-direction: column;
+    align-items: flex-start; justify-content: center; gap: 20px;
+    padding: 40px 56px;
+  }
+  .cta .label { font-size: 24px; letter-spacing: 4px; color: var(--inv-faint); }
+  /* The code is the offer: literal mono, set big. Codes are case-sensitive
+     text, so it stays lowercase exactly as typed at checkout. */
+  .cta .code { font-size: 88px; line-height: 1; font-weight: 700; letter-spacing: 0; }
+  .cta .btn {
+    font-size: 30px; font-weight: 700; letter-spacing: 2px;
+    border: 3px solid var(--inv-fg); padding: 14px 28px;
+  }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="main">
+      <img class="logo" src="../design/brand-source/bisecthosting.svg" alt="BisectHosting">
+      <div class="eyebrow mono"><span class="badge">HOSTING PARTNER</span><span class="url">bisecthosting.com/mcstellar</span></div>
+    </div>
+    <div class="cta mono">
+      <span class="label">USE CODE:</span>
+      <span class="code">mcstellar</span>
+      <span class="btn">GET 25% OFF &#8599;</span>
+    </div>
+  </div>
+</body>
+</html>

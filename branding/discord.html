@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  discord.html - slim community banner for project descriptions. Sits
+  directly above bisect.png: Discord first, sponsor last.
+
+  Canvas: 1920x180. One centred column: the Discord mark beside
+  the headline and invite. The mark is Simple Icons' Discord glyph
+  (CC0), committed at branding/assets/discord.svg in site ink.
+
+  Export: open in Chromium at 100% zoom, DevTools -> select div.canvas ->
+  "Capture node screenshot" -> branding/out/discord.png.
+
+  Embed as a LINKED image, directly above the Bisect banner:
+    [![Join the ellipog Discord server for questions, help, and update pings: discord.gg/uy9QFaQWR7](discord.png)](https://discord.gg/uy9QFaQWR7)
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>discord - ellipog branding</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #09090b;
+    --fg-muted: #52525b;
+    --grid-line: rgba(9, 9, 11, 0.1);
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #555; font-family: var(--font-sans); }
+  .canvas {
+    width: 1920px; height: 180px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    background: var(--bg);
+    border: 4px solid var(--fg);
+    color: var(--fg);
+    overflow: hidden;
+  }
+  /* The blueprint grid lives on its own layer so it can dissolve toward
+     the middle: full at the top-left and bottom-right corners, blank
+     white behind the lockup. Same 48px density as bisect.html so the
+     two stack as one surface. Two corner radials composited as a union:
+     fade in from each corner, out to blank in the middle. */
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(to bottom, var(--grid-line) 0 1px, transparent 1px 48px);
+    -webkit-mask-image:
+      radial-gradient(ellipse 650px 320px at 0% 0%, black 0%, transparent 72%),
+      radial-gradient(ellipse 650px 320px at 100% 100%, black 0%, transparent 72%);
+    -webkit-mask-composite: source-over;
+    mask-image:
+      radial-gradient(ellipse 650px 320px at 0% 0%, black 0%, transparent 72%),
+      radial-gradient(ellipse 650px 320px at 100% 100%, black 0%, transparent 72%);
+    mask-composite: add;
+  }
+  .lockup { position: relative; }
+  .mono { font-family: var(--font-mono); }
+
+  /* One centred lockup: mark, headline, invite. No grid, no second cell -
+     at this height a lockup reads; a layout shouts. */
+  .lockup {
+    display: flex; align-items: center; gap: 36px;
+  }
+  .lockup img { width: 104px; height: 104px; flex: none; }
+  .lockup .words { display: flex; flex-direction: column; gap: 4px; }
+  .lockup h1 { font-size: 60px; line-height: 1; font-weight: 800; letter-spacing: -1px; }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="grid" aria-hidden="true"></div>
+    <div class="lockup">
+      <img src="assets/discord.svg" alt="Discord">
+      <div class="words">
+        <h1>Join the Discord</h1>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

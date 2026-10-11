@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  tenet-migrator.html - CTA banner for Tenet's project pages, guiding
+  FTB Quests players to the client-side migrator.
+
+  Canvas: 1920x480 (4:1), same frame as header-slim so the two stack cleanly.
+
+  Export: open in Chromium at 100% zoom, DevTools -> select div.canvas ->
+  "Capture node screenshot" -> branding/out/tenet-migrator.png.
+
+  Embed as a LINKED image (the PNG itself cannot be clicked):
+    [![Coming from FTB Quests? Convert your quest books to Tenet JSON at tenet.ellipog.dev](tenet-migrator.png)](https://tenet.ellipog.dev)
+
+  Place mid-page on Tenet's Modrinth / CurseForge description, above the
+  quests documentation. Not on Armature's page - it is Tenet's funnel.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tenet-migrator - ellipog branding</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #09090b;
+    --fg-muted: #52525b;
+    --fg-faint: #a1a1aa;
+    --grid-line: rgba(9, 9, 11, 0.06);
+    --inv-bg: #09090b;
+    --inv-fg: #ffffff;
+    --inv-faint: rgba(255, 255, 255, 0.6);
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #555; font-family: var(--font-sans); }
+  .canvas {
+    width: 1920px; height: 480px;
+    display: flex;
+    background: var(--bg);
+    background-image:
+      repeating-linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(to bottom, var(--grid-line) 0 1px, transparent 1px 48px);
+    border: 4px solid var(--fg);
+    color: var(--fg);
+    overflow: hidden;
+  }
+  .mono { font-family: var(--font-mono); }
+
+  .main {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 40px 64px; gap: 12px;
+  }
+  .eyebrow { font-size: 26px; letter-spacing: 6px; color: var(--fg-muted); }
+  h1 { font-size: 88px; line-height: 1; font-weight: 800; letter-spacing: -2px; }
+  .desc { font-size: 30px; line-height: 1.35; color: var(--fg-muted); max-width: 1050px; }
+  .meta { display: flex; align-items: center; gap: 20px; font-size: 26px; color: var(--fg-muted); margin-top: 6px; }
+  .chip { border: 2px solid var(--fg); color: var(--fg); padding: 6px 16px; white-space: nowrap; }
+
+  /* Inverted CTA cell: the inversion is structure, not decoration - the one
+     place on the banner allowed to be ink, so the destination reads as the
+     destination. Same construction as the site's hover inversion. */
+  .cta {
+    width: 600px; flex: none;
+    background: var(--inv-bg); color: var(--inv-fg);
+    display: flex; flex-direction: column;
+    align-items: flex-start; justify-content: center; gap: 26px;
+    padding: 40px 56px;
+  }
+  .cta .label { font-size: 24px; letter-spacing: 4px; color: var(--inv-faint); }
+  .cta .url {
+    font-size: 50px; font-weight: 800; letter-spacing: -1px;
+    text-decoration: underline; text-decoration-thickness: 4px;
+    text-underline-offset: 10px;
+  }
+  .cta .btn {
+    font-size: 32px; font-weight: 700; letter-spacing: 2px;
+    border: 3px solid var(--inv-fg); padding: 14px 28px;
+  }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="main">
+      <div class="eyebrow mono">FTB QUESTS &rarr; TENET</div>
+      <h1>Coming from FTB Quests?</h1>
+      <p class="desc">Convert your quest books to Tenet JSON. Drop in your FTB files and get a Tenet tree out in one click - chapters, quests and rewards included.</p>
+      <div class="meta mono">
+        <span class="chip">SNBT &rarr; JSON</span>
+      </div>
+    </div>
+    <div class="cta mono">
+      <span class="label">CONVERT YOUR BOOKS</span>
+      <span class="url">tenet.ellipog.dev</span>
+      <span class="btn">START CONVERTING &#8599;</span>
+    </div>
+  </div>
+</body>
+</html>
