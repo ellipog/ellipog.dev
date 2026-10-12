@@ -381,7 +381,17 @@ if (existsSync(SHOWCASE)) {
  */
 const tenetIndex = read(`${OUT}/docs/tenet/index.html`);
 if (tenetIndex) {
-  check('authored page: callout from a GFM alert', tenetIndex.includes('callout-note'));
+  /*
+   * The callout assertion reads quest-files, not the section front page.
+   *
+   * It used to read the Tenet index, whose version NOTE was its only alert — until that note was
+   * deleted as stale (it still said 0.2.0) and unwanted, leaving the front page with no alert at
+   * all. An assertion that fails because the fixture lost its only callout is asserting the fixture,
+   * not the transform, so the callout half of this block reads the quest-folder page, which carries
+   * NOTE, WARNING and CAUTION alerts by design. Everything else here still reads the front page.
+   */
+  const tenetCallouts = read(`${OUT}/docs/tenet/authoring/quest-files/index.html`);
+  check('authored page: callout from a GFM alert', Boolean(tenetCallouts) && tenetCallouts.includes('callout-note'));
   check('authored page: h2 carries an anchor', tenetIndex.includes('class="heading-anchor"'));
   check('authored page: table renders', tenetIndex.includes('<table'));
   // The wrapper is what keeps a wide table scrollable without breaking its column alignment.
