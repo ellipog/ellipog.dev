@@ -16,6 +16,15 @@ type Sponsor = Cell & {
   code: string;
   discount: string;
   badge?: { label: string; note?: string };
+  /**
+   * Full-colour artwork for the host's own mark, e.g. `/brand/bisecthosting-color.svg`.
+   *
+   * The host's brand rules do not allow a monochrome recolour, so the sponsor cell renders this
+   * file as an `<img>` in original colours on a paper plate — the one exception to the inline
+   * monochrome `<BrandMark>` the tip jar still uses. `logo` stays as the generated monochrome
+   * glyph (pipeline output, kept committed); this is what actually renders.
+   */
+  logoColor?: string;
 };
 
 /**
@@ -89,14 +98,15 @@ export function SponsorBanner() {
  * 2. **`rel="sponsored"`** on the link. That is the correct value for a paid or affiliate link, and it is
  *    what search engines expect; `noreferrer noopener` come along for the same reason they do on every
  *    outbound link here. **The cell beside this one deliberately does not carry it** — see `SupportCell`.
- * 3. **The mark is inlined by `<BrandMark>`, not loaded as an `<img>`.** It takes its ink from
- *    `currentColor` and its knockouts from `var(--icon-ground)`, neither of which an `<img>` can see.
- *    `components/brand-mark.tsx` has the full reason; the short version is that an image would be black on
- *    a dark page with its hexagon filled in, and would look fine in light mode.
- * 4. **`alt=""` is not needed on the mark** because it is an `<svg aria-hidden>`. The host is named in
- *    text twice over regardless — the CTA carries its domain, and the section's own `aria-label` names it
- *    — so a screen reader does not need the mark to know whose band this is. It used to be `alt=""` on two
- *    `<img>`s for the same reason.
+ * 3. **The mark is a full-colour `<img>` on a paper plate, not the inline monochrome glyph.**
+ *    The host's brand rules do not allow a black-and-white recolour, so this cell renders
+ *    `s.logoColor` in original colours. An `<img>` is a separate document with no access to the
+ *    page's CSS, which is exactly what full-colour artwork wants — nothing to resolve, nothing
+ *    to invert. The plate behind it stays paper on hover (see global.css), so the black wordmark
+ *    stays legible in both themes. The tip jar beside it still uses inline `<BrandMark>`.
+ * 4. **`alt` names the host on the image**, because unlike the inline glyph this one is readable
+ *    content rather than `aria-hidden` decoration. The section's `aria-label` names it too, so a
+ *    screen reader gets the region label either way.
  *
  * **It is a `<section>` rather than a `<div>`**, so it appears in a screen reader's landmark list as a
  * region called "Sponsored" and the reader can skip it deliberately, which a plain div would not allow.
@@ -111,7 +121,18 @@ function SponsorCell({ s }: { s: Sponsor }) {
      */
     <section className="sponsor" aria-label={`Sponsored: ${s.name}`}>
       <a className="sponsor-link" href={s.url} target="_blank" rel="sponsored noreferrer noopener">
-        <BrandMark entry={s} />
+                {/* Full-colour host artwork on a paper plate — see the note above. Width/height reserve
+            the manifest's box so nothing shifts; the plate in global.css keeps it legible in both
+            themes and out of the row's hover inversion. */}
+        <span className="sponsor-plate">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={s.logoColor ?? s.logo}
+            alt={s.name}
+            width={s.logoWidth ?? 123}
+            height={s.logoHeight ?? 41}
+          />
+        </span>
 
         <span className="sponsor-copy">
           {/*

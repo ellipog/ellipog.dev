@@ -2031,11 +2031,33 @@ a:focus-visible > .arrow {
   color: inherit;
 }
 
-/* A hovered cell inverts its ground, so the mark's knockouts move with it — both cells, because both
-   marks carry the field this token colours: the host's hexagon interior, and Ko-fi's own capsule. */
-.sponsor-link:hover .brand-mark,
+/* A hovered cell inverts its ground, so the tip jar's knockouts move with it. The sponsor cell
+   no longer has an inline mark — its full-colour plate below deliberately stays paper. */
 .support-link:hover .brand-mark {
   --icon-ground: var(--inv-bg);
+}
+
+/*
+ * THE SPONSOR'S PLATE: full-colour host artwork on its own ground.
+ *
+ * The host's brand rules forbid a monochrome recolour, so the mark renders in original colours
+ * (black wordmark, cyan hexagon) as an `<img>` — a separate document that sees no page CSS and
+ * inverts with nothing. Black on the row's hover ink would be illegible in both themes, so the
+ * plate carries fixed paper behind it and keeps it through the hover: the row inverts around the
+ * plate, the plate does not invert with the row. Hard corners like everything else here, small
+ * padding so the plate reads as a mount rather than a button, and `flex: none` so the artwork's
+ * own 123x41 box is what sizes it.
+ */
+.sponsor-plate {
+  flex: none;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  padding: 6px 10px;
+}
+
+.sponsor-plate img {
+  display: block;
 }
 
 .sponsor-copy,

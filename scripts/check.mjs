@@ -1303,30 +1303,63 @@ if (sponsor) {
   );
 
   /*
-   * The mark is monochrome and inline, which is the whole point of the transform.
+   * The tip jar's mark is monochrome and inline, which is the whole point of the transform.
+   * (Reversal 2026-10-12: the sponsor cell renders full-colour `bisecthosting-color.svg` as an
+   * `<img>` — the host's brand rules forbid a monochrome recolour — so the assertions split: the
+   * monochrome ones below read the tip jar's glyph, and the sponsor's artwork gets presence-of-colour
+   * assertions of its own.)
    *
    * A hex colour left in the file would render a coloured logo in a monochrome design. A surviving
    * `<style>` block is worse than cosmetic: an inline SVG's styles are **document-scoped**, so
    * `.cls-1 { fill: #000 }` would leak into the entire page. Both are invisible in a screenshot until
    * something else on the page loses its colour.
    */
-  const brandSvg = existsSync('apps/docs/public/brand/bisecthosting.svg')
-    ? readFileSync('apps/docs/public/brand/bisecthosting.svg', 'utf8')
+  check(
+    'the full-colour sponsor artwork is in the repo',
+    existsSync('apps/docs/public/brand/bisecthosting-color.svg'),
+    'apps/docs/public/brand/bisecthosting-color.svg',
+  );
+  check(
+    'the full-colour sponsor artwork is copied into the build',
+    existsSync(`${OUT}/brand/bisecthosting-color.svg`),
+  );
+  const sponsorSvg = existsSync('apps/docs/public/brand/bisecthosting-color.svg')
+    ? readFileSync('apps/docs/public/brand/bisecthosting-color.svg', 'utf8')
+    : '';
+
+  check(
+    'the sponsor artwork keeps its brand colour',
+    /03ddff/i.test(sponsorSvg),
+    'cyan hexagon present, not mapped to the ground',
+  );
+  check(
+    'the sponsor artwork is the approved source verbatim',
+    /<style/i.test(sponsorSvg),
+    'copied from design/brand-source without recolouring',
+  );
+
+  const brandSvg = existsSync('apps/docs/public/brand/kofi.svg')
+    ? readFileSync('apps/docs/public/brand/kofi.svg', 'utf8')
     : '';
 
   check('the brand mark is monochrome', !/#[0-9a-f]{6}\b/i.test(brandSvg), 'no hex colours');
   check('it carries no <style> block', !/<style/i.test(brandSvg), 'classes are folded into fill attributes');
   check('it takes its colour from the text', brandSvg.includes('currentColor'), 'currentColor');
   check('its knockouts use the ground token', brandSvg.includes('var(--icon-ground)'), 'var(--icon-ground)');
-  // `#03ddff` is the hexagon's interior field, not a tone — mapped to the ground so the mark is two-value.
-  check('the brand colour is the ground, not a tone', !/03ddff/i.test(brandSvg), 'cyan mapped to the ground');
+  // `#03ddff` lives in the sponsor's full-colour artwork now (asserted present above) — the tip
+  // jar's glyph carries no brand cyan, so there is nothing to map here.
 
   check(
     'the mark is inlined, not an <img>',
     /<svg class="brand-mark"/.test(home),
     'an <img> could not see the page CSS',
   );
-  check('no brand asset is loaded as an <img>', !/<img[^>]*brand\//.test(home));
+  check('no brand asset except the sponsor artwork is loaded as an <img>', !/<img[^>]*(?:kofi\.svg|bisecthosting\.svg)(?!-color)/.test(home));
+  check(
+    'the sponsor artwork renders as a labelled image',
+    /<img[^>]*brand\/bisecthosting-color\.svg[^>]*alt="BisectHosting"/.test(home),
+    'full-colour <img> with the host name as alt',
+  );
 
   /*
    * The two variants and the four CSS rules that switched between them are gone. Asserted rather than
@@ -1491,11 +1524,13 @@ if (support) {
     `${support.logoWidth} x ${support.logoHeight} — the size the manifest gives, not one the component chose`,
   );
 
-  /* Two marks in the band now, so the "one is inlined" assertion above is not the whole story. */
+  /* Reversal 2026-10-12: only the tip jar inlines its mark now. The sponsor cell renders
+   * full-colour artwork as an `<img>` (asserted above), so "both inline" is one inline plus one image. */
   check(
-    'both cells inline their own mark',
-    (home?.match(/<svg class="brand-mark"/g) ?? []).length === 2,
-    `${(home?.match(/<svg class="brand-mark"/g) ?? []).length} inline mark(s)`,
+    'the tip jar inlines its mark while the sponsor renders artwork',
+    (home?.match(/<svg class="brand-mark"/g) ?? []).length === 1 &&
+      /<img[^>]*brand\/bisecthosting-color\.svg/.test(home ?? ''),
+    'one inline mark plus the full-colour sponsor image',
   );
 
   /*
