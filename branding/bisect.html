@@ -64,12 +64,13 @@
   }
   h1 { font-size: 124px; line-height: 0.95; font-weight: 800; letter-spacing: -3px; }
   /* The host's own artwork, committed at design/brand-source/ - the same
-     file the site's monochrome mark is generated from. Bleached to pure
-     black and white: the artwork is only black, near-black and one cyan
-     field, so grayscale + hard contrast lands the cyan on paper and keeps
-     the ink. (The generated monochrome glyph cannot be used here: its
-     paper knockouts point at a page variable an <img> cannot see.) */
-  .logo { width: 720px; height: auto; display: block; filter: grayscale(1) contrast(3); }
+     file the site's monochrome mark is generated from. Shown here in
+     ORIGINAL FULL COLOUR: BisectHosting's brand rules don't allow a pure
+     black-and-white recolour, so there is deliberately no
+     grayscale/contrast filter on this banner. (The generated monochrome
+     glyph cannot be used here anyway: its paper knockouts point at a page
+     variable an <img> cannot see.) */
+  .logo { width: 720px; height: auto; display: block; }
 
   /* Inverted offer cell: ink ground, paper figures. Same construction as the
      migrator CTA - the price is the destination, so it carries the inversion. */
