@@ -67,7 +67,7 @@ import {
 } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
-import { SITE, USE_PINS, materialise } from './lib/repos.mjs';
+import { SITE, USE_PINS, defaultVersion, materialise, materialiseVersion, versionsOf } from './lib/repos.mjs';
 import { generatedGlossary, glossarySources, mergeGlossaries } from './lib/glossary.mjs';
 
 const CONTENT = join(SITE, 'apps', 'docs', 'content', 'docs');
@@ -162,37 +162,51 @@ function markdownFiles(dir) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Every page the site will have, keyed by `mod:slug-path`.
+ * Every page the site will have, keyed by `mod@version:slug-path`.
  *
  * `index` maps to the section root, so `[[armature:index]]` is the way to link to a section's front
- * page. A link with no colon is a glossary term and is not looked up here.
+ * page. A link with no colon is a glossary term and is not looked up here. Links resolve within the
+ * linking page's own version first (`resolveLink`), so each game version's manual is self-contained;
+ * only when a version genuinely lacks the target does the default version answer, and the sync log
+ * names every such fallback.
  */
 const pageIndex = new Map();
 const sections = [];
+/** Sections for older game versions. Kept apart so the glossary, the `/docs/` index and the counts
+ *  below keep meaning "the current manual", while every version still builds. */
+const versionSections = [];
+/** Cross-version link fallbacks: reported, not failed. A versioned manual linking forward is a page
+ *  the old line never had, not an authoring error — the old checkout cannot be edited to fix it. */
+const fallbacks = [];
 
 /*
  * `repoPath`, `checkoutPin` and `materialise` live in `lib/repos.mjs` now: `glossary.mjs` has to answer
  * the same "where is this mod's checkout" question, and one definition is what keeps the two honest.
  */
 
-function discover(mod) {
-  const where = materialise(mod, problems);
+function discover(mod, version) {
+  const where = materialiseVersion(mod, version, problems);
+  const at = `${mod.id}@${version.id}`;
 
   if (!where.dir) {
     return {
       mod,
+      version,
       status: 'skipped',
-      note: `no repository at ${mod.localPath}${mod.pin ? '' : ' and no pin'}`,
+      note: `no repository at ${version.localPath ?? mod.localPath}${version.pin ? '' : ' and no pin'}`,
     };
   }
 
   const docsDir = join(where.dir, mod.docsPath ?? 'docs');
   if (!existsSync(docsDir) || !statSync(docsDir).isDirectory()) {
-    return { mod, status: 'skipped', note: `no docs/ folder in ${where.source}` };
+    return { mod, version, status: 'skipped', note: `no docs/ folder in ${where.source}` };
   }
 
   const files = markdownFiles(docsDir);
-  if (files.length === 0) return { mod, status: 'skipped', note: 'docs/ is empty' };
+  if (files.length === 0) return { mod, version, status: 'skipped', note: 'docs/ is empty' };
+
+  // Unversioned URLs always show the default version; older ones live under `/docs/<mod>/<version>/`.
+  const prefix = version.default ? [mod.id] : [mod.id, version.id];
 
   const pages = [];
   for (const file of files) {
@@ -211,21 +225,21 @@ function discover(mod) {
     // at render time instead (see `descriptionOf`) — and is named in the sync log, so the gap is
     // visible where the author can close it rather than silently shipped.
     const description = declaredKey(raw, 'description');
-    const url = `/docs/${[mod.id, ...slugPath].filter(Boolean).join('/')}/`;
+    const url = `/docs/${[...prefix, ...slugPath].filter(Boolean).join('/')}/`;
 
-    const page = { file, raw, slugged, isIndex, parts, slugPath, title, description, url };
+    const page = { file, raw, slugged, isIndex, parts, slugPath, title, description, url, version: version.id };
 
     pages.push(page);
-    // Keys: the root index answers to `mod:index` and to the bare mod id, because that reads more
-    // naturally for a whole section. A nested index answers to its own folder path -- `mod:toolkit` --
+    // Keys: the root index answers to `mod@version:index` and to the bare mod id, because that reads more
+    // naturally for a whole section. A nested index answers to its own folder path -- `mod@version:toolkit` --
     // which is what keeps it addressable. Before this, every `index.md` claimed `mod:index`, so a
     // subfolder's front page silently replaced the mod's own: the link resolved, to the wrong page.
     const key = isIndex ? slugPath.join('/') || 'index' : slugPath.join('/');
-    pageIndex.set(`${mod.id}:${key}`, page);
-    if (isIndex && slugPath.length === 0) pageIndex.set(`${mod.id}:`, page);
+    pageIndex.set(`${at}:${key}`, page);
+    if (isIndex && slugPath.length === 0) pageIndex.set(`${at}:`, page);
   }
 
-  return { mod, status: 'synced', pages, repoDir: where.dir, source: where.source };
+  return { mod, version, status: 'synced', pages, repoDir: where.dir, source: where.source };
 }
 
 /* ------------------------------------------------------------------ */
@@ -238,18 +252,24 @@ function discover(mod) {
  * Returning the original text on failure means the error message can show what was written, which is
  * more use than a partially substituted line.
  */
-function resolveLink(inner, where) {
+function resolveLink(inner, where, requester) {
   const [target, label] = inner.split('|', 2);
 
   // A colon means a cross-mod link; no colon means a glossary term.
   if (target.includes(':')) {
     const [modId, rawPath] = target.split(':', 2);
     const [slugPath, anchor] = rawPath.split('#', 2);
-    const key = `${modId}:${slugPath}`;
+    const key = `${slugPath}`;
 
-    const page = pageIndex.get(key);
+    // The linking page's own version first: each game version's manual is self-contained.
+    // Only when that version genuinely lacks the target does the default version answer, and
+    // the fallback is logged below rather than failed: the old checkout is history and cannot
+    // be edited to add the missing page.
+    const own = pageIndex.get(`${modId}@${requester.version}:${key}`);
+    const page = own ?? pageIndex.get(`${modId}@${requester.fallback}:${key}`);
+    if (!own && page) fallbacks.push(`${where}: [[${target}]] -- answered by the default version`);
     if (!page) {
-      const known = [...pageIndex.keys()].filter((k) => k.startsWith(`${modId}:`)).length;
+      const known = [...pageIndex.keys()].filter((k) => k.startsWith(`${modId}@`)).length;
       problems.push(
         known === 0
           ? `${where}: [[${target}]] -- no mod "${modId}" has any pages`
@@ -283,12 +303,12 @@ function resolveLink(inner, where) {
  * fenced code block. Composing two independent text rewrites would have each of them transform the
  * other's output, and neither would know about fences.
  */
-function transformBody(markdown, where) {
+function transformBody(markdown, where, requester) {
   const lines = markdown.split('\n');
   const out = [];
   let fence = null;
 
-  const substitute = (text) => text.replace(/\[\[([^\]\n]+)\]\]/g, (_whole, inner) => resolveLink(inner, where));
+  const substitute = (text) => text.replace(/\[\[([^\]\n]+)\]\]/g, (_whole, inner) => resolveLink(inner, where, requester));
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
@@ -372,14 +392,16 @@ function folderTitle(section, dir, docsDir) {
   return index?.title ?? humanise(relative(docsDir, dir).split(sep).pop());
 }
 
-function writeMod(section) {
-  const { mod, pages } = section;
-  const out = join(CONTENT, mod.id);
+function writeMod(section, fallbackId) {
+  const { mod, version, pages } = section;
+  // Unversioned URLs always show the default version; older ones live one segment deeper.
+  const out = version.default ? join(CONTENT, mod.id) : join(CONTENT, mod.id, version.id);
+  const requester = { version: version.id, fallback: fallbackId };
 
   for (const page of pages) {
     const where = relative(resolve(SITE, '..'), page.file);
     const { body: sourceBody } = splitFrontmatter(page.raw);
-    const body = transformBody(stripLeadingHeading(sourceBody), where);
+    const body = transformBody(stripLeadingHeading(sourceBody), where, requester);
     // `maturity` and `description` are read from the source's own frontmatter; the rest is
     // generated. See declaredKey.
     const maturity = declaredKey(page.raw, 'maturity');
@@ -517,7 +539,8 @@ function main() {
   writeFileSync(join(SITE, 'apps', 'docs', 'manifest.json'), readFileSync(join(SITE, 'manifest.json'), 'utf8'));
 
   // Pass 1: discover. Nothing is written until every page is known, because a cross-mod link needs the
-  // list of targets to resolve against.
+  // list of targets to resolve against. Every game version is discovered, so links resolve within
+  // their own version; the glossary and the `/docs/` index below use the default versions only.
   const active = manifest.suite.filter((m) => m.status === 'active');
   const planned = manifest.suite.filter((m) => m.status !== 'active');
 
@@ -526,14 +549,21 @@ function main() {
       (USE_PINS ? ' — pins forced' : ''),
   );
   for (const mod of active) {
-    const section = discover(mod);
-    const mark = section.status === 'synced' ? '+' : '-';
-    const detail =
-      section.status === 'synced'
-        ? `${section.pages.length} page(s) from ${section.source}`
-        : section.note;
-    console.log(`  ${mark} ${mod.id.padEnd(10)} ${detail}`);
-    if (section.status === 'synced') sections.push(section);
+    const fallbackId = defaultVersion(mod).id;
+    for (const version of versionsOf(mod)) {
+      const section = discover(mod, version);
+      const tag = version.default ? '' : `@${version.id} `;
+      const mark = section.status === 'synced' ? '+' : '-';
+      const detail =
+        section.status === 'synced'
+          ? `${section.pages.length} page(s) from ${section.source}`
+          : section.note;
+      console.log(`  ${mark} ${mod.id.padEnd(10)} ${tag}${detail}`);
+      if (section.status !== 'synced') continue;
+      section.fallbackId = fallbackId;
+      if (version.default) sections.push(section);
+      else versionSections.push(section);
+    }
   }
   for (const mod of planned) {
     console.log(`  . ${mod.id.padEnd(10)} planned, no page -- listed in the catalog only`);
@@ -550,7 +580,7 @@ function main() {
   glossary = { terms: mergeGlossaries(glossarySources(sections), problems) };
   write(join(SITE, 'apps', 'docs', 'glossary.json'), generatedGlossary(glossary.terms));
 
-  for (const section of sections) writeMod(section);
+  for (const section of [...sections, ...versionSections]) writeMod(section, section.fallbackId);
 
   // The schemas, beside the pages: the URLs a pack's `$schema` names have to answer.
   for (const section of sections) copySchemas(section.mod);
@@ -595,8 +625,13 @@ function main() {
     return;
   }
 
-  const pages = sections.reduce((n, s) => n + s.pages.length, 0);
-  console.log(`sync: ${pages} page(s) across ${sections.length} section(s), ${usedTerms.size} term(s) referenced`);
+  const pages = [...sections, ...versionSections].reduce((n, s) => n + s.pages.length, 0);
+  const extra = versionSections.length > 0 ? ` + ${versionSections.reduce((n, s) => n + s.pages.length, 0)} versioned` : '';
+  console.log(`sync: ${pages} page(s) across ${sections.length} section(s)${extra}, ${usedTerms.size} term(s) referenced`);
+  if (fallbacks.length > 0) {
+    console.log(`sync: ${fallbacks.length} cross-version link fallback(s) (answered by the default version):`);
+    for (const fallback of fallbacks) console.log(`  ~ ${fallback}`);
+  }
 }
 
 main();

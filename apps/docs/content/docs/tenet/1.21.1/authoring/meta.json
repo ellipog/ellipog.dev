@@ -1,0 +1,16 @@
+{
+  "title": "Authoring",
+  "pages": [
+    "conditions",
+    "ftb-mapping",
+    "json-clickevent-research",
+    "kubejs",
+    "languages",
+    "quest-files",
+    "quests",
+    "rewards",
+    "tasks",
+    "templates",
+    "validation"
+  ]
+}

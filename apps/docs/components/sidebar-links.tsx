@@ -23,6 +23,13 @@ export type RailGroup = { folder: string; label: string; pages: RailLink[] };
 
 export type RailSection = { overview: RailLink | null; loose: RailLink[]; groups: RailGroup[] };
 
+/**
+ * One older game version's own rail: the version id, the URL prefix its pages live under, and the
+ * section the reader gets while inside it. A reader never walks out of the manual they are reading
+ * by following the rail.
+ */
+export type RailVersion = { id: string; label: string; prefix: string; section: RailSection };
+
 /** Page paths without their trailing slash, the way `page.url` and Next's router spell them. */
 const normalise = (path: string) => (path !== '/' ? path.replace(/\/+$/, '') : path);
 
@@ -64,26 +71,33 @@ function Group({ group, pathname }: { group: RailGroup; pathname: string }) {
   );
 }
 
-export function SidebarLinks({ section }: { section: RailSection }) {
+export function SidebarLinks({ section, versions }: { section: RailSection; versions?: RailVersion[] }) {
   const pathname = usePathname();
+
+  // The rail follows the reader across game versions: inside `/docs/<mod>/<version>/` the rail is
+  // that version's own tree, everywhere else the latest manual's. The prefix match is longest-first
+  // by construction -- a version prefix is always longer than the section root -- so no ordering
+  // between the two checks can misfire.
+  const active =
+    versions?.find((version) => pathname && isAt(pathname, version.prefix))?.section ?? section;
 
   return (
     <>
-      {section.overview || section.loose.length > 0 ? (
+      {active.overview || active.loose.length > 0 ? (
         <ul>
-          {section.overview ? (
+          {active.overview ? (
             <li>
-              <Link page={section.overview} current={isAt(pathname, section.overview.url)} />
+              <Link page={active.overview} current={isAt(pathname, active.overview.url)} />
             </li>
           ) : null}
-          {section.loose.map((page) => (
+          {active.loose.map((page) => (
             <li key={page.url}>
               <Link page={page} current={isAt(pathname, page.url)} />
             </li>
           ))}
         </ul>
       ) : null}
-      {section.groups.map((group) => (
+      {active.groups.map((group) => (
         <Group key={group.folder} group={group} pathname={pathname} />
       ))}
     </>

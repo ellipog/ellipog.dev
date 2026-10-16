@@ -21,9 +21,56 @@ type SuiteMod = {
   version?: string;
   minecraft?: string;
   loaders?: string[];
+  versions?: ModVersion[];
+};
+
+export type ModVersion = {
+  id: string;
+  minecraft?: string;
+  loaders?: string[];
+  pin?: string;
+  branch?: string;
+  localPath?: string;
+  default?: boolean;
 };
 
 export const mods = manifest.suite as SuiteMod[];
+
+/**
+ * Every documented game version of a mod, latest first.
+ *
+ * A mod without a `versions` array is one version: its own top-level fields, marked default.
+ * That keeps every reader that never heard of versions working.
+ */
+export function versionsOf(mod: SuiteMod): ModVersion[] {
+  if (Array.isArray(mod.versions) && mod.versions.length > 0) return mod.versions;
+  return [{ id: mod.minecraft ?? 'latest', minecraft: mod.minecraft, loaders: mod.loaders, default: true }];
+}
+
+/** The version unversioned URLs show: the one marked default, else the first. */
+export function defaultVersion(mod: SuiteMod): ModVersion {
+  const all = versionsOf(mod);
+  return all.find((v) => v.default) ?? all[0];
+}
+
+/**
+ * The version segment of a slug path, or undefined for the default (unversioned) version.
+ *
+ * Slugs are `[mod, ...]` for the latest manual and `[mod, <version>, ...]` for older ones, so
+ * only the second segment can ever be a version — and only when it names one of the mod's own.
+ */
+export function versionOf(slugs: string[]): string | undefined {
+  const mod = mods.find((m) => m.id === slugs[0]);
+  if (!mod || slugs.length < 2) return undefined;
+  const ids = versionsOf(mod).map((v) => v.id);
+  return ids.includes(slugs[1]) ? slugs[1] : undefined;
+}
+
+/** A mod's entry for one version: the named one, else the default. Drives the fact chips. */
+export function versionEntryOf(mod: SuiteMod, versionId: string | undefined): ModVersion {
+  const all = versionsOf(mod);
+  return all.find((v) => v.id === versionId) ?? defaultVersion(mod);
+}
 
 /**
  * Loader ids as their own names spell them.
@@ -61,11 +108,12 @@ function loaderName(id: string): string {
  * becomes a chip the eye can find without reading the row, and the loader list (which is genuinely one
  * fact expressed with a `+`) stays whole.
  */
-export function prerequisiteFacts(mod: SuiteMod | undefined): string[] {
+export function prerequisiteFacts(mod: SuiteMod | undefined, versionId?: string): string[] {
   if (!mod) return [];
+  const entry = versionEntryOf(mod, versionId);
   return [
-    mod.minecraft ? `Minecraft ${mod.minecraft}` : null,
-    mod.loaders?.length ? mod.loaders.map(loaderName).join(' + ') : null,
+    entry.minecraft ? `Minecraft ${entry.minecraft}` : null,
+    entry.loaders?.length ? entry.loaders.map(loaderName).join(' + ') : null,
     mod.version ? `${mod.name} ${mod.version}` : null,
   ].filter(Boolean) as string[];
 }
@@ -167,9 +215,23 @@ export function descriptionOf(slugs: string[]): string | undefined {
         .replace(/\\"/g, '"')
         .replace(/\\\\/g, '\\')
     : undefined;
-  if (declared) return declared;
 
-  return excerptFromMarkdown(raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ''));
+  // Older game versions qualify the sentence with their version: two manuals share most of their
+  // prose by design, and an unqualified duplicate is both a search result that cannot say which
+  // game it describes and a failure in `check.mjs`'s uniqueness assertion. The page's own lede is
+  // untouched -- the version is already named twice above it, as a fact chip and as the switcher.
+  const versionId = versionOf(slugs);
+  const qualifier = (() => {
+    if (!versionId) return '';
+    const mod = mods.find((entry) => entry.id === slugs[0]);
+    const minecraft = versionEntryOf(mod ?? { id: '', name: '', summary: '' }, versionId).minecraft;
+    return minecraft ? ` (Minecraft ${minecraft})` : ` (${versionId})`;
+  })();
+
+  if (declared) return `${declared}${qualifier}`;
+
+  const excerpt = excerptFromMarkdown(raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ''));
+  return excerpt ? `${excerpt}${qualifier}` : undefined;
 }
 
 export type Neighbour = { url: string; title: string };
@@ -207,8 +269,8 @@ const byUrl = (a: DocPage, b: DocPage) => a.url.localeCompare(b.url);
  * segment is a folder and which is a page. The generated content directory can, and it is the same tree
  * the rail is describing -- `sync.mjs` writes it, and writes a `meta.json` into every folder it makes.
  */
-function foldersOf(modId: string): string[] {
-  const dir = join(process.cwd(), 'content', 'docs', modId);
+function foldersOf(modId: string, versionId?: string): string[] {
+  const dir = join(process.cwd(), 'content', 'docs', modId, ...(versionId ? [versionId] : []));
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -217,10 +279,11 @@ function foldersOf(modId: string): string[] {
 }
 
 /** What the sync called a folder: its own page's title, or its humanised name. */
-function folderLabel(modId: string, folder: string): string {
+function folderLabel(modId: string, folder: string, versionId?: string): string {
   try {
-    const title = JSON.parse(readFileSync(join(process.cwd(), 'content', 'docs', modId, folder, 'meta.json'), 'utf8'))
-      .title;
+    const title = JSON.parse(
+      readFileSync(join(process.cwd(), 'content', 'docs', modId, ...(versionId ? [versionId] : []), folder, 'meta.json'), 'utf8'),
+    ).title;
     if (typeof title === 'string' && title !== '') return title;
   } catch {
     // A folder the sync made always has one; a hand-made tree might not, and the name is the fallback.
@@ -242,34 +305,44 @@ function folderLabel(modId: string, folder: string): string {
  * and a search result then renders a breadcrumb separator with nothing after it.
  */
 export function sectionLabelOf(slugs: string[]): string | undefined {
-  const [modId, segment] = slugs;
+  const [modId, ...rest] = slugs;
+  const versionId = versionOf(slugs);
+  const tail = versionId ? rest.slice(1) : rest;
+  const [segment] = tail;
   if (!modId || !segment) return undefined;
-  if (!foldersOf(modId).includes(segment)) return undefined;
-  return folderLabel(modId, segment);
+  if (!foldersOf(modId, versionId).includes(segment)) return undefined;
+  return folderLabel(modId, segment, versionId);
 }
 
 /**
- * One mod's pages, arranged the way the site shows them.
+ * One mod's pages for one game version, arranged the way the site shows them.
  *
  * One definition for the rail, the contents list on `/docs/` and the previous/next row, because all
  * three are answering "what order are these pages in" and three answers would drift. The order is: the
  * section's front page, the top-level pages, then one group per folder -- folders in name order, and
  * each folder's pages with its own front page first.
+ *
+ * Version folders are not groups: on a latest-version page the `1.21.1` folder is invisible, and each
+ * older version gets its own tree from its own pages. A reader never walks out of the manual they are
+ * reading by following the rail.
  */
-export function sectionTreeOf(mod: SuiteMod): SectionTree {
-  const own = source.getPages().filter((page) => page.slugs[0] === mod.id);
-  const overview = own.find((page) => page.slugs.length === 1);
+export function sectionTreeOf(mod: SuiteMod, versionId?: string): SectionTree {
+  const scope = versionId ?? null;
+  const own = source.getPages().filter((page) => page.slugs[0] === mod.id && (versionOf(page.slugs) ?? null) === scope);
+  const depth = versionId ? 2 : 1;
+  const overview = own.find((page) => page.slugs.length === depth);
   const rest = own.filter((page) => page !== overview);
 
-  const folders = foldersOf(mod.id);
-  const loose = rest.filter((page) => !folders.includes(page.slugs[1] ?? '')).sort(byUrl);
+  const seg = versionId ? 2 : 1;
+  const folders = foldersOf(mod.id, versionId);
+  const loose = rest.filter((page) => !folders.includes(page.slugs[seg] ?? '')).sort(byUrl);
 
   const groups = folders
     .map((folder) => ({
       folder,
-      label: folderLabel(mod.id, folder),
+      label: folderLabel(mod.id, folder, versionId),
       pages: rest
-        .filter((page) => page.slugs[1] === folder)
+        .filter((page) => page.slugs[seg] === folder)
         .sort((a, b) => a.slugs.length - b.slugs.length || byUrl(a, b)),
     }))
     .filter((group) => group.pages.length > 0);
@@ -282,28 +355,30 @@ export function sectionTreeOf(mod: SuiteMod): SectionTree {
  * Every section with pages, for the rail and the contents list.
  *
  * Derived from `source.getPages()` rather than from the manifest, so it lists what actually built -- a
- * mod whose sync failed does not appear, and a page cannot be listed that does not exist.
+ * mod whose sync failed does not appear, and a page cannot be listed that does not exist. Without a
+ * version this is the latest manual, which is what `/docs/` lists; pass one for an older manual.
  */
-export function sectionTrees(): SectionTree[] {
+export function sectionTrees(versionId?: string): SectionTree[] {
+  const scope = versionId ?? null;
   const pages = source.getPages();
   return mods
-    .filter((mod) => pages.some((page) => page.slugs[0] === mod.id))
-    .map(sectionTreeOf);
+    .filter((mod) => pages.some((page) => page.slugs[0] === mod.id && (versionOf(page.slugs) ?? null) === scope))
+    .map((mod) => sectionTreeOf(mod, versionId));
 }
 
 /**
- * The previous and next page *within the same mod*.
+ * The previous and next page *within the same mod and game version*.
  *
  * Scoped to the section on purpose: jumping from the last Tenet page into Armature's docs reads as
- * having fallen out of the manual rather than reached the end of it. The order is the one the rail
- * shows, from the same function, so a reader stepping through the pages walks the same path the rail
- * draws.
+ * having fallen out of the manual rather than reached the end of it -- and the same holds across
+ * game versions. The order is the one the rail shows, from the same function, so a reader stepping
+ * through the pages walks the same path the rail draws.
  */
 export function neighboursOf(slugs: string[]): { prev?: Neighbour; next?: Neighbour } {
   const mod = mods.find((entry) => entry.id === slugs[0]);
   if (!mod) return {};
 
-  const pages = sectionTreeOf(mod).ordered;
+  const pages = sectionTreeOf(mod, versionOf(slugs)).ordered;
   const index = pages.findIndex((page) => page.url === `/${['docs', ...slugs].join('/')}`);
   if (index === -1) return {};
 
@@ -311,6 +386,22 @@ export function neighboursOf(slugs: string[]): { prev?: Neighbour; next?: Neighb
     page ? { url: page.url, title: page.data.title } : undefined;
 
   return { prev: toNeighbour(pages[index - 1]), next: toNeighbour(pages[index + 1]) };
+}
+
+/**
+ * The same page in another game version, as slugs.
+ *
+ * The same path under the other version when that page exists there, else that version's overview --
+ * manuals drift, and a switcher that 404s is worse than one that lands on the section front. Returns
+ * undefined only when the other version has no pages at all, in which case there is nothing to offer.
+ */
+export function siblingOf(slugs: string[], versionId: string | undefined): string[] | undefined {
+  const [modId, ...rest] = slugs;
+  const tail = versionOf(slugs) ? rest.slice(1) : rest;
+  const target = versionId ? [modId, versionId, ...tail] : [modId, ...tail];
+  if (source.getPage(target)) return target;
+  const overview = versionId ? [modId, versionId] : [modId];
+  return source.getPage(overview) ? overview : undefined;
 }
 
 /**

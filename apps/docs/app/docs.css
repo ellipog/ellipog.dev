@@ -890,6 +890,41 @@
   white-space: nowrap;
 }
 
+/*
+ * The game-version switcher: one chip per documented version, beside the fact chips.
+ *
+ * The current version is a chip with a filled marker rather than a second style of chip: the
+ * row already has one visual language and a second would read as a second kind of fact. The
+ * others are links, and take the destination inversion every other destination here takes. The
+ * label is the row's own 11px uppercase voice, so it reads as part of the heading block like
+ * the facts do.
+ */
+.version-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s2);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.fact-current {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+a.fact-link {
+  color: var(--fg-muted);
+  text-decoration: none;
+}
+
+a.fact-link:hover {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+
 /* ------------------------------------------------------------------ */
 /* The migrator band                                                   */
 /* ------------------------------------------------------------------ */

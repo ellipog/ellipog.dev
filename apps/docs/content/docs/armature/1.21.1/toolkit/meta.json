@@ -1,0 +1,12 @@
+{
+  "title": "The client toolkit",
+  "pages": [
+    "index",
+    "layout",
+    "panels",
+    "shapes",
+    "text",
+    "themes",
+    "widgets"
+  ]
+}

@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 
 import '../docs.css';
 import { ModIcon } from '@/components/mod-icon';
-import { SidebarLinks, type RailSection } from '@/components/sidebar-links';
-import { sectionTrees, standalonePages, type DocPage } from '@/lib/docs';
+import { SidebarLinks, type RailSection, type RailVersion } from '@/components/sidebar-links';
+import { sectionTrees, standalonePages, versionsOf, sectionTreeOf, type DocPage } from '@/lib/docs';
 
 /**
  * The documentation shell: a fixed navigation rail on the left, everything else inside it.
@@ -33,29 +33,54 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
     title: label ?? page.data.title ?? page.slugs.at(-1) ?? page.url,
   });
 
-  const sections = sectionTrees().map((tree) => ({
-    id: tree.mod.id,
-    name: tree.mod.name,
-    // The section's own front page, so its name can be the way back to it. The contents list on
-    // `/docs/` already works this way -- a folder's name reaches the folder's page -- and the rail
-    // was the one place a section could be entered by URL only.
-    href: tree.overview?.url ?? null,
-    section: {
-      // The section's own front page is called "Overview" in the rail rather than by its page title.
-      // It sits under a label that already names the mod, so "Tenet" above "Tenet documentation"
-      // says the same thing twice. The page's own heading is untouched -- that one is read on its own
-      // and needs the full name. A folder's front page reads the same way, one level in.
-      overview: tree.overview ? linkOf(tree.overview, 'Overview') : null,
-      loose: tree.loose.map((page) => linkOf(page)),
-      groups: tree.groups.map((group) => ({
-        folder: group.folder,
-        label: group.label,
-        pages: group.pages.map((page) =>
-          linkOf(page, page.url === `/docs/${tree.mod.id}/${group.folder}` ? 'Overview' : undefined),
-        ),
-      })),
-    } satisfies RailSection,
-  }));
+  const sections = sectionTrees().map((tree) => {
+    return {
+      id: tree.mod.id,
+      name: tree.mod.name,
+      // The section's own front page, so its name can be the way back to it. The contents list on
+      // `/docs/` already works this way -- a folder's name reaches the folder's page -- and the rail
+      // was the one place a section could be entered by URL only.
+      href: tree.overview?.url ?? null,
+      section: {
+        // The section's own front page is called "Overview" in the rail rather than by its page title.
+        // It sits under a label that already names the mod, so "Tenet" above "Tenet documentation"
+        // says the same thing twice. The page's own heading is untouched -- that one is read on its own
+        // and needs the full name. A folder's front page reads the same way, one level in.
+        overview: tree.overview ? linkOf(tree.overview, 'Overview') : null,
+        loose: tree.loose.map((page) => linkOf(page)),
+        groups: tree.groups.map((group) => ({
+          folder: group.folder,
+          label: group.label,
+          pages: group.pages.map((page) =>
+            linkOf(page, page.url === `/docs/${tree.mod.id}/${group.folder}` ? 'Overview' : undefined),
+          ),
+        })),
+      } satisfies RailSection,
+      // Older game versions, each with its own rail. The links component shows the one matching the
+      // reader's URL and the latest everywhere else, so the rail never walks out of the manual being
+      // read. A version with no synced pages offers nothing and is left out.
+      versions: versionsOf(tree.mod)
+        .filter((version) => !version.default)
+        .map((version) => ({ version, tree: sectionTreeOf(tree.mod, version.id) }))
+        .filter(({ tree: versionTree }) => versionTree.ordered.length > 0)
+        .map(({ version, tree: versionTree }): RailVersion => ({
+          id: version.id,
+          label: version.id,
+          prefix: `/docs/${tree.mod.id}/${version.id}`,
+          section: {
+            overview: versionTree.overview ? linkOf(versionTree.overview, 'Overview') : null,
+            loose: versionTree.loose.map((page) => linkOf(page)),
+            groups: versionTree.groups.map((group) => ({
+              folder: group.folder,
+              label: group.label,
+              pages: group.pages.map((page) =>
+                linkOf(page, page.url === `/docs/${tree.mod.id}/${version.id}/${group.folder}` ? 'Overview' : undefined),
+              ),
+            })),
+          },
+        })),
+    };
+  });
 
   /**
    * Pages belonging to no mod — the glossary.
@@ -85,7 +110,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
               <ModIcon id={section.id} size="sm" />
               {section.href ? <a href={section.href}>{section.name}</a> : section.name}
             </span>
-            <SidebarLinks section={section.section} />
+            <SidebarLinks section={section.section} versions={section.versions} />
           </div>
         ))}
 

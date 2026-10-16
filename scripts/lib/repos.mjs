@@ -30,9 +30,69 @@ const CACHE = join(SITE, '.cache');
  */
 export const USE_PINS = process.env.ELLIPOG_USE_PINS === '1';
 
+/**
+ * Every documented game version of a mod, latest first.
+ *
+ * A mod without a `versions` array is one version: its own top-level pin, branch `main` and
+ * sibling checkout, marked default. That keeps every caller that never heard of versions working.
+ */
+export function versionsOf(mod) {
+  if (Array.isArray(mod.versions) && mod.versions.length > 0) return mod.versions;
+  return [
+    {
+      id: mod.minecraft ?? 'latest',
+      minecraft: mod.minecraft,
+      loaders: mod.loaders,
+      pin: mod.pin,
+      branch: 'main',
+      localPath: mod.localPath,
+      default: true,
+    },
+  ];
+}
+
+/** The version unversioned URLs show: the one marked default, else the first. */
+export function defaultVersion(mod) {
+  const versions = versionsOf(mod);
+  return versions.find((v) => v.default) ?? versions[0];
+}
+
 /** The sibling checkout a mod's `localPath` names. Not checked for existence; see `materialise`. */
 export function repoPath(mod) {
   return resolve(SITE, mod.localPath);
+}
+
+/**
+ * Where one version's documentation comes from.
+ *
+ * Only the version under active development names a sibling checkout (`localPath` on the
+ * version, falling back to the mod's for the default version): any other version always builds
+ * from its pin, even on a machine with the repositories beside it. A sibling is one checkout on
+ * one branch, so it can only ever show one version — and the pin is what makes the old
+ * version reproducible rather than whatever the working tree happens to hold.
+ *
+ * The pin lands in `.cache/<mod>-<version>`, beside `checkoutPin`'s `<mod>` rather than in it:
+ * sharing one stamp file between two commits would make the second fetch look cached.
+ */
+export function materialiseVersion(mod, version, problems) {
+  const overrideLocal = version.localPath ?? (version.default ? mod.localPath : undefined);
+  const local = overrideLocal ? resolve(SITE, overrideLocal) : null;
+  const hasLocal = local ? existsSync(local) : false;
+
+  if (version.pin && (!hasLocal || USE_PINS)) {
+    try {
+      const { dir, cached } = checkoutPin({ ...mod, id: `${mod.id}-${version.id}`, pin: version.pin });
+      return { dir, source: `${version.pin.slice(0, 7)}${cached ? ' (cached)' : ''}` };
+    } catch (err) {
+      const detail = (err.stderr ?? err.message ?? '').toString().trim().split('\n').slice(-3).join(' / ');
+      problems.push(`${mod.id}@${version.id}: could not fetch pin ${version.pin.slice(0, 7)} -- ${detail}`);
+      return { dir: null, source: null };
+    }
+  }
+
+  if (hasLocal) return { dir: local, source: overrideLocal };
+
+  return { dir: null, source: null };
 }
 
 /**

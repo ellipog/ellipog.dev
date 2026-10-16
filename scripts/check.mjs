@@ -492,7 +492,23 @@ if (existsSync(SHOWCASE)) {
    * passed, because the version string was inside the very element this check could not see.
    */
   check('the prerequisites strip renders', html.includes('class="prereq'));
-  check('prerequisites name the Minecraft version', html.includes('Minecraft 1.21.1'));
+  /*
+   * The version string comes from the manifest's default version, so it moves with the manual:
+   * pinning `Minecraft 1.21.1` here is what would freeze the site on the old line without failing.
+   * The old manual names its own version on its own pages, which is the other half of the same rule.
+   */
+  const showcaseMod = manifest.suite.find((m) => m.id === 'tenet');
+  check(
+    'prerequisites name the Minecraft version',
+    html.includes(`Minecraft ${showcaseMod.minecraft}`),
+    showcaseMod.minecraft,
+  );
+  const oldManual = read(`${OUT}/docs/tenet/1.21.1/index.html`);
+  if (oldManual) {
+    check('the old manual names its own version', oldManual.includes('Minecraft 1.21.1'), '1.21.1');
+    check('the old manual offers the switcher', oldManual.includes('class="version-switch"'), 'version-switch');
+  }
+  check('the latest manual offers the switcher', html.includes('class="version-switch"'), 'version-switch');
 
   /*
    * The loader names, spelled the way the loaders spell them.
@@ -743,6 +759,26 @@ for (const mod of pinned) {
     typeof mod.pin === 'string' && /^[0-9a-f]{40}$/.test(mod.pin),
     typeof mod.pin === 'string' ? mod.pin.slice(0, 7) : 'MISSING — a deploy would find no docs',
   );
+  // One pin per documented game version, each tracking its own branch: on a build server every
+  // version is a pin fetch, so a version without a pin is a version missing from the deploy.
+  // The top-level pin must mirror the default version's, or readers that never heard of versions
+  // describe a different commit than the site shows.
+  const versions = Array.isArray(mod.versions) && mod.versions.length > 0 ? mod.versions : [];
+  const fallback = versions.find((v) => v.default) ?? versions[0];
+  for (const version of versions) {
+    check(
+      `${mod.id}@${version.id}: has a pinned commit`,
+      typeof version.pin === 'string' && /^[0-9a-f]{40}$/.test(version.pin),
+      typeof version.pin === 'string' ? version.pin.slice(0, 7) : 'MISSING — that version would not deploy',
+    );
+  }
+  if (fallback) {
+    check(
+      `${mod.id}: top-level pin mirrors the default version`,
+      mod.pin === fallback.pin,
+      `${(mod.pin ?? '').slice(0, 7)} vs ${(fallback.pin ?? '').slice(0, 7)}`,
+    );
+  }
 }
 
 /*
@@ -2368,7 +2404,9 @@ for (const path of builtPaths) {
  *
  * `descriptionOf` resolves frontmatter first and an excerpt second, so a duplicate here means two
  * pages genuinely open with the same sentence rather than a fallback leaking through — which is a
- * copy problem to fix in the source document, not a code problem.
+ * copy problem to fix in the source document, not a code problem. The one legitimate doubling is
+ * across game versions, and `descriptionOf` qualifies those with their version, so a duplicate
+ * naming two versions is still a copy problem rather than the versioning working as intended.
  */
 {
   const empty = descriptions.filter(([, d]) => !d);

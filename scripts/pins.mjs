@@ -33,21 +33,21 @@ const write = process.argv.includes('--write');
 const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8'));
 
 /**
- * The head of a repository's default branch, read from GitHub rather than from a local clone.
+ * The head of a repository's branch, read from GitHub rather than from a local clone.
  *
  * `git ls-remote` needs no authentication for a public repository, no checkout, and no working copy —
  * which is what makes this safe to run from a workflow with nothing on disk. It returns every ref, so
- * the default branch is asked for by name; `HEAD` would also work but returns a detached name on some
+ * the branch is asked for by name; `HEAD` would also work but returns a detached name on some
  * servers and is worth avoiding for a value that goes into a committed file.
  */
-function headOf(repo) {
-  const out = execFileSync('git', ['ls-remote', repo, 'refs/heads/main'], {
+function headOf(repo, branch) {
+  const out = execFileSync('git', ['ls-remote', repo, `refs/heads/${branch}`], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   }).trim();
 
   const sha = out.split(/\s+/)[0];
-  if (!sha || !/^[0-9a-f]{40}$/.test(sha)) throw new Error(`no main branch at ${repo}`);
+  if (!sha || !/^[0-9a-f]{40}$/.test(sha)) throw new Error(`no ${branch} branch at ${repo}`);
   return sha;
 }
 
@@ -57,32 +57,50 @@ let failed = 0;
 for (const mod of manifest.suite) {
   if (!mod.repo || mod.status !== 'active') continue;
 
-  let head;
-  try {
-    head = headOf(mod.repo);
-  } catch (err) {
-    // One unreachable repository should not stop the others from being checked.
-    console.error(`  ! ${mod.id.padEnd(10)} could not read ${mod.repo} -- ${err.message.split('\n')[0]}`);
-    failed += 1;
-    continue;
+  // One pin per documented game version, each tracking its own branch; the top-level pin mirrors
+  // the default version, so every reader that never heard of versions keeps working.
+  const versions =
+    Array.isArray(mod.versions) && mod.versions.length > 0
+      ? mod.versions
+      : [{ id: mod.minecraft ?? 'latest', pin: mod.pin, branch: 'main', default: true }];
+  const fallback = versions.find((v) => v.default) ?? versions[0];
+
+  for (const version of versions) {
+    const branch = version.branch ?? 'main';
+    const tag = version.default || versions.length === 1 ? '' : `@${version.id} `;
+
+    let head;
+    try {
+      head = headOf(mod.repo, branch);
+    } catch (err) {
+      // One unreachable repository should not stop the others from being checked.
+      console.error(`  ! ${mod.id.padEnd(10)} ${tag}could not read ${mod.repo} -- ${err.message.split('\n')[0]}`);
+      failed += 1;
+      continue;
+    }
+
+    const current = version.pin;
+
+    if (current === head) {
+      console.log(`  = ${mod.id.padEnd(10)} ${tag}${head.slice(0, 7)} (already current)`);
+      continue;
+    }
+
+    changes += 1;
+
+    if (!current) {
+      console.log(`  + ${mod.id.padEnd(10)} ${tag}${head.slice(0, 7)} (no pin yet)`);
+    } else {
+      console.log(`  > ${mod.id.padEnd(10)} ${tag}${current.slice(0, 7)} -> ${head.slice(0, 7)}`);
+    }
+
+    if (write) version.pin = head;
   }
 
-  const current = mod.pin;
-
-  if (current === head) {
-    console.log(`  = ${mod.id.padEnd(10)} ${head.slice(0, 7)} (already current)`);
-    continue;
+  if (mod.pin !== fallback.pin) {
+    if (write) mod.pin = fallback.pin;
+    console.log(`  ~ ${mod.id.padEnd(10)} top-level pin now mirrors ${fallback.id ?? fallback.branch}`);
   }
-
-  changes += 1;
-
-  if (!current) {
-    console.log(`  + ${mod.id.padEnd(10)} ${head.slice(0, 7)} (no pin yet)`);
-  } else {
-    console.log(`  > ${mod.id.padEnd(10)} ${current.slice(0, 7)} -> ${head.slice(0, 7)}`);
-  }
-
-  if (write) mod.pin = head;
 }
 
 if (write && changes > 0) {

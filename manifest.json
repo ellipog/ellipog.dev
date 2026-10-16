@@ -71,12 +71,37 @@
       "issues": "https://github.com/ellipog/tenet/issues",
       "version": "1.0.0",
       "localPath": "../tenet",
-      "pin": "548d51e912b987ffe6b8b9d8396718e3c0a58c5c",
+      "pin": "487bb5ef19a72555f26c8dc4aabfc95168432183",
       "docsPath": "docs",
-      "minecraft": "1.21.1",
+      "minecraft": "26.3",
       "loaders": [
         "fabric",
         "neoforge"
+      ],
+      "/*versions": "One entry per documented game version, latest first. The top-level pin/minecraft/loaders above always describe the default (latest) version, so every existing reader keeps working. `branch` is the git branch the pin tracks, read by `bun run pins`; `localPath` names the sibling checkout and is only set on the version under active development, so any other version always builds from its pin, even on a machine with the repositories beside it. Unversioned URLs (`/docs/tenet/...`) always show the default version; older ones live under `/docs/tenet/<id>/...`. No version is ever dropped for being close to another: the whole tree is kept.",
+      "versions": [
+        {
+          "id": "26.3",
+          "minecraft": "26.3",
+          "loaders": [
+            "fabric",
+            "neoforge"
+          ],
+          "pin": "487bb5ef19a72555f26c8dc4aabfc95168432183",
+          "branch": "main",
+          "localPath": "../tenet",
+          "default": true
+        },
+        {
+          "id": "1.21.1",
+          "minecraft": "1.21.1",
+          "loaders": [
+            "fabric",
+            "neoforge"
+          ],
+          "pin": "9988589cec6d9115bd6a04d23e0d3d424256e08d",
+          "branch": "mc-1.21.1"
+        }
       ]
     },
     {
@@ -89,12 +114,37 @@
       "issues": "https://github.com/ellipog/armature/issues",
       "version": "1.0.0",
       "localPath": "../armature",
-      "pin": "b4964a2bd04f97868a50e2486b3915911addff5d",
+      "pin": "34687b9791d6d945b720083c0253c1f8f2e3d94f",
       "docsPath": "docs",
-      "minecraft": "1.21.1",
+      "minecraft": "26.3",
       "loaders": [
         "fabric",
         "neoforge"
+      ],
+      "/*versions": "One entry per documented game version, latest first. The top-level pin/minecraft/loaders above always describe the default (latest) version, so every existing reader keeps working. `branch` is the git branch the pin tracks, read by `bun run pins`; `localPath` names the sibling checkout and is only set on the version under active development, so any other version always builds from its pin, even on a machine with the repositories beside it. Unversioned URLs (`/docs/armature/...`) always show the default version; older ones live under `/docs/armature/<id>/...`. No version is ever dropped for being close to another: the whole tree is kept.",
+      "versions": [
+        {
+          "id": "26.3",
+          "minecraft": "26.3",
+          "loaders": [
+            "fabric",
+            "neoforge"
+          ],
+          "pin": "34687b9791d6d945b720083c0253c1f8f2e3d94f",
+          "branch": "main",
+          "localPath": "../armature",
+          "default": true
+        },
+        {
+          "id": "1.21.1",
+          "minecraft": "1.21.1",
+          "loaders": [
+            "fabric",
+            "neoforge"
+          ],
+          "pin": "b4964a2bd04f97868a50e2486b3915911addff5d",
+          "branch": "mc-1.21.1"
+        }
       ]
     }
   ],

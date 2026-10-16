@@ -5,8 +5,9 @@ import { Arrow } from '@/components/arrow';
 import { DocsContents } from '@/components/docs-contents';
 import { DocsFooter } from '@/components/docs-footer';
 import { TableOfContents } from '@/components/toc';
+import { VersionSelector } from '@/components/version-selector';
 import { mdxComponents } from '@/components/mdx';
-import { descriptionOf, maturityOf, neighboursOf, prerequisiteFacts, sectionLabelOf, sectionOf, tocOf } from '@/lib/docs';
+import { descriptionOf, maturityOf, neighboursOf, prerequisiteFacts, sectionLabelOf, sectionOf, tocOf, versionOf } from '@/lib/docs';
 import { SITE, absoluteUrl, social } from '@/lib/metadata';
 import { source } from '@/lib/source';
 
@@ -35,7 +36,7 @@ export default async function DocsPage({ params }: Props) {
   const isIndex = resolved.length === 0;
   const mod = sectionOf(resolved);
   const { prev, next } = neighboursOf(resolved);
-  const facts = prerequisiteFacts(mod);
+  const facts = prerequisiteFacts(mod, versionOf(resolved));
   const sectionLabel = sectionLabelOf(resolved);
 
   /*
@@ -133,7 +134,9 @@ export default async function DocsPage({ params }: Props) {
           {maturity ? <span className={`maturity maturity-${maturity}`}>{maturity}</span> : null}
         </div>
         {/* The facts, before the prose. From the manifest, so they cannot drift. One chip each,
-            because a reader is looking for a version rather than reading a sentence. */}
+            because a reader is looking for a version rather than reading a sentence. The version
+            switcher sits beside them, so the manual being read always names its game version twice:
+            once as a fact, once as the selected switch position. */}
         {facts.length > 0 ? (
           <p className="prereq">
             {facts.map((fact) => (
@@ -143,6 +146,7 @@ export default async function DocsPage({ params }: Props) {
             ))}
           </p>
         ) : null}
+        <VersionSelector slugs={resolved} />
         {page.data.description ? <p className="lede">{page.data.description}</p> : null}
 
         {/* The contents list, on the docs index only. Rendered rather than authored, so it cannot
