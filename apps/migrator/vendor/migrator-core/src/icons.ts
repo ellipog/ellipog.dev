@@ -201,6 +201,9 @@ export function componentsToJson(
 /**
  * An FTB icon (quest, chapter, group, book, task or reward) into Tenet's icon union, or null
  * when absent. Absent stays absent: the type's own picture is the default on both sides.
+ *
+ * FTB also spells a plain item icon as a bare string (`icon: "minecraft:torch"`;
+ * an empty string is FTB's no-icon). The string reads as the item it names.
  */
 export function mapIcon(
   node: SnbtNode | undefined,
@@ -210,6 +213,12 @@ export function mapIcon(
 ): IconJson | null {
   if (node === undefined) {
     return null;
+  }
+  if (node.kind === "string") {
+    if (node.value.length === 0) {
+      return null;
+    }
+    return { item: node.value };
   }
   if (node.kind !== "compound") {
     report.error({

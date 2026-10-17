@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Scratch that never ships: launch drafts, notes, anything not for the site.
+drafts/
+
 # The npm lockfile, if one is ever generated. `bun.lock` is the one that is committed -- two
 # lockfiles for one dependency tree is how a resolution difference between developers happens.
 package-lock.json

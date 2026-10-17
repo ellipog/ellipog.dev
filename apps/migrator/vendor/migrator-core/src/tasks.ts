@@ -160,6 +160,31 @@ function placeholder(
 
 function mapItemTask(node: SnbtNode, ctx: TaskContext): Record<string, unknown> | null {
   const item = snbtGet(node, "item");
+  if (item !== undefined && item.kind === "string") {
+    // FTB's shorthand: a bare id names one of the item (`item: "minecraft:torch"`).
+    // An empty string names nothing, like an absent stack.
+    if (item.value.length === 0) {
+      fail(ctx, node, "item", "an item task names no item object");
+      return null;
+    }
+    const out: Record<string, unknown> = { type: "tenet:item", item: item.value };
+    const count = taskCount(node, ctx);
+    if (count === null) {
+      return null;
+    }
+    if (count !== 1) {
+      out["count"] = count;
+    }
+    if (!mapMatch(node, ctx, out)) {
+      return null;
+    }
+    mapConsume(node, ctx, out, true);
+    if (!mapCrafting(node, ctx, out, true)) {
+      return null;
+    }
+    mapManual(node, ctx, out, true);
+    return finishTask(node, ctx, out);
+  }
   if (item === undefined || item.kind !== "compound") {
     fail(ctx, node, "item", "an item task names no item object");
     return null;

@@ -109,6 +109,24 @@ function rewardKind(node: SnbtNode): string | null {
 
 function mapItemReward(node: SnbtNode, ctx: RewardContext): Record<string, unknown> | null {
   const item = snbtGet(node, "item");
+  if (item !== undefined && item.kind === "string") {
+    // FTB's shorthand: a bare id grants one of the item (`item: "minecraft:torch"`).
+    // An empty string grants nothing, like an absent stack below.
+    if (item.value.length !== 0) {
+      const out: Record<string, unknown> = { type: "tenet:item", item: item.value };
+      const grant = grantCount(node, 0, ctx);
+      if (grant === null) {
+        return null;
+      }
+      if (grant !== 1) {
+        out["count"] = grant;
+      }
+      if (readBool(node, "only_one", false, ctx)) {
+        out["onlyOne"] = true;
+      }
+      return out;
+    }
+  }
   if (item === undefined || item.kind !== "compound") {
     // An item reward with no stack grants nothing in FTB (empty hands stay empty), so
     // there is nothing to carry: it drops with a note naming the count it orphaned, if
@@ -216,6 +234,22 @@ function mapCommandReward(node: SnbtNode, ctx: RewardContext): Record<string, un
     return null;
   }
   out["command"] = rewriteCommand(command, ctx.ids, ctx.slugs, ctx.report, ctx.chapter, node.line, `a command of quest ${ctx.questId}`);
+  // FTB's default is console execution; Tenet runs reward commands as the
+  // collecting player, always. True is Tenet's own reading (nothing to say);
+  // anything else names whose hands changed, because a console ponder and a
+  // player ponder open for different people.
+  if (!readBool(node, "player_command", false, ctx)) {
+    // Tenet runs reward commands as the collecting player, always: a console
+    // execution has no Tenet reading, so the reward keeps the command and says
+    // whose hands it changed. A ponder opening for the collector reads the same.
+    ctx.report.note({
+      code: "player-command-console",
+      message: `a command reward of quest ${ctx.questId} ran from the console in FTB; in Tenet it runs as the collecting player`,
+      path: ctx.chapter,
+      line: node.line,
+      key: "player_command",
+    });
+  }
   const level = snbtGet(node, "permission_level");
   if (level !== undefined) {
     const value = integerField(level, ctx, "permission_level");

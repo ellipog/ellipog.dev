@@ -226,6 +226,7 @@ export const REWARD_KEYS: ReadonlySet<string> = new Set([
   "disable_toast",
   "silent",
   "permission_level",
+  "player_command",
   "command",
   "feedback_message",
   "table_id",

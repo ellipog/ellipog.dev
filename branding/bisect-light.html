@@ -1,0 +1,91 @@
+<!doctype html>
+<!--
+  bisect-light.html - white-outlined version for DARK grounds.
+
+  Same 1920x400 canvas and CTA — but nothing solid: transparent canvas,
+  white 4px outer outline, white text, transparent CTA with white button
+  outline. No solid white fill anywhere. Logo stays full-colour original
+  (brand rules) on transparency inside a thin white-hairline plate.
+
+  Export: chrome --headless --screenshot --window-size=1920,400
+    --default-background-color=00000000 bisect-light.html
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>bisect light - ellipog branding</title>
+<style>
+  :root {
+    --paper: #ffffff;
+    --paper-faint: rgba(255, 255, 255, 0.6);
+    --paper-mute: rgba(255, 255, 255, 0.75);
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; }
+  body { font-family: var(--font-sans); }
+  .canvas {
+    width: 1920px; height: 400px;
+    display: flex;
+    background: transparent;
+    border: 4px solid var(--paper);
+    color: var(--paper);
+    overflow: hidden;
+  }
+  .mono { font-family: var(--font-mono); }
+
+  .main {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 40px 64px; gap: 20px;
+  }
+  .eyebrow {
+    display: flex; align-items: center; gap: 18px;
+    font-size: 26px; letter-spacing: 6px; color: var(--paper-mute);
+  }
+  .badge {
+    font-size: 24px; letter-spacing: 3px; color: var(--paper);
+    border: 2px solid var(--paper); padding: 6px 16px; white-space: nowrap;
+  }
+  /* Full-colour original artwork (brand rules) on transparency with a
+     thin white hairline around the plate — no solid fill. */
+  .logo-plate {
+    background: transparent;
+    border: 2px solid var(--paper);
+    padding: 12px 16px;
+    display: inline-block;
+  }
+  .logo { width: 688px; height: auto; display: block; }
+
+  /* Transparent offer cell: white figures, white button outline. */
+  .cta {
+    width: 600px; flex: none;
+    background: transparent; color: var(--paper);
+    border-left: 2px solid var(--paper);
+    display: flex; flex-direction: column;
+    align-items: flex-start; justify-content: center; gap: 20px;
+    padding: 40px 56px;
+  }
+  .cta .label { font-size: 24px; letter-spacing: 4px; color: var(--paper-faint); }
+  .cta .code { font-size: 88px; line-height: 1; font-weight: 700; letter-spacing: 0; }
+  .cta .btn {
+    font-size: 30px; font-weight: 700; letter-spacing: 2px;
+    border: 3px solid var(--paper); padding: 14px 28px;
+  }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="main">
+      <span class="logo-plate"><img class="logo" src="../design/brand-source/bisecthosting.svg" alt="BisectHosting"></span>
+      <div class="eyebrow mono"><span class="badge">HOSTING PARTNER</span><span class="url">bisecthosting.com/mcstellar</span></div>
+    </div>
+    <div class="cta mono">
+      <span class="label">USE CODE:</span>
+      <span class="code">mcstellar</span>
+      <span class="btn">GET 25% OFF &#8599;</span>
+    </div>
+  </div>
+</body>
+</html>
