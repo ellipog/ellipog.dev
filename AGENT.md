@@ -557,14 +557,15 @@ released addons and packs.
 engineering mark, Stellar is the developer suite, ellipog is the creator identity the gameplay content
 ships under. A reader who arrives for Tenet should see that it belongs to a suite, and the two families
 should not be filed together. The bands were status-first before this ("In development" / "Planned"), and
-**status did not disappear**: every cell states `in development` in its own footer, which is where a
-reader looks after the name. What changed is which question the band answers — *whose is this* before *how
-far along is it*.
+**status did not disappear**: every cell states it in its own footer — `released · v1.0.0` for the shipped
+mods, `in development` for anything still unlisted-unreleased — which is where a reader looks after the
+name. What changed is which question the band answers — *whose is this* before *how far along is it*.
 
 **`planned` is no longer one of the words a cell can say, because there is no longer a cell that could say
-it.** Every listed mod is active — see *Planned mods are not published* — so `in development` is the only
-status the catalog renders, and the footer states it rather than deriving it from a field that now has one
-value. The status is still what the page filters on, which is the part worth keeping.
+it.** Every listed mod is active — see *Planned mods are not published* — and a shipped one states its
+version rather than deriving it from a field that used to have one value. `in development` remains the
+fallback for a future entry that is certain but not yet shipped. The status is still what the page filters
+on, which is the part worth keeping.
 
 **Every suite mod declares its `brand` in the manifest, and `check.mjs` asserts it.** A mod without one
 renders in neither band and vanishes from the page without an error — the same class of silent failure as
@@ -587,20 +588,20 @@ and four ever did.
 ## The catalog cell, and why it is not one link any more
 
 A cell in the catalog's first band used to be a single `<a>` wrapping everything in it — the cleanest
-possible version of "the whole card is a link". **It is a `<div>` now**, because the cell holds two
-destinations: the mod's own documentation, and its repository.
+possible version of "the whole card is a link". **It is a `<div>` now**, because the cell holds three
+destinations: the mod's own documentation, its repository, and its CurseForge page.
 
 **An anchor cannot contain an anchor.** That is not a rule a browser enforces with an error — it closes the
 outer one at the inner one, and everything after the nested link silently stops being part of the card. So
-the choice is between two links and one target, and the arrangement taken keeps both:
+the choice is between three links and one target, and the arrangement taken keeps all four:
 
-- **`github ↗ · docs ↗`** in the cell's footer row, beside the status — the row that used to carry `docs ↗`
-  alone;
+- **`github ↗ · docs ↗ · curseforge ↗`** in the cell's footer row, beside the status — the row that used to
+  carry `docs ↗` alone;
 - **the docs link stretched over the whole cell** by `.cell-link::after`, an absolutely positioned box
   covering the cell's padding box, so every pixel that went to the docs page before still does.
 
-Where the two would overlap the repository wins one small area, because it is raised above the overlay by a
-single `z-index`. Everywhere else in the cell belongs to the docs.
+Where the three would overlap the outer two win one small area each, because they are raised above the
+overlay by a single `z-index`. Everywhere else in the cell belongs to the docs.
 
 **Three things have to hold for that, and each fails silently on its own:**
 
@@ -611,22 +612,23 @@ single `z-index`. Everywhere else in the cell belongs to the docs.
 | `.pub-cell:not(a)` becomes `:not(.grid-cell)` | `:not(a)` meant "a cell with no destination". It is now *also* true of the two cells that do lead somewhere, so their names go grey while every other rule keeps working — the opposite of the intent |
 
 None of the three produces an error, a warning, or a page that looks obviously broken, which is the whole
-argument for asserting them rather than looking at one. `check.mjs` asserts all three, and the two links.
+argument for asserting them rather than looking at one. `check.mjs` asserts all three, and the three links.
 
 **What it costs, stated rather than discovered:** text inside the cell can no longer be dragged to select
 it, because a transparent box is over it. Inside an `<a>` it could. That is the trade the stretched-link
 pattern always makes; the alternative is a 40px target for the commonest action on the page, and the cost
 is invisible unless somebody tries to copy a summary.
 
-**Both links are derived rather than written.** The repository comes from the manifest's `repo` and the docs
-link from what actually synced. A mod with neither is a plain `.pub-cell` that does not invert — the same
-rule as before, now applied to a different element.
+**All three links are derived rather than written.** The repository comes from the manifest's `repo`, the
+CurseForge page from its `curseforge` slug, and the docs link from what actually synced. A mod with none of
+the three is a plain `.pub-cell` that does not invert — the same rule as before, now applied to a different
+element.
 
-The two links are also **named per mod**, not left as bare `github` and `docs`. They were `<span>`s inside
-one anchor, where the cell's own text was the accessible name and these words were only a signpost for the
-eye. As links of their own they need subjects: one identical `github` link per cell down a page is the same
-defect as a bare "read more". Each accessible name contains its visible text, which is what label-in-name
-asks for.
+The three links are also **named per mod**, not left as bare `github`, `docs` and `curseforge`. They were
+`<span>`s inside one anchor, where the cell's own text was the accessible name and these words were only a
+signpost for the eye. As links of their own they need subjects: one identical `github` link per cell down
+a page is the same defect as a bare "read more". Each accessible name contains its visible text, which is
+what label-in-name asks for.
 
 ---
 

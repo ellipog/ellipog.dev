@@ -985,7 +985,7 @@ check(
 );
 check('a section front page is not qualified twice', !/Tenet — Tenet/.test(docsTitle ?? ''), 'no repeated mod name');
 
-console.log('\n== the catalog cell, and its two destinations ==');
+console.log('\n== the catalog cell, and its three destinations ==');
 /*
  * A CELL WITH TWO LINKS IN IT, WHICH IS WHY THE CELL IS NOT AN ANCHOR ANY MORE.
  *
@@ -1138,6 +1138,14 @@ if (home) {
     );
     check(`${mod.id}: the repository link names the mod`, visibleHome.includes(`aria-label="${mod.name} on GitHub"`));
   }
+  for (const mod of manifest.suite.filter((m) => m.curseforge)) {
+    check(
+      `${mod.id}: the curseforge link is the manifest's`,
+      visibleHome.includes(`href="https://www.curseforge.com/minecraft/mc-mods/${mod.curseforge}"`),
+      mod.curseforge,
+    );
+    check(`${mod.id}: the curseforge link names the mod`, visibleHome.includes(`aria-label="${mod.name} on CurseForge"`));
+  }
   for (const mod of manifest.suite.filter((m) => m.status === 'active')) {
     check(
       `${mod.id}: the docs link is named for its mod`,
@@ -1168,12 +1176,13 @@ if (home) {
     `${docsAnchors.length} link(s)`,
   );
 
-  // One per mod with a repository, derived so adding a mod keeps this honest.
-  const repoLinks = (visibleHome.match(/class="cell-repo"/g) ?? []).length;
+  // One raised link per repository plus one per CurseForge page, derived so adding a mod keeps this honest.
+  const raisedLinks = (visibleHome.match(/class="cell-repo"/g) ?? []).length;
+  const cfMods = manifest.suite.filter((m) => m.curseforge);
   check(
-    'every mod with a repository gets a link, and no others do',
-    repoLinks === repoMods.length,
-    `${repoLinks} rendered / ${repoMods.length} expected`,
+    'every mod with a repository or curseforge page gets a raised link, and no others do',
+    raisedLinks === repoMods.length + cfMods.length,
+    `${raisedLinks} rendered / ${repoMods.length + cfMods.length} expected`,
   );
 
   /*
@@ -1187,11 +1196,22 @@ if (home) {
    *
    * `planned` describes a mod that is not certain to exist. This site names those nowhere: not in the
    * catalog, not as a summary, not as a served icon. See manifest.json's own note and AGENT.md.
+   *
+   * Shipped mods state `released · v<version>` rather than `in development`. The absence of the old
+   * words is not asserted page-wide: the author's bio still says a couple of mods are in development,
+   * which is true of the unshipped suite, so each versioned cell is asserted for its own string instead.
    */
+  for (const mod of manifest.suite.filter((m) => m.version)) {
+    check(
+      `${mod.id}: the cell states its released version`,
+      visibleHome.includes(`released · v${mod.version}`),
+      `v${mod.version}`,
+    );
+  }
   check(
-    'the catalog states no status but in development',
-    visibleHome.includes('in development') && !visibleHome.includes('planned'),
-    visibleHome.includes('planned') ? 'something on the page says planned' : 'in development only',
+    'the catalog names no planned status',
+    !visibleHome.includes('planned'),
+    'planned appears nowhere',
   );
   const notActive = manifest.suite.filter((m) => m.status !== 'active');
   check(

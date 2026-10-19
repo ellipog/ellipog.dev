@@ -994,11 +994,11 @@ a:focus-visible > .arrow {
 }
 
 /*
- * The two links in a cell's footer row: `github ↗ · docs ↗`.
+ * The three links in a cell's footer row: `github ↗ · docs ↗ · curseforge ↗`.
  *
  * The row itself is `.meta`, which is `space-between` — status left, destinations right — so these are a
- * flex row of their own rather than two items loose in it. Three children under `space-between` would
- * spread the status and the two links apart as three peers, which is not what the row means.
+ * flex row of their own rather than three items loose in it. Four children under `space-between` would
+ * spread the status and the three links apart as four peers, which is not what the row means.
  */
 .cell-links {
   display: flex;
@@ -1037,19 +1037,19 @@ a:focus-visible > .arrow {
 }
 
 /*
- * ...and the repository link sits above that overlay.
+ * ...and the repository and CurseForge links sit above that overlay.
  *
- * Two links cannot occupy the same pixels, so this is what keeps the second one a destination rather than
- * part of the first: raised by one z-index, it takes the pointer inside its own box and hands everything
- * else to the overlay beneath it. `position: relative` is not decoration — a z-index on a static element
- * is ignored, and the link would look exactly the same while being unreachable.
+ * Three links cannot occupy the same pixels, so this is what keeps the second and third ones destinations
+ * rather than part of the first: raised by one z-index, each takes the pointer inside its own box and hands
+ * everything else to the overlay beneath it. `position: relative` is not decoration — a z-index on a static
+ * element is ignored, and the link would look exactly the same while being unreachable.
  */
 .cell-repo {
   position: relative;
   z-index: 1;
 }
 
-/* Both links light up on the ground they are actually standing on: paper at rest, the inversion while
+/* All three links light up on the ground they are actually standing on: paper at rest, the inversion while
    the cell is hovered. `--fg` would be the wrong value on the ink ground and `--inv-fg` the wrong one on
    the paper ground, so the two are stated rather than shared. */
 .cell-links a:hover {

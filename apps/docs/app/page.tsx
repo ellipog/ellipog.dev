@@ -20,6 +20,17 @@ type SuiteMod = {
   status?: string;
   summary: string;
   /**
+   * Released version, rendered in the footer once the mod ships. Absent while unreleased,
+   * in which case the cell still says `in development`.
+   */
+  version?: string;
+  /**
+   * CurseForge slug, linked from the footer as a raised destination beside the repository.
+   * Modrinth slugs get a field of their own the day these ship there too.
+   */
+  curseforge?: string;
+  modrinth?: string;
+  /**
    * Where the code lives, and it is the cell's second destination.
    *
    * Optional: a mod can be certain enough to list and still have no public repository. The cell renders
@@ -128,33 +139,37 @@ function Filler() {
 }
 
 /**
- * A mod in the catalog, and the one cell on the site with two destinations in it.
+ * A mod in the catalog, and the one cell on the site with three destinations in it.
  *
  * **This used to be a single `<a>` around the whole cell, and an `<a>` cannot contain an `<a>`.** That
  * was fine while the cell had one destination. It stopped being fine when the cell gained a second one:
  * a link to the mod's repository, so a visitor can read the code without the documentation being the
- * only way through. Nesting is not an option the browser forgives — it closes the outer anchor at the
- * inner one and the rest of the cell silently stops being clickable.
+ * only way through — and then a third, to its CurseForge page, the day the mods shipped. Nesting is
+ * not an option the browser forgives — it closes the outer anchor at the inner one and the rest of the
+ * cell silently stops being clickable.
  *
  * **So the cell is a `<div>` and the docs link is stretched over it.** `cell-link`'s `::after` is an
  * absolutely positioned box covering the cell's own padding box, which is why `.grid-cell` carries
  * `position: relative` in `global.css`. Nothing about the surface changes for a reader: every pixel that
- * navigated to the docs page before still does. The repository link is raised above that overlay by one
- * z-index, so it stays its own destination rather than being swallowed by the link underneath it.
+ * navigated to the docs page before still does. The repository and CurseForge links are raised above
+ * that overlay by one z-index, so each stays its own destination rather than being swallowed by the
+ * link underneath them.
  *
  * **The one thing this costs, stated rather than discovered:** text inside the cell can no longer be
  * selected by dragging, because the overlay sits over it. Inside an `<a>` it could. That is the trade the
  * stretched-link pattern always makes, it is invisible unless somebody tries to copy the summary, and the
- * alternative — two links and no whole-cell target — makes the commonest action on the page (open the
+ * alternative — three links and no whole-cell target — makes the commonest action on the page (open the
  * docs) require aiming at a 40px label.
  *
- * **Both links are derived, not written.** The repository comes from the manifest's `repo` and the docs
- * link from what actually synced, so a mod with no repository or no `docs/` folder renders exactly the
- * links it has rather than a link to a page that does not exist. The docs branch is unchanged in that
- * respect; the repository branch follows the same rule for the same reason.
+ * **All three links are derived, not written.** The repository comes from the manifest's `repo`, the
+ * CurseForge page from its `curseforge` slug, and the docs link from what actually synced, so a mod with
+ * no repository, no download page, or no `docs/` folder renders exactly the links it has rather than a
+ * link to a page that does not exist. The docs branch is unchanged in that respect; the repository and
+ * CurseForge branches follow the same rule for the same reason.
  */
 function SuiteCell({ mod }: { mod: SuiteMod }) {
   const hasDocs = documented.has(mod.id);
+  const cfUrl = mod.curseforge ? `https://www.curseforge.com/minecraft/mc-mods/${mod.curseforge}` : null;
 
   const body = (
     <>
@@ -170,18 +185,19 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
       </div>
       <p className="summary">{mod.summary}</p>
       <div className="meta">
-        {/* The one status a listed mod can have. `planned` is not a state this page knows: a mod that is
-            not certain to exist is not in the manifest, so there is no cell for it to describe -- see
-            `Home` below, and `manifest.json`'s own note. */}
-        <span className="faint">in development</span>
-        {hasDocs || mod.repo ? (
+        {/* A shipped mod states its version; anything still unreleased says `in development`.
+            `planned` is not a state this page knows: a mod that is not certain to exist is not
+            in the manifest, so there is no cell for it to describe -- see `Home` below, and
+            `manifest.json`'s own note. */}
+        <span className="faint">{mod.version ? `released · v${mod.version}` : 'in development'}</span>
+        {hasDocs || mod.repo || cfUrl ? (
           <span className="cell-links faint">
             {mod.repo ? (
               /*
                * Named per mod rather than left as the bare word `github`.
                *
                * This was a `<span>` inside one big anchor when the cell had a single destination, so a
-               * screen reader announced the whole cell — "Tenet, A questing engine…, in development,
+               * screen reader announced the whole cell — "Tenet, A questing engine…, released · v1.0.0,
                * docs" — and the words here were only ever a signpost for the eye. Now that they are a
                * link of their own, "github" on its own is a link with no subject: a reader tabbing
                * through the catalog hears one identical name per cell.
@@ -200,7 +216,7 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
                 github <Arrow />
               </a>
             ) : null}
-            {mod.repo && hasDocs ? (
+            {mod.repo && (hasDocs || cfUrl) ? (
               // Punctuation, not content, and no class: a screen reader announcing "middle dot" between
               // two links is noise, so it is hidden — and it needs no styling of its own, because
               // `.cell-links` already spaces its children apart. A class here would be a selector in the
@@ -212,6 +228,23 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
               // link names on this page. The visible text is inside the accessible one.
               <a className="cell-link" href={`/docs/${mod.id}/`} aria-label={`${mod.name} documentation`}>
                 docs <Arrow />
+              </a>
+            ) : null}
+            {hasDocs && cfUrl ? (
+              // Same hidden separator as above, between the second and third destinations.
+              <span aria-hidden="true">·</span>
+            ) : null}
+            {cfUrl ? (
+              // Raised above the stretched docs overlay like the repository link: a third destination
+              // in the same cell, named per mod for the same label-in-name reason as the other two.
+              <a
+                className="cell-repo"
+                href={cfUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label={`${mod.name} on CurseForge`}
+              >
+                curseforge <Arrow />
               </a>
             ) : null}
           </span>
