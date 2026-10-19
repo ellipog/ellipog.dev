@@ -1208,6 +1208,15 @@ if (home) {
       `v${mod.version}`,
     );
   }
+  // The cell-top names every supported line, oldest first — the same order the page renders.
+  for (const mod of manifest.suite.filter((m) => Array.isArray(m.versions) && m.versions.length > 0)) {
+    const lines = [...mod.versions].reverse().map((v) => v.minecraft).filter(Boolean);
+    check(
+      `${mod.id}: the cell names every supported line`,
+      visibleHome.includes(lines.join(' · ')),
+      lines.join(' · '),
+    );
+  }
   check(
     'the catalog names no planned status',
     !visibleHome.includes('planned'),

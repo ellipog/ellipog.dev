@@ -38,6 +38,11 @@ type SuiteMod = {
    * link to nothing.
    */
   repo?: string;
+  /**
+   * Documented game versions, latest first. The cell names every line the mod ships;
+   * `minecraft` stays the default for readers that never heard of versions.
+   */
+  versions?: { minecraft: string }[];
   minecraft?: string;
   loaders?: string[];
 };
@@ -170,11 +175,18 @@ function Filler() {
 function SuiteCell({ mod }: { mod: SuiteMod }) {
   const hasDocs = documented.has(mod.id);
   const cfUrl = mod.curseforge ? `https://www.curseforge.com/minecraft/mc-mods/${mod.curseforge}` : null;
+  // The manifest lists versions latest-first; the cell reads oldest-first, the way the CurseForge
+  // pages and the release notes name the two lines.
+  const minecrafts = (
+    Array.isArray(mod.versions) && mod.versions.length > 0
+      ? [...mod.versions].reverse().map((v) => v.minecraft)
+      : [mod.minecraft]
+  ).filter(Boolean);
 
   const body = (
     <>
       <div className="cell-top">
-        <span className="cell-index">{mod.minecraft ?? ''}</span>
+        <span className="cell-index">{minecrafts.join(' · ')}</span>
         <span className="kind">{(mod.loaders ?? []).join(' · ')}</span>
       </div>
       {/* The mark sits with the name rather than in the cell's corner: it is part of how the thing is
