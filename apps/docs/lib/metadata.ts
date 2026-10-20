@@ -25,7 +25,7 @@ export const SITE = {
   url: `https://${manifest.site.domain}`,
   title: 'ellipog.dev',
   description:
-    'Tenet and Armature — Minecraft mods for Fabric and NeoForge: a visual questing engine and a UI library in development, plus earlier work.',
+    'Tenet, Armature and Stature: Minecraft mods for Fabric and NeoForge. A questing engine, a UI library, and a scale and anatomy API, plus earlier work.',
 } as const;
 
 /**

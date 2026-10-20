@@ -43,7 +43,7 @@
   },
   "author": {
     "handle": "Ellipog",
-    "bio": "I build Minecraft mods. A couple are in development now; the rest are already out.",
+    "bio": "I build Minecraft mods. A few are in development now; the rest are already out.",
     "links": [
       {
         "id": "modrinth",
@@ -146,6 +146,39 @@
           ],
           "pin": "b4964a2bd04f97868a50e2486b3915911addff5d",
           "branch": "mc-1.21.1"
+        }
+      ]
+    },
+    {
+      "id": "stature",
+      "name": "Stature",
+      "brand": "stellar",
+      "status": "active",
+      "summary": "A scale and anatomy API. Per-entity size and proportions with hitboxes that follow, 40+ channels a pack can drive, frames and commands, and a public API with events, all server-authoritative.",
+      "repo": "https://github.com/ellipog/stature",
+      "issues": "https://github.com/ellipog/stature/issues",
+      "version": "0.1.0",
+      "localPath": "../stature",
+      "pin": "5893166231ca84b4612b2e701cf7d74f9038337a",
+      "docsPath": "docs",
+      "minecraft": "26.3",
+      "loaders": [
+        "fabric",
+        "neoforge"
+      ],
+      "/*versions": "One entry per documented game version, latest first. The top-level pin/minecraft/loaders above always describe the default (latest) version, so every existing reader keeps working. `branch` is the git branch the pin tracks, read by `bun run pins`; `localPath` names the sibling checkout and is only set on the version under active development, so any other version always builds from its pin, even on a machine with the repositories beside it. Unversioned URLs (`/docs/stature/...`) always show the default version; older ones live under `/docs/stature/<id>/...`. No version is ever dropped for being close to another: the whole tree is kept.",
+      "versions": [
+        {
+          "id": "26.3",
+          "minecraft": "26.3",
+          "loaders": [
+            "fabric",
+            "neoforge"
+          ],
+          "pin": "5893166231ca84b4612b2e701cf7d74f9038337a",
+          "branch": "master",
+          "localPath": "../stature",
+          "default": true
         }
       ]
     }

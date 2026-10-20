@@ -572,14 +572,14 @@ renders in neither band and vanishes from the page without an error — the same
 the `a.grid-cell` selector below, and the reason the assertion exists rather than a convention. The two
 band heads are asserted too, so the page cannot quietly stop naming the suite it groups by.
 
-**The two Stellar cells sit three-up**, one row, closed with a filler; the gameplay band renders nothing
+**The three Stellar cells sit three-up**, one row; the gameplay band renders nothing
 at all, because it has no cells — a label, a rule and nothing under them reads as a section that failed
 to load, which is the one thing an unbuilt section must not look like. So the page draws a band only when
 the manifest gives it an active mod, and the band comes back the day it does. That is the same rule the
 stack plan states for empty tiers: **no "coming soon" slots.**
 
 The 2-up band the in-development mods used to get existed for the wide summary, and losing it is this
-arrangement's one cost — at three-up those two summaries wrap a line or two further. The trade was taken
+arrangement's one cost — at three-up the summaries wrap a line or two further. The trade was taken
 because the suite is the thing being shown, and the cells in rows say that better than two bands of two
 and four ever did.
 

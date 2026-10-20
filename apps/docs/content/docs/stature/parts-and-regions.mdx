@@ -1,0 +1,170 @@
+---
+title: "Parts and regions"
+maturity: "unreleased"
+---
+
+A <GlossaryTerm term="rig" /> gives anatomy names to model paths. A <GlossaryTerm term="part-factor" /> scales one model part, or every
+part a group covers, so a head can be wider without changing the entity's box. A
+<GlossaryTerm term="hurt-region">hurt region</GlossaryTerm> uses the same rig boxes to make one part take more or less damage.
+Both are datapack data: a pack declares them, and Stature ships only the default humanoid rig.
+
+## Rig files
+
+```
+data/<namespace>/stature/rigs/<name>.json
+```
+
+The file name is the rig id, so `data/mypack/stature/rigs/quadruped.json` is `mypack:quadruped`.
+
+```json
+{
+  "parent": "stature:humanoid",
+  "groups": {
+    "head": {
+      "paths": ["head", "hat"],
+      "box": [0.0, 0.72, 0.0, 1.0, 1.0, 1.0]
+    },
+    "tail": {
+      "paths": ["tail"],
+      "box": [0.35, 0.2, 0.0, 0.65, 0.5, 0.4]
+    }
+  }
+}
+```
+
+| Field | What it does |
+|---|---|
+| `parent` | Optional rig id. The parent's groups are merged first, then this file's groups override by name |
+| `groups` | Required. An object of group name to either a path list or an object with `paths` and `box` |
+| `paths` | Model paths the group covers, as dot-separated names |
+| `box` | Six fractions `[x0, y0, z0, x1, y1, z1]` of the entity's box, used by hurt regions. Omitted means the whole box |
+
+A path is a dot-separated walk from the model root, such as `body.left_arm`. The empty string is
+the root itself, which is how the humanoid rig's `all` group covers everything. A path segment may
+not be empty, so `arm..left` is invalid.
+
+The built-in `stature:humanoid` rig cannot be replaced. Extend it with `parent` instead.
+
+### The default humanoid rig
+
+| Group | Model paths | Box |
+|---|---|---|
+| `head` | `head`, `hat` | `0.0, 0.72, 0.0` to `1.0, 1.0, 1.0` |
+| `torso` | `body` | `0.2, 0.35, 0.2` to `0.8, 0.72, 0.8` |
+| `arm.left` | `left_arm` | `0.8, 0.35, 0.3` to `1.0, 0.7, 0.7` |
+| `arm.right` | `right_arm` | `0.0, 0.35, 0.3` to `0.2, 0.7, 0.7` |
+| `leg.left` | `left_leg` | `0.55, 0.0, 0.3` to `0.8, 0.35, 0.7` |
+| `leg.right` | `right_leg` | `0.2, 0.0, 0.3` to `0.45, 0.35, 0.7` |
+| `all` | the model root | the whole box |
+
+## Part factors
+
+A part factor is a set of three multipliers. It is set by command:
+
+```cmd
+/stature part @s arm.right 1 2 1
+/stature part @s head 1.15 1.0 1.15 20
+```
+
+or by a frame:
+
+```json
+"parts": {
+  "head": [1.15, 1.0, 1.15],
+  "arm.right": [1.0, 1.5, 1.0]
+}
+```
+
+A group resolves through the entity's rig at set time. The resulting model paths are what is
+stored, saved and synced, so changing the rig later does not reinterpret a factor that is already
+set. A raw dot path passes the command if its syntax is valid; only the client's model knows
+whether the path exists, and a missing path is logged once and does nothing.
+
+Factors are multipliers in context: `head: [2, 2, 2]` doubles the head inside whatever frame or
+scale the entity already has. The render side applies them where a part's pose is written, after
+vanilla's own part scale, so baby offsets and pack-defined model scales keep working underneath.
+
+When a frame has `hitbox_from_parts: true`, the parts also choose the entity's presence box: the
+largest factor on each axis, with a floor of 1.0. That is a box, not per-part collision. Without
+the flag, parts change only the picture.
+
+### What follows a part
+
+Layers that traverse the same posed nodes, including armour, elytra and held items, inherit the
+part's pose. That is why the seam is on the part's pose rather than in any one renderer.
+
+First-person arms are vanilla's separate rig. They follow the arm part factors unless the frame
+sets `first_person_arms: true`, which keeps the hands vanilla. Sleeves travel with the arms.
+
+The held item also has its own `stature:held_item` <GlossaryTerm term="channel">channel</GlossaryTerm>, off by default, for the
+case where the item should scale independently of the hand. The name tag's height and the shadow
+follow the uniform scale through vanilla, not the parts; the `stature:shadow` channel bends the
+shadow further.
+
+Part factors are saved with the entity and sent to players tracking it. Easing progress is not
+saved: a load lands on the target factors.
+
+## Hurt regions
+
+Hurt regions are declared on a frame, not on a rig:
+
+```json
+"regions": [
+  { "part": "head", "multiplier": 3.0, "tag": "headshot" },
+  { "part": "torso", "multiplier": 0.5, "tag": "gut" }
+]
+```
+
+| Field | What it does |
+|---|---|
+| `part` | A group name from the frame's rig. A group the rig does not define is skipped at hit time |
+| `multiplier` | A finite, non-negative damage multiplier. 0 means the region takes no damage |
+| `tag` | A non-empty tag that travels with the hit for other mods to read |
+
+The region's box is the rig group's fractional box taken over the entity's current box, then
+breathed out around its own centre by the group's part factor. A doubled head has a doubled head
+region. The first matching region in file order wins, so a pack can decide which overlap matters
+rather than relying on an engine rule.
+
+A hit inside a region multiplies the damage before armour and effects are applied. The matching
+tag is recorded as the entity's last hit for integrations. Regions do not change collision and do
+not exist for `/stature part` factors set without a frame.
+
+### Where the hit location comes from
+
+Projectiles use the impact point of the hit. Melee is re-derived on the server: a view ray must
+land on the same victim within the player's entity interaction range plus one block of budget,
+and blocks clip the ray, so a wall between the swing and the target degrades to a normal hit
+rather than a rewarded one. If two projectiles hit the same victim in the same tick, the last hit
+wins.
+
+## A rig for a quadruped
+
+```json
+{
+  "parent": "stature:humanoid",
+  "groups": {
+    "head": { "paths": ["head"], "box": [0.1, 0.65, 0.0, 0.9, 1.0, 0.5] },
+    "torso": { "paths": ["body"], "box": [0.1, 0.3, 0.1, 0.9, 0.75, 0.8] },
+    "leg.front.left": { "paths": ["front_left_leg"], "box": [0.6, 0.0, 0.6, 0.9, 0.3, 0.9] },
+    "leg.front.right": { "paths": ["front_right_leg"], "box": [0.1, 0.0, 0.6, 0.4, 0.3, 0.9] },
+    "leg.back.left": { "paths": ["back_left_leg"], "box": [0.6, 0.0, 0.1, 0.9, 0.3, 0.4] },
+    "leg.back.right": { "paths": ["back_right_leg"], "box": [0.1, 0.0, 0.1, 0.4, 0.3, 0.4] },
+    "tail": { "paths": ["tail"], "box": [0.35, 0.3, 0.0, 0.65, 0.6, 0.2] }
+  }
+}
+```
+
+The group names are the pack's choice. `head` and `torso` replace the inherited groups; the legs
+and the tail are new. A frame can now set `"rig": "mypack:quadruped"` and use those names in
+`parts` and `regions`.
+
+## Errors in the log
+
+A rig file that is not valid JSON, has no `groups` object, names a group without `paths`, holds a
+path that is not a path, or gives a box that is not six numbers or whose minimums exceed its
+maximums is reported and skipped. A rig whose `parent` is unknown is skipped too. The rest of the
+pack still loads.
+
+A part path that the client's model does not have is warned about once per model and path. A
+region whose group is unknown is skipped when a hit lands. Neither failure takes the frame down.

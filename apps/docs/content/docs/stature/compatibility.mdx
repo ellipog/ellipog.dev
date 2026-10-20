@@ -1,0 +1,91 @@
+---
+title: "Compatibility"
+maturity: "unreleased"
+---
+
+Stature is a scale authority. It writes the base value of `minecraft:scale` and expects to be the
+one deciding an entity's size. Mods that agree with that, or only read it, coexist. Mods that also
+choose the scale need care.
+
+## Pehkui and Pehkui Rebuilt
+
+Do not install Stature with Pehkui or Pehkui Rebuilt. All of them write the game's scale attribute,
+and Stature reads and writes its base value. Two mods choosing that base will disagree about the
+entity, and the result depends on which one wrote last. Stature has no compatibility layer for
+either, and does not try to detect or take over their state.
+
+## Other scale modifiers
+
+A potion or another mod can add a modifier to `minecraft:scale`. Stature reads and writes the
+base, so that modifier multiplies on top of Stature's size and is deliberately not folded into the
+number Stature reports. Removing the modifier returns the entity to Stature's size. A gametest
+pins this: a foreign modifier is present, Stature writes its own size, and the base does not drift.
+
+A mod that changes the entity's dimensions directly, rather than through `minecraft:scale`, can
+still disagree with Stature's box. That combination is untested. Use one mod as the size
+authority.
+
+## Spawn protection and claims
+
+Trampling asks before it breaks anything. For a player, the loader seam checks:
+
+- `mayBuild`, which covers adventure and spectator rules.
+- The level's `mayInteract`, which is where spawn protection lives.
+- The loader's block-break event: Fabric's `PlayerBlockBreakEvents.BEFORE` or NeoForge's
+  `BreakBlockEvent`. Claim and protection mods already hook these, so cancelling the event stops
+  the break.
+
+For a mob, the check is the vanilla `mob_griefing` rule plus NeoForge's own grief hooks. A claim
+mod that only protects against players does not automatically protect against a mob; the grief
+rules are what stop that.
+
+The trample scan is capped per scan regardless of permissions, so a claim that allows the break
+still gets at most `trample_max_per_scan` blocks per scan. See [Thresholds](/docs/stature/thresholds/).
+
+## Rendering mods and shaders
+
+Stature changes the entity's render-state scale, model part poses and the held item's matrix. A
+renderer that replaces the entity model or the model submission path may bypass some or all of
+that. The following are untested, not known to be broken:
+
+| Mod or kind | Status |
+|---|---|
+| Iris and other shader packs | Untested |
+| Entity Model Features and Entity Texture Features | Untested |
+| Figura | Untested |
+| First-person model replacements | Untested |
+| Other mods that replace living entity renderers | Untested |
+
+The camera shake from macro footsteps is multiplied by the vanilla Screen Effect slider, so a
+player who has turned screen effects off feels none. A shader pack that replaces the camera or
+bob path may change how the remaining shake looks.
+
+## Client and server
+
+Stature is required on both sides. The server owns every size, channel, part factor and threshold,
+and the client draws what it is sent.
+
+- On Fabric, a joining client is asked a handshake question. A client without Stature ignores it,
+  and the server refuses the join after about ten seconds with "This server requires the Stature
+  mod". A client with Stature answers and stays. If the question cannot be sent, the server logs a
+  warning and lets the join through: the check fails open.
+- On NeoForge, Stature registers its payloads as required, so a client that cannot register them
+  is refused during login.
+- A client with Stature joining a server without it joins normally and Stature does nothing. There
+  are no sizes to receive, and nothing tries to scale the world on its own.
+- A server with Stature and a client without it is refused rather than shown wrong-size entities,
+  because a client that does not know the shape would collide and draw against the vanilla box.
+
+Fabric needs Fabric API. NeoForge needs no companion API mod.
+
+## Data packs and reloads
+
+Frames and rigs are server data, read from every pack on the server. `/stature reload` and vanilla
+`/reload` rebuild both registries and re-evaluate automatic assignments; `/stature reload` also
+re-reads `config/stature.json`. Removing a frame file does not silently leave its last size on an
+automatic entity: the next reload returns that entity to vanilla. An explicit command choice is
+left alone, and `/stature get` says the named frame is no longer loaded.
+
+A pack that wants another mod's entities sized should use `entities` or `entity_tags` in a frame.
+Another mod that wants to size entities through Stature can use the integration frame path; an
+operator's explicit choice always outranks it.

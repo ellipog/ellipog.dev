@@ -1,0 +1,82 @@
+---
+title: "API events"
+maturity: "unreleased"
+---
+
+`StatureEvents` reports the moments when Stature commits a change. Each event is a plain listener
+list: add a lambda to register, remove the same instance to unregister.
+
+```java
+StatureEvents.ScaleChangedListener listener =
+        (entity, from, to, cause) -> LOG.info("{}: {} -> {}", entity, from, to);
+StatureEvents.SCALE_CHANGED.add(listener);
+try {
+    // ...
+} finally {
+    StatureEvents.SCALE_CHANGED.remove(listener);
+}
+```
+
+| List | Listener receives |
+|---|---|
+| `SCALE_CHANGED` | The entity, the size before, the size after, and why |
+| `FRAME_CHANGED` | The entity, the previous frame id or null, the new frame id or null, and why |
+| `CHANNEL_CHANGED` | The entity, the channel id, the previous override or null, the new override or null, and why |
+| `THRESHOLD_TIER_CHANGED` | The entity, the previous tier, the new tier, and why |
+
+`from` and `to` are immutable snapshots. A size change carries a `ScaleState`; a channel change
+carries the boxed override value, with null meaning "no override". The tiers are `MICRO`, `NORMAL`
+and `MACRO`, using the entity's resolved edges when a <GlossaryTerm term="scale-frame">frame</GlossaryTerm> provides them and the
+configured <GlossaryTerm term="threshold">thresholds</GlossaryTerm> otherwise.
+
+## Causes
+
+| Cause | Meaning |
+|---|---|
+| `COMMAND` | A `/stature` command |
+| `API` | A call through [StatureApi](/docs/stature/api/) |
+| `FRAME` | A named frame applied automatically or after a reload |
+| `INTEGRATION` | Another mod's integration frame claim |
+| `LOAD` | State restored from a save |
+| `SYNC` | State re-sent to a viewer that had not received it yet |
+| `CLIENT` | State received from the server by a client payload |
+
+The cause travels unchanged through an ease, so every tick of a size transition reports the same
+reason.
+
+## Ordering
+
+Listeners run in registration order, over the snapshot that was current when the event was queued.
+Adding or removing a listener while an event is being delivered takes effect on the next event, not
+the current one.
+
+Independent commits are delivered in commit order. When an operation commits several things, such as
+a frame apply that sets the frame, the size and the thresholds, the events are queued together and
+delivered after the last commit in a stable order. A frame apply or clear reports any channel
+changes, then the size and tier changes, then `FRAME_CHANGED` last, so a listener reacting to the
+frame sees the size the frame produced. A load reports channel changes first, then scale and frame,
+then the threshold tier. A listener therefore never observes a half-applied operation, and reading
+`StatureApi.state(entity)` from an event sees at least the `to` value the event describes.
+
+A compound operation can report more than one tier crossing when an intermediate commit crosses an
+edge, and the later commit returns across it. Each event describes a state that really was stored,
+in the order it was stored.
+
+## Re-entry
+
+A listener may call [StatureApi](/docs/stature/api/) again. That call commits immediately, because the
+state is already consistent, but its events are queued behind the event currently being delivered.
+They run after every listener of that event has finished. Event delivery is never nested inside
+another event's listener loop.
+
+The facade's mutators still require the server thread, so re-entry from a server listener is
+allowed and re-entry from a client listener is refused.
+
+## Failures and threads
+
+A listener that throws is logged and skipped. The remaining listeners still run, and the state change
+is not rolled back; a listener cannot break a command or a tick.
+
+A listener runs on the thread that committed the change. Server changes commit on the server thread.
+The client copies that arrive in the axes, channel and threshold payloads are applied on the client's
+main thread and reported there. No listener is called on a network thread.

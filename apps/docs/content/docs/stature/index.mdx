@@ -1,0 +1,51 @@
+---
+title: "Stature documentation"
+maturity: "unreleased"
+---
+
+Stature changes how big a living entity is and how its body is proportioned. A command or a
+datapack chooses a scale, a box shape and a silhouette; the server owns those numbers and sends
+them to the clients that can see the entity. Vanilla physics stays vanilla unless a <GlossaryTerm term="channel" />
+says otherwise.
+
+## What it needs
+
+| | |
+|---|---|
+| Minecraft | 26.3, on Fabric or NeoForge |
+| Java | 25 |
+| Fabric | Fabric Loader 0.19.5+ with Fabric API 0.162.0+26.3 |
+| NeoForge | 26.3.0.76+ |
+| Both sides | Stature is required on the client and on the server. A client without it is refused rather than shown a wrong-size world |
+| Other mods | none required |
+
+Do not install Stature beside Pehkui or Pehkui Rebuilt. All of them write the game's
+`minecraft:scale` attribute, and Stature expects to be the one choosing its base value. See
+[Compatibility](/docs/stature/compatibility/).
+
+## The pieces
+
+| Piece | What it is |
+|---|---|
+| Scale | One uniform number, stored in the game's `minecraft:scale` attribute. It decides collision, camera height, name-tag height and shadow size because vanilla already scales those |
+| Shape | Three multipliers on the entity, one per axis, so a box can be wider, taller or deeper than it is wide |
+| <GlossaryTerm term="scale-frame">Frame</GlossaryTerm> | A named size and shape a datapack declares, with optional parts, hurt regions and thresholds |
+| <GlossaryTerm term="channel">Channel</GlossaryTerm> | A named number a scale can drive, such as reach or motion. Unset, it either follows the scale by its own exponent or stays off, depending on the channel |
+| <GlossaryTerm term="rig">Rig</GlossaryTerm> | A named set of part groups and the model paths each group covers |
+| <GlossaryTerm term="part-factor">Part factor</GlossaryTerm> | A per-axis multiplier on one model part, or on every part a group covers |
+| <GlossaryTerm term="threshold">Threshold</GlossaryTerm> | The micro and macro edges that turn the tier mechanics on |
+| <GlossaryTerm term="hurt-region">Hurt region</GlossaryTerm> | A part of a frame that takes a different damage multiplier |
+
+## Where to start
+
+| Page | What it is |
+|---|---|
+| [Commands](/docs/stature/commands/) | Every `/stature` subcommand, with examples |
+| [Frames](/docs/stature/frames/) | The frame file format, assignments, precedence and worked examples |
+| [Channels](/docs/stature/channels/) | The 43 built-in channels, their defaults and what an override means |
+| [Parts and regions](/docs/stature/parts-and-regions/) | Rigs, part factors, first-person arms and hurt regions |
+| [Thresholds](/docs/stature/thresholds/) | The server config file and the micro and macro mechanics |
+| [Dangerous sizes](/docs/stature/dangerous/) | Sizes past the game's scale envelope, and how the box and the model separate |
+| [Compatibility](/docs/stature/compatibility/) | Pehkui, other scale modifiers, claims, shaders and the client and server rules |
+| [The Stature API](/docs/stature/api/) | The supported facade for another mod: sizes, shapes, channels and integration frames |
+| [API events](/docs/stature/api/events/) | The change events, their causes and the ordering and thread guarantees |

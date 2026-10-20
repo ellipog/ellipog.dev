@@ -1,0 +1,135 @@
+---
+title: "Channels"
+maturity: "unreleased"
+---
+
+A <GlossaryTerm term="channel">channel</GlossaryTerm> is one named number a scale can drive. It is either unset, in which case it
+follows the scale or stays off, or overridden, in which case it reads exactly what was set. The
+rule is:
+
+```
+value = override, else basis ^ exponent
+```
+
+The basis is usually the uniform scale. Body-physics channels follow it so reach, step, motion,
+jump and flight feel proportional. Combat, defence, health, AI ranges and physics constants do not
+follow, because vanilla already scales what needs scaling and following would double-apply it or
+clamp it into nonsense. Stature has 43 built-in channels; a mod may declare more, and any id
+outside the `stature:` namespace is experimental.
+
+## Taxonomy
+
+| Kind | Channels | Default |
+|---|---|---|
+| Body physics | `reach_block`, `reach_entity`, `step_height`, `motion`, `jump`, `flying_speed`, `safe_fall_distance` | Follows the scale with a tuned exponent |
+| Combat, defence, health, AI ranges | `attack`, `attack_speed`, `attack_knockback`, `sweeping_damage`, `defense`, `armor_toughness`, `knockback_resistance`, `explosion_knockback_resistance`, `health`, `absorption`, `luck`, `oxygen_bonus`, `follow_range`, `tempt_range`, `burning_time`, `mining_speed`, `submerged_mining_speed`, `mining_efficiency` | Off until overridden |
+| Physics constants | `gravity`, `friction`, `air_drag`, `bounciness`, `fall_damage`, `movement_efficiency`, `water_movement_efficiency`, `sneaking_speed` | Off until overridden |
+| Already scaled by vanilla | `camera_distance` | Off; an override bends the vanilla result further |
+| Visibility distances | `name_tag_distance`, `below_name_distance` | Off; an override shortens or lengthens how far a name is visible |
+| Multiplier channels | `knockback_received`, `knockback_dealt`, `saturation` | Follows where the law exists, otherwise off |
+| Render only | `model`, `visibility`, `held_item`, `shadow` | `model` follows the scale; `shadow` is off because vanilla already scales it; the rest are off |
+
+## The built-in channels
+
+`BASE` means the channel follows the uniform scale. `NONE` means it writes nothing until it is
+overridden. The exponent is what the basis is raised to.
+
+| Channel | Follows | Exponent | Drives |
+|---|---|---|---|
+| `stature:reach_block` | BASE | 1.0 | Block interaction range |
+| `stature:reach_entity` | BASE | 1.0 | Entity interaction range |
+| `stature:step_height` | BASE | 1.0 | Step height |
+| `stature:motion` | BASE | 0.5 | Movement speed |
+| `stature:jump` | BASE | 0.5 | Jump strength |
+| `stature:mining_speed` | NONE | 1.0 | Block break speed |
+| `stature:submerged_mining_speed` | NONE | 1.0 | Submerged mining speed |
+| `stature:mining_efficiency` | NONE | 1.0 | Mining efficiency |
+| `stature:attack` | NONE | 1.0 | Attack damage |
+| `stature:attack_speed` | NONE | 1.0 | Attack speed |
+| `stature:attack_knockback` | NONE | 1.0 | Attack knockback |
+| `stature:sweeping_damage` | NONE | 1.0 | Sweeping damage ratio |
+| `stature:defense` | NONE | 1.0 | Armour |
+| `stature:armor_toughness` | NONE | 1.0 | Armour toughness |
+| `stature:knockback_resistance` | NONE | 1.0 | Knockback resistance |
+| `stature:explosion_knockback_resistance` | NONE | 1.0 | Explosion knockback resistance |
+| `stature:health` | NONE | 1.0 | Maximum health |
+| `stature:absorption` | NONE | 1.0 | Maximum absorption |
+| `stature:luck` | NONE | 1.0 | Luck |
+| `stature:oxygen_bonus` | NONE | 1.0 | Oxygen bonus |
+| `stature:follow_range` | NONE | 1.0 | Follow range |
+| `stature:tempt_range` | NONE | 1.0 | Tempt range |
+| `stature:movement_efficiency` | NONE | 1.0 | Movement efficiency |
+| `stature:water_movement_efficiency` | NONE | 1.0 | Water movement efficiency |
+| `stature:sneaking_speed` | NONE | 1.0 | Sneaking speed |
+| `stature:flying_speed` | BASE | 0.5 | Flying speed |
+| `stature:gravity` | NONE | 1.0 | Gravity |
+| `stature:safe_fall_distance` | BASE | 1.0 | Safe fall distance |
+| `stature:fall_damage` | NONE | 1.0 | Fall damage multiplier |
+| `stature:burning_time` | NONE | 1.0 | Burning time |
+| `stature:bounciness` | NONE | 1.0 | Bounciness |
+| `stature:friction` | NONE | 1.0 | Friction |
+| `stature:air_drag` | NONE | 1.0 | Air drag |
+| `stature:camera_distance` | NONE | 1.0 | Camera distance, which vanilla already scales |
+| `stature:name_tag_distance` | NONE | 1.0 | Name tag visibility distance |
+| `stature:below_name_distance` | NONE | 1.0 | Below-name visibility distance |
+| `stature:model` | BASE | 1.0 | The drawn model, not the box |
+| `stature:saturation` | NONE | 1.0 | Hunger exhaustion |
+| `stature:knockback_received` | BASE | -0.5 | Incoming knockback power |
+| `stature:knockback_dealt` | BASE | 0.5 | Outgoing knockback power |
+| `stature:visibility` | NONE | 1.0 | Hides the model, name tag and shadow below 0.5 |
+| `stature:held_item` | NONE | 1.0 | The held item, scaled around the hand |
+| `stature:shadow` | NONE | 1.0 | Shadow radius, on top of vanilla's own scale follow |
+
+## What an override means
+
+For an attribute channel, the override is an absolute effective value. With a non-zero base it is
+applied as a multiplier of `override / base - 1`, so other mods' modifiers still compose on top.
+With a base near zero, such as luck or absorption, it is added instead, because no multiplier can
+move zero. An override of 1.0 is still an override: it asks for an effective value of 1.0, not for
+the channel to be unset. Use `reset` to remove an override; an unset channel whose effective factor
+is 1.0 carries no modifier at all.
+
+For a multiplier channel such as the knockback pair or `saturation`, the override is the
+multiplier itself. A negative or non-finite override degrades to neutral rather than poisoning
+physics. `knockback_received` and `knockback_dealt` are read at the game's knockback funnels, so
+enchantments and knockback resistance still apply underneath.
+
+For a render channel, the override is read when the entity is drawn:
+
+| Channel | An override does this |
+|---|---|
+| `model` | Replaces the scale the model is drawn at. The box does not move |
+| `visibility` | Hides the model, name tag and shadow when below 0.5, shows them at 0.5 or above |
+| `held_item` | Scales the held item around the hand point |
+| `shadow` | Multiplies the shadow radius after vanilla's own scale follow |
+
+An unset `NONE` channel writes no modifier and reads 1.0. An unset `BASE` channel writes
+`scale ^ exponent - 1`, and a factor of exactly 1 removes the modifier. All attribute modifiers
+are transient, so they never reach a save; the overrides are saved with the entity and sent to
+players tracking it, and the effects are re-derived on load.
+
+`stature:below_name_distance` was called `stature:name_tag_height` before the channel defaults
+were corrected. A saved override under the old id loads onto the new channel, and the rename is
+logged once.
+
+A saved override for a channel this version no longer declares is skipped when the entity loads,
+rather than failing the save.
+
+`camera_distance` is off because vanilla already multiplies it by the entity's scale, so following
+it here would square the effect. `name_tag_distance` and `below_name_distance` are off for a
+different reason: making them follow would leave a small entity's name visible only across a tiny
+distance, which is a stealth design rather than a size rule. `shadow` is off because vanilla
+already scales the shadow with the entity, so the channel only bends it further.
+
+## Commands
+
+```cmd
+/stature channel @s list
+/stature channel @s stature:motion 0.5
+/stature channel @s stature:attack 2
+/stature channel @s stature:attack reset
+```
+
+`list` prints every channel id with its resolved value and marks overrides with `(override)`.
+A set value lands immediately; `reset` returns the channel to following the scale. The syntax is
+on [Commands](/docs/stature/commands/).

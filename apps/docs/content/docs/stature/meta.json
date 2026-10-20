@@ -1,0 +1,15 @@
+{
+  "title": "Stature",
+  "pages": [
+    "index",
+    "channels",
+    "commands",
+    "compatibility",
+    "dangerous",
+    "frames",
+    "parts-and-regions",
+    "thresholds",
+    "api",
+    "design"
+  ]
+}

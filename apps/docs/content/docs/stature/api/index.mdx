@@ -1,0 +1,104 @@
+---
+title: "The Stature API"
+maturity: "unreleased"
+---
+
+Stature exposes one supported surface for other mods: `StatureApi` for reading and changing a
+living entity's size, and `StatureEvents` for hearing about changes. Both live in
+`dev.ellipog.stature.common.api` and ship inside the loader jar, so an integration adds no second
+artifact.
+
+Everything outside that package is internal. The classes are public because Java and the mixins need
+them to be, but they are not a contract: names, signatures and behaviour may change without notice.
+If a caller needs something the facade does not offer, ask for it through the facade rather than
+reaching into `ScaleService`, `FrameService`, `ChannelService` or the `StatureScale` mixin duck.
+
+The value types stay in the separate `stature-api` artifact: `ScaleState`, `ScaleAxes`, `Easing`,
+`ChannelSpec` and the rest are pure Java with no Minecraft dependency. The facade and the events
+name `LivingEntity` and `Identifier`, so they ship with the loader jar and are compiled against the
+same game the mod runs on.
+
+## Stability
+
+While Stature is before version 1.0, a breaking change to `StatureApi` or `StatureEvents` ships only
+in a minor release. After 1.0, a breaking change ships only in a major release. Additive changes may
+ship in any release, and a caller can pin the mod version it tested against.
+
+## The facade
+
+Get the installed instance once and keep it. There is one per process:
+
+```java
+StatureApi stature = StatureApi.get();
+```
+
+| Call | What it does |
+|---|---|
+| `get()` | Returns the installed facade. Safe from a mod constructor, on either side. |
+| `state(entity)` | The size, as `{ scale, axis multipliers }`. Reads are allowed on both sides. |
+| `setScale(entity, scale, ticks, easing)` | Sends the entity towards a uniform scale, keeping its shape. `ticks <= 0` applies it now. Out-of-envelope values are clamped; a non-finite value is refused. |
+| `setShape(entity, axes, ticks)` | Replaces the box's per-axis multipliers, keeping the uniform scale. Linear easing. A named frame is cleared, because the entity no longer matches its numbers. |
+| `channelOverride(entity, id)` | The explicit override on one <GlossaryTerm term="channel" />, or empty when the channel follows its base or is off. |
+| `setChannel(entity, id, value, ticks)` | Sets one channel override, linear easing. `ticks <= 0` applies it now. |
+| `clearChannel(entity, id)` | Removes one override and returns the channel to its default behaviour. |
+| `setIntegrationFrame(entity, frame)` | Claims the entity for an integration <GlossaryTerm term="scale-frame">frame</GlossaryTerm>. Returns false when the frame is unknown or an operator already owns the entity. |
+| `clearIntegrationFrame(entity)` | Withdraws an integration claim. Returns false when the entity was not integration-claimed. |
+| `registerChannel(spec)` | Declares a new channel. See below. |
+
+### Sizes and frames
+
+`setScale` and `setShape` are the direct, explicit paths: they mark the entity as manually chosen,
+so a datapack's automatic frame assignment leaves it alone. A command can still override them,
+because an operator outranks a pack.
+
+```java
+StatureApi stature = StatureApi.get();
+stature.setScale(zombie, 4.0, 20, Easing.EASE_OUT_CUBIC);
+stature.setShape(zombie, new ScaleAxes(0.5F, 1.2F, 2.0F), 20);
+```
+
+`setIntegrationFrame` is the path for a mod that sizes entities it does not own. An integration claim
+outranks pack declarations and re-asserts on the integrator's schedule, but it never outranks an
+operator: when the entity is already a command or manual choice, the call returns false and changes
+nothing. Clearing the claim returns the entity to vanilla so packs or nothing can take it on the next
+tick.
+
+```java
+if (stature.setIntegrationFrame(entity, myFrameId)) {
+    // The claim is ours until we clear it.
+}
+```
+
+### Channels
+
+An override is an absolute effective value, exactly as `/stature channel` defines it. An attribute
+channel applies it as a multiplier relative to the game's base; a multiplier channel such as
+`knockback_received` uses it directly. The channel must already be declared.
+
+```java
+stature.setChannel(entity, "stature:attack", 2.0, 0);
+OptionalDouble attack = stature.channelOverride(entity, "stature:attack");
+stature.clearChannel(entity, "stature:attack");
+```
+
+A mod that wants its own channel declares it once, during construction:
+
+```java
+stature.registerChannel(new ChannelSpec(
+        "mymod:buoyancy", ChannelFollow.BASE, 0.5, true));
+```
+
+The id must not already be taken. Ids outside the `stature` namespace are stored as experimental.
+The channel table is server-side state, like the built-ins. See [Channels](/docs/stature/channels/) for the built-in
+set and what each channel drives.
+
+## Threads and events
+
+`state` and `channelOverride` are reads and may run on either side. Every mutator is server-side and
+must run on the server thread; a call from a client or from another thread throws
+`IllegalStateException` instead of writing a value that the next sync would overwrite.
+
+A change made through the facade fires the matching listener in `StatureEvents` after the state is
+committed. The listener runs on the thread that committed it, so a server listener may call the facade
+again and a client listener sees the client's copy. See [API events](/docs/stature/api/events/) for the event list,
+the causes, and the ordering and re-entry guarantees.

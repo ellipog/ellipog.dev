@@ -297,6 +297,81 @@ function resolveLink(inner, where, requester) {
 }
 
 /**
+ * Fence a top-level indented code block, because MDX does not read one as code.
+ *
+ * The sync copies each mod's `docs/**` in as MDX, and CommonMark has two spellings for a code block:
+ * fenced and indented by four spaces. Only the fenced one is opaque to MDX. A `{` in an indented
+ * block is the start of an expression, so a Java method's opening brace ends the compile with
+ * "expected a corresponding closing brace for `{`" -- which is what a design archive's source
+ * excerpts did. Fencing the block is the smallest faithful transform: the text and its indentation
+ * do not change, and the copy button attaches to the `<pre>` either way.
+ *
+ * Only a top-level block is touched. Indented text inside a JSX element (`<Steps>`, `<Tabs>`,
+ * `<details>`) is a child rather than a code block, and MDX already parses it as prose; `depth`
+ * tracks those elements so a wrapped paragraph inside `<Step>` is left exactly as it was.
+ */
+function fenceIndentedCode(markdown) {
+  const lines = markdown.split('\n');
+  const out = [];
+  let fence = null;
+  let depth = 0;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const fenceMark = /^\s*(`{3,}|~{3,})/.exec(line);
+
+    if (fence) {
+      out.push(line);
+      if (fenceMark && fenceMark[1][0] === fence[0]) fence = null;
+      continue;
+    }
+    if (fenceMark) {
+      fence = fenceMark[1];
+      out.push(line);
+      continue;
+    }
+
+    if (/^\s*<https?:/.test(line)) {
+      out.push(line);
+      continue;
+    }
+
+    const close = /^\s*<\/([A-Za-z][\w.:-]*)\s*>/.exec(line);
+    if (close) {
+      depth = Math.max(0, depth - 1);
+      out.push(line);
+      continue;
+    }
+    const open = /^\s*<([A-Za-z][\w.:-]*)(?:\s[^>]*)?>\s*$/.exec(line);
+    if (open && !/\/>\s*$/.test(line)) {
+      depth += 1;
+      out.push(line);
+      continue;
+    }
+
+    if (depth === 0 && /^(?: {4}|\t)\S/.test(line) && (i === 0 || lines[i - 1].trim() === '')) {
+      const block = [];
+      let j = i;
+      for (; j < lines.length; j += 1) {
+        const current = lines[j];
+        if (current.trim() === '' || !/^(?: {4}|\t)/.test(current)) break;
+        block.push(current.replace(/^(?: {4}|\t)/, ''));
+      }
+
+      if (block.length > 0) {
+        out.push('```', ...block, '```');
+        i = j - 1;
+        continue;
+      }
+    }
+
+    out.push(line);
+  }
+
+  return out.join('\n');
+}
+
+/**
  * The whole body transform, in one line-walking pass: GFM alerts into components, `[[...]]` into links.
  *
  * One pass rather than two because both need the same state -- whether the current line is inside a
@@ -401,7 +476,7 @@ function writeMod(section, fallbackId) {
   for (const page of pages) {
     const where = relative(resolve(SITE, '..'), page.file);
     const { body: sourceBody } = splitFrontmatter(page.raw);
-    const body = transformBody(stripLeadingHeading(sourceBody), where, requester);
+    const body = transformBody(fenceIndentedCode(stripLeadingHeading(sourceBody)), where, requester);
     // `maturity` and `description` are read from the source's own frontmatter; the rest is
     // generated. See declaredKey.
     const maturity = declaredKey(page.raw, 'maturity');

@@ -1,0 +1,197 @@
+---
+title: "Frames"
+maturity: "unreleased"
+---
+
+A <GlossaryTerm term="scale-frame">frame</GlossaryTerm> is a named size a datapack declares for a living entity. It is written in
+blocks, not in multipliers, so the same frame means the same size on a player, a zombie or a
+modded creature. Stature ships no frames of its own; every frame comes from a pack on the server.
+
+## The file
+
+```
+data/<namespace>/stature/frames/<name>.json
+```
+
+The file name is the frame's name, and the namespace is the pack's, so
+`data/mypack/stature/frames/titan.json` is the frame `mypack:titan`. Two packs cannot collide
+unless they use the same namespace.
+
+```json
+{
+  "size": [0.55, 1.71],
+  "scale": 1.0,
+  "eye_height": 1.62,
+  "easing": "cubic"
+}
+```
+
+`size` is required. `scale`, `eye_height`, `easing` and every other field are optional.
+
+## Fields
+
+| Field | Type | What it does |
+|---|---|---|
+| `size` | array of two or three numbers | Width and height in blocks, plus depth when three are given. Two numbers means the depth equals the width. All numbers must be positive |
+| `scale` | number | A multiplier on the frame's size, from 0.0625 to 16. Default 1.0 |
+| `eye_height` | number | The camera height in blocks at scale 1. It is multiplied by the entity's uniform scale, exactly as the frame's size is. Must be positive |
+| `easing` | string | The curve a change to this frame uses: `linear`, `cubic` or `elastic`. Default `cubic` |
+| `entities` | array of entity type ids | Exact entity types this frame claims, such as `minecraft:zombie` |
+| `entity_tags` | array of entity type tag ids | Entity type tags this frame claims, with or without a leading `#` |
+| `rig` | id | The <GlossaryTerm term="rig" /> used by `parts` and `regions`. Default `stature:humanoid` |
+| `parts` | object | Group names mapped to `[x, y, z]` <GlossaryTerm term="part-factor">part factors</GlossaryTerm> |
+| `hitbox_from_parts` | boolean | When true, the entity's box is derived from the largest part factor on each axis instead of `size`. Default false |
+| `regions` | array | <GlossaryTerm term="hurt-region">hurt regions</GlossaryTerm>, each `{ "part", "multiplier", "tag" }` |
+| `thresholds` | object | Per-frame `micro` and `macro` edges plus any threshold flag overrides |
+| `first_person_arms` | boolean | When true, the first-person hands stay vanilla. When absent or false, part factors reach the first-person arms |
+| `comment` | string | Ignored. A note for the pack author |
+| `$schema` | string | Ignored. A schema pointer for an editor |
+
+A field this build does not know is logged once per file and ignored, so a frame written for a
+later Stature still loads. `comment` and `$schema` are ignored without a message.
+
+## Size and scale
+
+`size` is the box before the scale. The frame's `scale` multiplies it, and a later
+`/stature set` multiplies the result again:
+
+```json
+{ "size": [1.2, 3.6], "scale": 2.0 }
+```
+
+This frame is `1.2 x 3.6` blocks at scale 1, so at its own scale 2.0 it is `2.4 x 7.2`. The same
+frame applied to a zombie and to a player lands on the same box, because Stature converts the
+frame against the entity's own base dimensions rather than against whatever size it has now.
+
+A three-number `size` is the only way to ask for a box that is not as deep as it is wide:
+
+```json
+{ "size": [0.9, 0.9, 0.45] }
+```
+
+## Eye height
+
+`eye_height` is absolute at scale 1. At standing, the camera sits at
+`eye_height * uniform scale`. Other poses keep their own proportion: the pose's vanilla eye height
+is scaled by the same ratio the frame applies at standing, so a crawl stays a crawl and the eye
+stays inside the box. Sleeping is left alone.
+
+## Assignment and precedence
+
+A frame may claim entities by exact type, by entity type tag, or both. The winner, from strongest
+to weakest, is:
+
+1. An explicit choice: `/stature set`, `/stature size`, `/stature frame apply` or
+   `/stature frame clear`.
+2. A frame claimed by another mod through Stature's integration API.
+3. A frame whose `entity_tags` match the entity.
+4. A frame whose `entities` list names the entity's exact type.
+5. Vanilla, when nothing claims the entity.
+
+Tags outrank exact types on purpose. When two tags match, the smallest frame id wins. When two
+frames claim the same type or the same tag, the first frame id in sorted order wins and the other
+claim is reported in the log rather than silently replacing it.
+
+An automatic frame is applied on the entity's first server tick. An entity that already has a
+hand-set size, a shape or an eye override is left alone and marked as manually decided. Explicit
+choices are never re-evaluated.
+
+`/stature reload` and vanilla `/reload` rebuild the frame and rig registries. Automatic tag and
+type assignments are re-evaluated: an entity whose winner changed is updated, and an entity whose
+declaration disappeared returns to vanilla. Explicit choices and integration claims are left
+untouched. A frame applied by command stays attached to the entity even if its file is removed;
+`/stature get` then says the frame is no longer loaded.
+
+## Worked examples
+
+A small humanoid, claimed by exact type:
+
+```json
+{
+  "size": [0.35, 0.85],
+  "eye_height": 0.8,
+  "entities": ["minecraft:zombie"]
+}
+```
+
+A giant with an elastic arrival, claimed by a tag the pack defines:
+
+```json
+{
+  "size": [1.2, 3.6],
+  "scale": 2.0,
+  "easing": "elastic",
+  "entity_tags": ["mypack:giants"]
+}
+```
+
+A rectangular quadruped with a custom rig, given a rig that defines `head` and `tail`:
+
+```json
+{
+  "size": [1.4, 1.1, 2.2],
+  "rig": "mypack:quadruped",
+  "parts": {
+    "head": [1.1, 1.0, 1.1],
+    "tail": [1.0, 1.0, 1.4]
+  },
+  "entity_tags": ["mypack:quadrupeds"]
+}
+```
+
+The quadruped's box is `1.4 x 1.1 x 2.2`; the part factors change the silhouette only. To make
+the box follow the parts instead:
+
+```json
+{
+  "size": [1.0, 1.0],
+  "parts": { "torso": [1.5, 1.5, 1.5] },
+  "hitbox_from_parts": true
+}
+```
+
+The box becomes the largest factor on each axis, with a floor of 1.0, so factors below 1 do not
+shrink the presence box below vanilla on any axis. This is a presence box, not a per-part
+collision shape; see [Parts and regions](/docs/stature/parts-and-regions/).
+
+## Parts, regions and thresholds in a frame
+
+`parts` maps a rig group to three multipliers. Groups resolve through the frame's `rig` when the
+frame is applied, so what travels is model paths. An unknown group is logged and skipped rather
+than failing the frame. Part factors are saved with the entity and sent to viewers; the full
+format is in [Parts and regions](/docs/stature/parts-and-regions/).
+
+`regions` names a rig group, a non-negative damage multiplier and a tag:
+
+```json
+"regions": [
+  { "part": "head", "multiplier": 3.0, "tag": "headshot" }
+]
+```
+
+The first matching region in file order wins. A malformed entry fails the file; a group the rig
+does not define is skipped at hit time. A multiplier of 0 means the region takes no damage.
+
+`thresholds` overrides the server's two tier edges and any mechanic flag for this frame's
+entities:
+
+```json
+"thresholds": {
+  "micro": 0.2,
+  "macro": 3.0,
+  "trampling": false
+}
+```
+
+The edges must be positive and `micro` must be below `macro`. The boolean flag keys are the same
+mechanic flags as `config/stature.json`; an unknown flag is logged and skipped. The numeric trample
+keys are config-only and are not frame fields. The server resolves the frame over the config file
+and sends the answer to clients, so both sides agree. See [Thresholds](/docs/stature/thresholds/).
+
+## Errors in the log
+
+A frame that is not valid JSON, is not an object, is missing `size`, has a wrongly shaped field,
+or declares an unusable `eye_height` or `thresholds` is reported and skipped. The rest of the
+pack still loads, and the load line counts the ignored files. A part group the rig does not define
+is warned about when the frame is applied; a region whose group is unknown is skipped when a hit
+lands.

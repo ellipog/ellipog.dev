@@ -142,6 +142,7 @@ for (const p of [
   `${OUT}/docs/index.html`,
   `${OUT}/docs/tenet/index.html`,
   `${OUT}/docs/armature/index.html`,
+  `${OUT}/docs/stature/index.html`,
   `${OUT}/404.html`,
 ]) {
   check(p.replace(`${OUT}/`, ''), existsSync(p));
@@ -1198,7 +1199,7 @@ if (home) {
    * catalog, not as a summary, not as a served icon. See manifest.json's own note and AGENT.md.
    *
    * Shipped mods state `released · v<version>` rather than `in development`. The absence of the old
-   * words is not asserted page-wide: the author's bio still says a couple of mods are in development,
+   * words is not asserted page-wide: the author's bio still says a few mods are in development,
    * which is true of the unshipped suite, so each versioned cell is asserted for its own string instead.
    */
   for (const mod of manifest.suite.filter((m) => m.version)) {
@@ -2546,7 +2547,12 @@ console.log('\n== the file for readers that are not browsers ==');
   const llms = read(`${OUT}/llms.txt`);
   check('llms.txt ships', Boolean(llms));
   check('llms.txt names the sitemap', (llms ?? '').includes(`${siteUrl}/sitemap.xml`), 'no sitemap address');
-  for (const entry of [`${siteUrl}/docs/tenet/`, `${siteUrl}/docs/armature/`, `${siteUrl}/docs/glossary/`]) {
+  for (const entry of [
+    `${siteUrl}/docs/tenet/`,
+    `${siteUrl}/docs/armature/`,
+    `${siteUrl}/docs/stature/`,
+    `${siteUrl}/docs/glossary/`,
+  ]) {
     check(`llms.txt points at ${entry.replace(siteUrl, '')}`, (llms ?? '').includes(entry), 'missing entry');
   }
 }

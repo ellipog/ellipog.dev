@@ -1,0 +1,83 @@
+---
+title: "Dangerous sizes"
+maturity: "unreleased"
+---
+
+The game stores a living entity's scale in `minecraft:scale`, and that attribute accepts only
+0.0625 to 16. Stature calls that range the <GlossaryTerm term="envelope">envelope</GlossaryTerm>. A size inside it changes the box,
+the model and the physics together. A size outside it needs <GlossaryTerm term="dangerous">dangerous mode</GlossaryTerm>, which
+separates the box from the picture.
+
+<Callout kind="caution">
+
+Dangerous sizes are for a test world, a screenshot or a controlled event. They are not balanced
+for survival, and a model hundreds of blocks wide is not something the rest of the game is
+prepared for.
+
+</Callout>
+
+## Commands
+
+```cmd
+/stature set <targets> <scale> --dangerous
+/stature set <targets> --dangerous <scale>
+```
+
+`--dangerous` may follow the scale, the ticks or the easing, and the prefix form puts it before
+the scale. Both forms are the same command. The dangerous range is 0.001 to 1000. A value above
+256 is accepted and logs a warning, because the model is then far outside anything the box can
+describe.
+
+A plain `set` outside 0.0625 to 16 is refused with a message that names `--dangerous`. A value
+outside 0.001 to 1000 is refused by the argument parser before the command runs.
+
+## What stays at the box size
+
+The entity's scale attribute is clamped to the envelope, so the box, collision, pathfinding,
+camera height, name-tag height and shadow all use the nearest bound. A 100x entity has a 16x box
+and a 16x camera height. Only the picture, through the model channel and part factors, is allowed
+past it.
+
+That split is deliberate: the alternative is a scale the attribute will not store, which makes
+physics, collision and the camera disagree with every other part of the game. The picture is the
+one thing that can be larger without breaking the simulation.
+
+The `stature:model` channel carries the visual size. A dangerous set writes the requested scale
+into that channel and marks the entity so a later plain set knows the model was the dangerous
+command's. The render path draws the model at the model channel's value, and culling is inflated
+by the excess so the model does not disappear when its box leaves the view frustum.
+
+## The small end
+
+Below 0.0625 the same split applies in reverse. A 0.001x set keeps a 0.0625x box and draws a
+0.001x model. The box is the smallest the attribute stores, so collision and the camera stop
+shrinking there while the picture keeps going. Everything that reads the box, including the
+displacement search and compression damage, also stops there.
+
+## Getting back
+
+```cmd
+/stature set @s 1
+/stature reset @s
+```
+
+A plain `set` clears a dangerous model override, and so does `reset`. A model channel set by hand
+is treated differently: only a dangerous set marks the override as dangerous, so a plain `set`
+leaves a hand-set model alone. To remove a hand-set model, reset the channel directly:
+
+```cmd
+/stature channel @s stature:model reset
+```
+
+`/stature frame clear` also drops a dangerous model override, because leaving the entity drawn at
+100x after its frame is gone would be a worse leftover than the frame itself.
+
+`/stature get` reports the box and the uniform scale, so a 100x dangerous entity reports a 16x
+scale. Use `/stature channel <targets> list` to see the `stature:model` override, which is where
+the visual size actually lives.
+
+## What dangerous mode does not fix
+
+Parts still scale the model around the box, hurt regions still use the box's fractions, and
+compression still runs on the box. A giant whose model is 100x but whose box is 16x can be hit at
+the box, not at the picture. That is the trade the mode makes.
