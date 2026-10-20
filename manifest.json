@@ -157,7 +157,6 @@
       "summary": "A scale and anatomy API. Per-entity size and proportions with hitboxes that follow, 40+ channels a pack can drive, frames and commands, and a public API with events, all server-authoritative.",
       "repo": "https://github.com/ellipog/stature",
       "issues": "https://github.com/ellipog/stature/issues",
-      "version": "0.1.0",
       "localPath": "../stature",
       "pin": "5893166231ca84b4612b2e701cf7d74f9038337a",
       "docsPath": "docs",

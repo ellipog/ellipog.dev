@@ -21,7 +21,7 @@ type SuiteMod = {
   summary: string;
   /**
    * Released version, rendered in the footer once the mod ships. Absent while unreleased,
-   * in which case the cell still says `in development`.
+   * in which case the cell says `unreleased`.
    */
   version?: string;
   /**
@@ -197,11 +197,11 @@ function SuiteCell({ mod }: { mod: SuiteMod }) {
       </div>
       <p className="summary">{mod.summary}</p>
       <div className="meta">
-        {/* A shipped mod states its version; anything still unreleased says `in development`.
+        {/* A shipped mod states its version; anything still unreleased says `unreleased`.
             `planned` is not a state this page knows: a mod that is not certain to exist is not
             in the manifest, so there is no cell for it to describe -- see `Home` below, and
             `manifest.json`'s own note. */}
-        <span className="faint">{mod.version ? `released · v${mod.version}` : 'in development'}</span>
+        <span className="faint">{mod.version ? `released · v${mod.version}` : 'unreleased'}</span>
         {hasDocs || mod.repo || cfUrl ? (
           <span className="cell-links faint">
             {mod.repo ? (
