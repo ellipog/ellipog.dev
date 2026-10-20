@@ -1,58 +1,49 @@
 [![Create Stellar banner](https://i.postimg.cc/zB4RbHTq/Stellar-Banner.png)](https://discord.gg/uy9QFaQWR7)
 
-**Create, with a progression line through it. Craft your way from a Basic Mechanism to a Creative one, and from the Overworld to Glacio.**
+**A Create pack with a goal. Start with a cogwheel, end up in space.**
 
-Create Stellar 2.0 is a full rebuild on Minecraft 1.21.1 and NeoForge: Create 6, a new quest book on Tenet, and a companion mod that ships every pack-only item, liquid, cobblegen and recipe. Nothing extra to download or set up.
+Create Stellar 2.0 is out on Minecraft 1.21.1, with Create 6 and a quest book rebuilt from scratch.
 
-## The progression line
+## ⚙️ How it plays
 
-Each stage is a mechanism. Craft it, then automate it, and the next one opens. Five main stages, with branches off the first four:
+Every stage is a mechanism. Make it, automate it, and the next chapter opens.
 
-1. **Basic Mechanism**, branching into **Copper** and **Steel**
-2. **Precision Mechanism**, branching into **Enchanted** and **Desh**
-3. **Conductive Mechanism**, branching into **Refined** and **Ostrum**
-4. **Mystical Mechanism**, branching into **Calorite**
-5. **Creative Mechanism**
+1. Basic Mechanism, then Copper and Steel
+2. Precision Mechanism, then Enchanted and Desh
+3. Conductive Mechanism, then Refined and Ostrum
+4. Mystical Mechanism, then Calorite
+5. Creative Mechanism
 
-Side chapters run alongside: **Get Started** for your first Create machines, **Metallurgy** for ore processing, **Pantry** for food, **Storage** from a drawer wall up to Refined Storage autocrafting, and **Aeronautics** (Lift, Thrust, Flight) for building ships that fly.
+New to Create? Get Started walks you through your first machines. Side chapters for food, storage and ore processing are there when you want a break from the main line.
 
-## Off to space
+Got copper mechanisms? Then you can fly. Create Aeronautics gets three chapters of its own: Lift, Thrust and Flight.
 
-Ad Astra is where the progression line goes. The Steel Mechanism hands you a launch pad and the Moon, and every branch after that is built from what you bring back:
+## 🚀 Space
 
-- **Desh** from washing Moon sand
-- **Ostrum** from spinning down Mars sand
-- **Calorite** from Venus
-- **Glacio** opens with the Calorite Mechanism
+Finish the Steel Mechanism and the quest hands you a launch pad. After that, each branch needs something from further out:
 
-Planet cobblegens turn a cobble generator into a source of Moon, Mars, Mercury, Venus and Glacio stone.
+- Desh: wash Moon sand
+- Ostrum: wash Mars sand
+- Calorite: wash Venus sand
+
+Tired of rocket trips? Put a block of desh or ostrum under a cobble gen and it makes Moon or Mars cobble instead. Mill it, wash it, done.
 
 ## Key mods
 
-- **Create 6**, with Crafts & Additions, Big Cannons, Diesel Generators, Enchantment Industry and Slice & Dice
-- **Create Aeronautics** and AeroWorks
-- **Ad Astra**
-- **Mystical Agriculture**
-- **Refined Storage**, Tom's Simple Storage, Sophisticated Backpacks and Storage Drawers
-- **Farmer's Delight**, Expanded Delight, Ocean's Delight and Create Confectionery
-- **Alex's Caves** and **Alex's Mobs**
-- **Terralith**, Oh The Biomes We've Gone and Biomes O' Plenty
-- **Tenet** quests and **EMI** recipes
-
-## New in 2.0
-
-- Ported from 1.19.2 Forge to 1.21.1 NeoForge
-- FTB Quests replaced by Tenet, with the quest book rebuilt
-- KubeJS removed: the pack's content now lives in the Create Stellar Companion mod
-- Thermal Expansion removed
-- Immersive Aircraft replaced by Create Aeronautics
+- Create, with Crafts & Additions, Big Cannons and Diesel Generators
+- Create Aeronautics
+- Ad Astra
+- Mystical Agriculture
+- Refined Storage
+- Farmer's Delight
+- Alex's Caves
 
 ## Details
 
 - **Minecraft:** 1.21.1
-- **Loader:** NeoForge 21.1.264
-- **RAM:** 6 to 8 GB recommended
-- **Server pack:** TODO (Elliot): confirm whether a server pack is published, then replace this line.
+- **Loader:** NeoForge
+- **RAM:** 6 GB recommended
+- **Server pack:** Coming soon
 
 ## Links
 
