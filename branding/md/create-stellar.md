@@ -12,18 +12,7 @@ These stages will help you get through all the different mods and once you're do
 
 This modpack is perfect for both experts and people who have never played with the Create mod before! It has a very well explained introduction to the mods at the start, then as you progress everything becomes harder.
 
-Quests run on Tenet now, 600+ of them across the whole progression. All the custom items, liquids, planet cobblegens, recipes, and the dark interface come from the companion mod that ships with the pack, so there is nothing extra to download or set up.
-
-## Texture credits
-
-The interface skin (built into the companion mod, no separate download) is based on [Mandala's GUI - Dark mode](https://www.curseforge.com/minecraft/texture-packs/mandalas-gui-dark-mode), with per-mod GUI skins for:
-
-- [Create - Immersive Aircrafts](https://www.curseforge.com/minecraft/texture-packs/create-immersive-aircrafts)
-- [ComputerCreate](https://www.curseforge.com/minecraft/texture-packs/computercreate)
-- [Created Pretty Pipes](https://www.curseforge.com/minecraft/texture-packs/created-pretty-pipes)
-- [Refined Storage Jappafied](https://www.curseforge.com/minecraft/texture-packs/refined-storage-jappafied)
-- [Tom's Create Storage](https://www.curseforge.com/minecraft/texture-packs/create-simple-storage)
-- [Tom's Better Create Storage](https://www.curseforge.com/minecraft/texture-packs/toms-better-create-storage)
+Quests run on Tenet now, 600+ of them across the whole progression. All the custom items, liquids, planet cobblegens, and recipes come from the companion mod that ships with the pack, so there is nothing extra to download or set up.
 
 ## Links
 
