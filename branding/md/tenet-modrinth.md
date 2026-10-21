@@ -1,4 +1,4 @@
-![Tenet, a visual questing engine for Minecraft 1.21.1 by ellipog](https://files.catbox.moe/ww3cgj.png)
+![Tenet, a visual questing engine for Minecraft 1.21.1 by ellipog](https://ellipog.dev/branding/header-tenet.png)
 
 The modern questing engine for Fabric and NeoForge.
 
@@ -12,7 +12,7 @@ Build quest lines in a modern in-game editor, or describe them in JSON. Tenet dr
 - **Broken files fail loudly and locally.** The validator reports path and line and skips the file. One broken quest never takes the server down.
 - **Parties share progress.** Built on Armature teams with `ONE_MEMBER`, `POOLED`, or `OWNER_ONLY` counting, server-authoritative throughout.
 
-[![Coming from FTB Quests? Convert your quest books to Tenet JSON at tenet.ellipog.dev](https://files.catbox.moe/3sal6z.png)](https://tenet.ellipog.dev)
+[![Coming from FTB Quests? Convert your quest books to Tenet JSON at tenet.ellipog.dev](https://ellipog.dev/branding/tenet-migrator.png)](https://tenet.ellipog.dev)
 
 ## Playing
 
@@ -41,4 +41,4 @@ Underneath, it is all JSON: `config/tenet/quests/`, one folder per group, one fi
 - [Manual](https://ellipog.dev/docs/tenet) · [Source](https://github.com/ellipog/tenet) · [Issues](https://github.com/ellipog/tenet/issues)
 
 [![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://cdn.modrinth.com/data/cached_images/b8548210eac7c7338b01fe0469e84a7bbbed41fc.png)](https://www.bisecthosting.com/mcstellar)
-[![Engineered by Aaen Studios: aaenz.no](https://files.catbox.moe/qq1h88.png)](https://aaenz.no)
+[![Engineered by Aaen Studios: aaenz.no](https://ellipog.dev/branding/studio.png)](https://aaenz.no)

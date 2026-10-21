@@ -1,45 +1,45 @@
-# links.md: hosted banner URLs (Catbox)
+# links.md: hosted banner URLs (ellipog.dev)
 
-The four `branding/out/` PNGs, uploaded to Catbox so one URL works in
-every description. If a banner is re-exported, re-upload it and replace
-the URL here. A PNG edit does not move the hosted copy.
+The `branding/out/` PNGs, served by the docs app from
+`apps/docs/public/branding/` at `https://ellipog.dev/branding/<name>.png`, so one
+URL works in every description. If a banner is re-exported, copy it into
+`apps/docs/public/branding/` too and redeploy: a PNG edit in `out/` does not move the hosted copy.
 
 | Banner | URL |
 |---|---|
-| header-tenet | https://files.catbox.moe/ww3cgj.png |
-| header-armature | https://files.catbox.moe/asp22t.png |
-| tenet-migrator | https://files.catbox.moe/3sal6z.png |
-| bisect | https://files.catbox.moe/bo7lrx.png |
-| discord | https://files.catbox.moe/tcwngu.png |
-| studio | https://files.catbox.moe/qq1h88.png |
+| header-tenet | https://ellipog.dev/branding/header-tenet.png |
+| header-armature | https://ellipog.dev/branding/header-armature.png |
+| tenet-migrator | https://ellipog.dev/branding/tenet-migrator.png |
+| bisect | https://ellipog.dev/branding/bisect.png |
+| discord | https://ellipog.dev/branding/discord.png |
+| studio | https://ellipog.dev/branding/studio.png |
 
 ## Copy-paste
 
 Headers (top of the description, alt text mandatory on Modrinth):
 
 ```md
-![Tenet, a visual questing engine for Minecraft 1.21.1 by ellipog](https://files.catbox.moe/ww3cgj.png)
+![Tenet, a visual questing engine for Minecraft 1.21.1 by ellipog](https://ellipog.dev/branding/header-tenet.png)
 ```
 
 ```md
-![Armature, a shared library mod for Minecraft 1.21.1 by ellipog](https://files.catbox.moe/asp22t.png)
+![Armature, a shared library mod for Minecraft 1.21.1 by ellipog](https://ellipog.dev/branding/header-armature.png)
 ```
 
 Migrator CTA (mid-page on Tenet's pages only. The PNG cannot be clicked,
 so the markdown wraps it in the destination):
 
 ```md
-[![Coming from FTB Quests? Convert your quest books to Tenet JSON at tenet.ellipog.dev](https://files.catbox.moe/3sal6z.png)](https://tenet.ellipog.dev)
+[![Coming from FTB Quests? Convert your quest books to Tenet JSON at tenet.ellipog.dev](https://ellipog.dev/branding/tenet-migrator.png)](https://tenet.ellipog.dev)
 ```
 
-Bisect banner (bottom of the description, Catbox copy for CurseForge/GitHub):
+Bisect banner (bottom of the description, ellipog.dev copy for CurseForge/GitHub):
 
 ```md
-[![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://files.catbox.moe/bo7lrx.png)](https://www.bisecthosting.com/mcstellar)
+[![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://ellipog.dev/branding/bisect.png)](https://www.bisecthosting.com/mcstellar)
 ```
 
-Modrinth does not reliably load the Catbox copy, so Modrinth descriptions
-use the Modrinth-hosted copy instead (uploaded once through the editor,
+Modrinth descriptions use the Modrinth-hosted copy instead (uploaded once through the editor,
 same blue banner, pixel-identical):
 
 ```md
@@ -49,13 +49,13 @@ same blue banner, pixel-identical):
 Discord banner (directly above the Bisect banner):
 
 ```md
-[![Join the ellipog Discord server](https://files.catbox.moe/tcwngu.png)](https://discord.gg/uy9QFaQWR7)
+[![Join the ellipog Discord server](https://ellipog.dev/branding/discord.png)](https://discord.gg/uy9QFaQWR7)
 ```
 
 Studio banner (under the Bisect banner, closes the page):
 
 ```md
-[![Engineered by Aaen Studios: aaenz.no](https://files.catbox.moe/qq1h88.png)](https://aaenz.no)
+[![Engineered by Aaen Studios: aaenz.no](https://ellipog.dev/branding/studio.png)](https://aaenz.no)
 ```
 
 ## Modrinth AI content disclosure

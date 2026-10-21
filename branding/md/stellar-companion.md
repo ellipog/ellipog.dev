@@ -34,4 +34,4 @@ The built-in interface skin is based on [Mandala's GUI - Dark mode](https://www.
 - [Discord](https://discord.gg/uy9QFaQWR7) · [Source](https://github.com/ellipog)
 
 [![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://cdn.modrinth.com/data/cached_images/b8548210eac7c7338b01fe0469e84a7bbbed41fc.png)](https://www.bisecthosting.com/mcstellar)
-[![Engineered by Aaen Studios: aaenz.no](https://files.catbox.moe/qq1h88.png)](https://aaenz.no)
+[![Engineered by Aaen Studios: aaenz.no](https://ellipog.dev/branding/studio.png)](https://aaenz.no)

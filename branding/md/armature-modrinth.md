@@ -1,4 +1,4 @@
-![Armature, a shared library mod for Minecraft 1.21.1 by ellipog](https://files.catbox.moe/asp22t.png)
+![Armature, a shared library mod for Minecraft 1.21.1 by ellipog](https://ellipog.dev/branding/header-armature.png)
 
 The shared foundation for Fabric and NeoForge mods: the loader seam, data, events, networking, and teams one layer down, plus a client UI toolkit on top.
 
@@ -23,4 +23,4 @@ For mod developers: compile against the published artifact (see the releases pag
 - [Manual](https://ellipog.dev/docs/armature) · [Source](https://github.com/ellipog/armature) · [Issues](https://github.com/ellipog/armature/issues)
 
 [![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://cdn.modrinth.com/data/cached_images/b8548210eac7c7338b01fe0469e84a7bbbed41fc.png)](https://www.bisecthosting.com/mcstellar)
-[![Engineered by Aaen Studios: aaenz.no](https://files.catbox.moe/qq1h88.png)](https://aaenz.no)
+[![Engineered by Aaen Studios: aaenz.no](https://ellipog.dev/branding/studio.png)](https://aaenz.no)
