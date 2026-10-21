@@ -17,11 +17,11 @@ says otherwise.
 | Fabric | Fabric Loader 0.19.5+ with Fabric API 0.162.0+26.3 |
 | NeoForge | 26.3.0.76+ |
 | Both sides | Stature is required on the client and on the server. A client without it is refused rather than shown a wrong-size world |
-| Other mods | none required |
+| Armature | 1.1.0 or newer, required on both sides. Stature uses its loader seam, networking and config reader |
 
 Do not install Stature beside Pehkui or Pehkui Rebuilt. All of them write the game's
 `minecraft:scale` attribute, and Stature expects to be the one choosing its base value. See
-[Compatibility](/docs/stature/compatibility/).
+[Compatibility](/docs/stature/reference/compatibility/).
 
 ## The pieces
 
@@ -40,12 +40,12 @@ Do not install Stature beside Pehkui or Pehkui Rebuilt. All of them write the ga
 
 | Page | What it is |
 |---|---|
-| [Commands](/docs/stature/commands/) | Every `/stature` subcommand, with examples |
-| [Frames](/docs/stature/frames/) | The frame file format, assignments, precedence and worked examples |
-| [Channels](/docs/stature/channels/) | The 43 built-in channels, their defaults and what an override means |
-| [Parts and regions](/docs/stature/parts-and-regions/) | Rigs, part factors, first-person arms and hurt regions |
-| [Thresholds](/docs/stature/thresholds/) | The server config file and the micro and macro mechanics |
-| [Dangerous sizes](/docs/stature/dangerous/) | Sizes past the game's scale envelope, and how the box and the model separate |
-| [Compatibility](/docs/stature/compatibility/) | Pehkui, other scale modifiers, claims, shaders and the client and server rules |
+| [Commands](/docs/stature/reference/commands/) | Every `/stature` subcommand, with examples |
+| [Frames](/docs/stature/scaling/frames/) | The frame file format, assignments, precedence and worked examples |
+| [Channels](/docs/stature/scaling/channels/) | The 48 built-in channels, their defaults and what an override means |
+| [Parts and regions](/docs/stature/scaling/parts-and-regions/) | Rigs, part factors, first-person arms and hurt regions |
+| [Thresholds](/docs/stature/scaling/thresholds/) | The server config file, the M10 channel options and the micro and macro mechanics |
+| [Dangerous sizes](/docs/stature/reference/dangerous/) | Sizes past the game's scale envelope, and how the box and the model separate |
+| [Compatibility](/docs/stature/reference/compatibility/) | Pehkui, other scale modifiers, claims, shaders and the client and server rules |
 | [The Stature API](/docs/stature/api/) | The supported facade for another mod: sizes, shapes, channels and integration frames |
 | [API events](/docs/stature/api/events/) | The change events, their causes and the ordering and thread guarantees |

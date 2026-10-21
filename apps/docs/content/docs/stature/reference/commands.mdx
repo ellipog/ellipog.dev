@@ -1,0 +1,294 @@
+---
+title: "Commands"
+maturity: "unreleased"
+---
+
+Every command is under `/stature`. Changing another entity asks for permission level 2, the
+gamemaster level. The self-only forms (`set --self`, `preset --self`, `get` with no target, `reset`
+with no target and the target-less `grow` and `shrink`) ask for
+`self_command_permission_level`, which defaults to 2 as well; a pack can lower it without opening
+the target forms. `<targets>` is any entity selector; only
+living entities are changed, and a selector that matches nothing living reports `No living entities
+matched`. Scale changes are server-authoritative, so a command run from the console changes the
+server's answer and the players tracking the entity are sent the result.
+
+## At a glance
+
+```cmd
+/stature set <targets> <scale>
+/stature set <targets> <scale> <ticks>
+/stature set <targets> <scale> <ticks> <easing>
+/stature set <targets> --dangerous <scale> [<ticks> [<easing>]]
+/stature set <targets> <scale> [<ticks> [<easing>]] --dangerous
+/stature set --self <scale> [<ticks> [<easing>]]
+/stature set --self --dangerous <scale> [<ticks> [<easing>]]
+/stature set --self <scale> [<ticks> [<easing>]] --dangerous
+/stature reset [<targets>]
+/stature preset list
+/stature preset <targets> <preset> [<ticks>]
+/stature preset --self <preset> [<ticks>]
+/stature grow [<targets>] [<factor>]
+/stature grow --self [<factor>]
+/stature shrink [<targets>] [<factor>]
+/stature shrink --self [<factor>]
+/stature size <targets> <width> <height> <depth> [<ticks>]
+/stature frame apply <targets> <frame> [<ticks>]
+/stature frame clear <targets>
+/stature frame list
+/stature channel <targets> list
+/stature channel <targets> <channel> <value>
+/stature channel <targets> <channel> reset
+/stature part <targets> list
+/stature part <targets> reset
+/stature part <targets> <part> <x> <y> <z> [<ticks>]
+/stature part <targets> <part> reset
+/stature get [<target>]
+/stature reload
+```
+
+`<easing>` is one of `linear`, `cubic` or `elastic`. Ticks run from 0 to 1200. Without ticks the
+change lands at once; with ticks and no easing name it uses `cubic`.
+
+## Selecting by scale
+
+Any entity selector accepts Stature's <GlossaryTerm term="scale-selector">scale option</GlossaryTerm>:
+
+```cmd
+/stature set @e[stature:scale=0.5..2] 3
+/stature get @e[stature:scale=..0.25,limit=1]
+/stature reset @e[type=minecraft:zombie,stature:scale=4..]
+```
+
+The value uses vanilla's range grammar: `0.5` is exact, `0.5..2` is inclusive on both ends,
+`..0.5` has only a maximum and `2..` only a minimum. It matches living entities by the same
+uniform scale that `/stature set` writes, not by the drawn model and not by the shaped box. A
+non-living entity never matches because it has no Stature scale. The option is enabled whenever
+Stature is installed; there is no separate config switch, and it combines with every vanilla
+option such as `type`, `tag`, `limit` and `sort`.
+
+No height or tier option is shipped. Both would have to choose between the uniform scale, the
+shaped box and the model, and `stature:scale` already answers the question every command needs.
+Use `stature:scale=0.5..2` for a tier-like query, or a tag for a pack-defined group.
+
+## Setting a size
+
+```cmd
+/stature set @s 2
+/stature set @s 4 40 elastic
+/stature set @e[type=minecraft:zombie,limit=1] 0.5 20 linear
+/stature set --self 2
+/stature set --self 4 40 elastic
+```
+
+`set` changes only the uniform scale and keeps the current shape. It marks the entity as a manual
+choice, so a pack's automatic frame no longer applies to it. The plain range is 0.0625 to 16, the
+range the game's `minecraft:scale` attribute stores. A value outside it is refused with a message
+that names `--dangerous`.
+
+```cmd
+/stature set @s 100 --dangerous
+/stature set @s --dangerous 100
+/stature set @s 100 40 elastic --dangerous
+/stature set --self 100 --dangerous
+```
+
+`--dangerous` may follow the scale, the ticks or the easing, and the prefix form puts it before the
+scale. It accepts 0.001 to 1000. Above 256 the command logs a warning. The box holds the nearest
+bound (see [Dangerous sizes](/docs/stature/reference/dangerous/)) and the model shows the requested size.
+
+`--self` is a marker, not a target. It makes the command act on the entity that ran it, and the
+marker is there because a bare number can be a player name: `/stature set 2` would be ambiguous.
+A player name cannot contain a hyphen, so `--self` always parses as the marker.
+
+## Presets
+
+Presets are named sizes and shapes kept in `config/stature.json`. They are the short form of the
+common cases: a pack maker can name the sizes that matter in their world, and a player can ask for
+one by name.
+
+```cmd
+/stature preset @s giant
+/stature preset @s giant 40
+/stature preset --self giant
+/stature preset list
+```
+
+The built-in presets are:
+
+| Name | What it applies |
+|---|---|
+| `tiny` | 0.25x scale |
+| `small` | 0.5x scale |
+| `normal` | 1x scale |
+| `big` | 2x scale |
+| `giant` | 4x scale |
+| `titan` | 8x scale |
+| `tall` | Shape 0.75 x 1.5 x 0.75 |
+| `slim` | Shape 0.6 x 1.0 x 0.6 |
+| `wide` | Shape 1.75 x 0.75 x 1.75 |
+
+A size preset changes only the uniform scale, so the entity keeps its current shape. A shape preset
+changes only the three box multipliers, so it keeps the current scale. A preset declared in the
+config may set both. The three shape numbers are multipliers on the entity's own width, height and
+depth, in the same order and with the same meaning as the numbers on `/stature size`; `1 1 1` is
+vanilla.
+
+`preset list` prints the names that are available right now with their values. It works for anyone
+who can use a preset, including a player at a lowered `self_command_permission_level`. The argument
+completes those names. An unknown name is refused with a message that points at `preset list`.
+Without ticks the change is instant; with ticks it eases with `cubic`. Applying a preset is an
+explicit size choice, so a pack's automatic frame no longer claims the entity.
+
+Presets are configured under `presets_custom`, `presets_builtin` and `presets_disabled`. The config
+may switch the whole feature off with `presets_enabled`. With the feature off, `/stature preset`
+and `/stature preset list` refuse with a message naming the switch. With built-ins off, custom
+presets still work. A custom entry with the same name as a built-in replaces that built-in, and a
+name in `presets_disabled` is removed after that merge, so it wins over both. Bad custom entries
+are logged and skipped rather than stopping the server. The "Presets and relative commands"
+section of [Thresholds](/docs/stature/scaling/thresholds/) has the exact file shape.
+
+## Growing and shrinking
+
+```cmd
+/stature grow @s
+/stature grow @s 3
+/stature shrink @s
+/stature shrink @s 0.25
+/stature grow --self
+/stature grow --self 3
+/stature shrink --self 0.25
+```
+
+`grow` multiplies the current scale by 2 by default; `shrink` multiplies it by 0.5. The optional
+factor always grows when the command is `grow` (1 or more) and always shrinks when it is `shrink`
+(above 0 and at most 1), so a typo cannot silently do the opposite of the command's name.
+
+The result is held inside the normal 0.0625 to 16 envelope. A grow that would pass 16 stops at 16,
+and a shrink that would pass 0.0625 stops there; the success line says that it was capped. If the
+entity was carrying a dangerous set's model override, the relative command clears it the same way a
+plain `/stature set` does. `--dangerous` is not accepted on these commands; use `/stature set` for a
+size outside the envelope.
+
+Like the other target-less forms, the no-target form acts on the player who ran it. A custom factor
+on yourself is written `--self <factor>`, because a bare number in the target position can be a
+player name. `grow` and `shrink` can be switched off with `relative_commands_enabled` in the config.
+
+## Resetting
+
+```cmd
+/stature reset
+/stature reset @s
+/stature reset @e[type=minecraft:zombie]
+```
+
+`reset` returns the entity to vanilla: scale, shape, frame, channels and parts are all cleared. It
+stays marked as manually decided, so a pack's automatic frame does not reapply on the next tick. It
+is the one command to reach for when an entity is in a state nobody can explain. Without a target
+it resets the player who ran it; from the console, name targets instead.
+
+The narrower resets are separate:
+
+| Command | What it clears |
+|---|---|
+| `/stature frame clear <targets>` | The frame, the scale and the parts; channels stay, except a dangerous set's model channel |
+| `/stature channel <targets> <channel> reset` | One channel override |
+| `/stature part <targets> reset` | Every part factor |
+| `/stature part <targets> <part> reset` | One part, or one group's parts |
+
+## Shaping the box
+
+```cmd
+/stature size @s 0.5 1.2 2.0
+/stature size @s 0.5 1.2 2.0 40
+```
+
+The three numbers are width, height and depth multipliers, each from 0.0625 to 16. They multiply
+the entity's own dimensions, so `0.5 1.2 2.0` is half as wide, 1.2 times as tall and twice as deep
+as it would otherwise be. `size` keeps the current uniform scale and clears any named frame. A hand
+shape is a manual choice, so a pack's automatic frame no longer applies. Ticks ease with `cubic`;
+there is no easing argument on this command.
+
+## Frames
+
+```cmd
+/stature frame apply @s mypack:titan
+/stature frame apply @e[type=minecraft:zombie,limit=1] mypack:giant 40
+/stature frame list
+/stature frame clear @s
+```
+
+`frame apply` takes a frame id loaded from a datapack. The command completes loaded ids, and an
+unknown name is refused with a message that points at `frame list`. The frame supplies its own
+easing, size, parts, hurt regions and threshold overrides. Applying a frame is an explicit choice,
+so later automatic assignments leave the entity alone.
+
+`frame clear` returns the entity to vanilla proportions. Like `frame apply`, it is explicit: the
+entity is marked as manually decided and a pack does not claim it again on the next tick.
+
+`frame list` prints every loaded frame id, or says that no frames loaded and where a pack puts them.
+
+## Channels
+
+```cmd
+/stature channel @s list
+/stature channel @s stature:attack 2
+/stature channel @s stature:attack reset
+```
+
+`channel` takes one channel id and one finite value. The value is deliberately unbounded: the
+channel's own meaning decides what is sensible. A set value is an override and is applied at once.
+`list` prints every channel's resolved value and marks the entries that are overrides with
+`(override)`.
+
+`reset` drops the override, so the channel follows the scale again, or returns to exactly 1.0 for a
+channel that follows nothing. The full list of ids, defaults and effects is in
+[Channels](/docs/stature/scaling/channels/).
+
+## Parts
+
+```cmd
+/stature part @s list
+/stature part @s arm.right 1 2 1
+/stature part @s arm.right 1 2 1 20
+/stature part @s arm.right reset
+/stature part @s reset
+```
+
+`<part>` is a rig group such as `head`, `arm.left` or `all`, or a raw dot path such as
+`body.left_arm`. The three numbers are per-axis multipliers from 0.0625 to 16. Ticks ease with
+`cubic`.
+
+A group resolves through the entity's rig at set time, and the resulting model paths are what
+travel; a later rig change does not reinterpret a factor that is already set. A raw path passes the
+command if its syntax is valid, because only the client's model knows whether the path exists; a
+path that is not on the model is reported once in the client log and does nothing. `part list`
+prints the factors by path, not by group name.
+
+## Reading state
+
+```cmd
+/stature get
+/stature get @e[type=minecraft:zombie,limit=1]
+```
+
+`get` reports the uniform scale and the resulting box. When there is no frame and the box is
+shaped, it also reports the three multipliers. When a frame is applied, it names the frame; if the
+frame file has since been removed, it says the name is no longer loaded rather than pretending the
+numbers came from nowhere. Without a target, `get` reads the player who ran it and uses the
+self-command permission level rather than the gamemaster level; `get <target>` still asks for the
+gamemaster level.
+
+## Reloading
+
+```cmd
+/stature reload
+```
+
+`reload` re-reads the server's `config/stature.json`, every frame and every rig, re-evaluates
+automatic frame assignments, and refreshes the threshold values sent to clients. It reports how
+many frames loaded, how many presets are available and how many entities changed.
+
+Vanilla `/reload` also reloads frames and rigs and re-evaluates automatic assignments, because
+both loaders register a server data listener. It does not re-read `config/stature.json`; use
+`/stature reload` for that. A preset edit, a changed `presets_enabled` switch or a new custom preset
+therefore needs `/stature reload`, not `/reload`.

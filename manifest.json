@@ -72,7 +72,7 @@
       "curseforge": "tenet",
       "version": "1.0.0",
       "localPath": "../tenet",
-      "pin": "487bb5ef19a72555f26c8dc4aabfc95168432183",
+      "pin": "0e85f560167023abbf80bd4fd56841bd0446bad0",
       "docsPath": "docs",
       "minecraft": "26.3",
       "loaders": [
@@ -88,7 +88,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "487bb5ef19a72555f26c8dc4aabfc95168432183",
+          "pin": "0e85f560167023abbf80bd4fd56841bd0446bad0",
           "branch": "main",
           "localPath": "../tenet",
           "default": true
@@ -116,7 +116,7 @@
       "curseforge": "armature-lib",
       "version": "1.0.0",
       "localPath": "../armature",
-      "pin": "34687b9791d6d945b720083c0253c1f8f2e3d94f",
+      "pin": "c87fb2136f4cc1fc481c4e442b3cf0f7df46d9d3",
       "docsPath": "docs",
       "minecraft": "26.3",
       "loaders": [
@@ -132,7 +132,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "34687b9791d6d945b720083c0253c1f8f2e3d94f",
+          "pin": "c87fb2136f4cc1fc481c4e442b3cf0f7df46d9d3",
           "branch": "main",
           "localPath": "../armature",
           "default": true
@@ -158,7 +158,7 @@
       "repo": "https://github.com/ellipog/stature",
       "issues": "https://github.com/ellipog/stature/issues",
       "localPath": "../stature",
-      "pin": "5893166231ca84b4612b2e701cf7d74f9038337a",
+      "pin": "d091a8b9fc2b35dc3e35eb15e98403f0c24f0b46",
       "docsPath": "docs",
       "minecraft": "26.3",
       "loaders": [
@@ -174,7 +174,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "5893166231ca84b4612b2e701cf7d74f9038337a",
+          "pin": "d091a8b9fc2b35dc3e35eb15e98403f0c24f0b46",
           "branch": "master",
           "localPath": "../stature",
           "default": true

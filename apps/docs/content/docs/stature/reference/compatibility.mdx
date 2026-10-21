@@ -7,6 +7,12 @@ Stature is a scale authority. It writes the base value of `minecraft:scale` and 
 one deciding an entity's size. Mods that agree with that, or only read it, coexist. Mods that also
 choose the scale need care.
 
+## Armature
+
+Stature requires Armature 1.1.0 or newer on both the client and the server. Armature supplies the
+loader seam, the networking and the config reader Stature is built on, so a client without it is
+refused rather than shown a wrong-size world. Install the matching Armature jar beside Stature's.
+
 ## Pehkui and Pehkui Rebuilt
 
 Do not install Stature with Pehkui or Pehkui Rebuilt. All of them write the game's scale attribute,
@@ -27,7 +33,7 @@ authority.
 
 ## Spawn protection and claims
 
-Trampling asks before it breaks anything. For a player, the loader seam checks:
+Trampling asks before it breaks anything. For a player, Armature's platform seam checks:
 
 - `mayBuild`, which covers adventure and spectator rules.
 - The level's `mayInteract`, which is where spawn protection lives.
@@ -40,7 +46,7 @@ mod that only protects against players does not automatically protect against a 
 rules are what stop that.
 
 The trample scan is capped per scan regardless of permissions, so a claim that allows the break
-still gets at most `trample_max_per_scan` blocks per scan. See [Thresholds](/docs/stature/thresholds/).
+still gets at most `trample_max_per_scan` blocks per scan. See [Thresholds](/docs/stature/scaling/thresholds/).
 
 ## Rendering mods and shaders
 
@@ -57,7 +63,9 @@ that. The following are untested, not known to be broken:
 | Other mods that replace living entity renderers | Untested |
 
 The camera shake from macro footsteps is multiplied by the vanilla Screen Effect slider, so a
-player who has turned screen effects off feels none. A shader pack that replaces the camera or
+player who has turned screen effects off feels none. The walker's own steps use a separate, much
+smaller cap than nearby players' steps; `camera_shake_strength` and `camera_shake_self_strength`
+tune both, and either set to 0 turns its channel off. A shader pack that replaces the camera or
 bob path may change how the remaining shake looks.
 
 ## Client and server
@@ -76,7 +84,7 @@ and the client draws what it is sent.
 - A server with Stature and a client without it is refused rather than shown wrong-size entities,
   because a client that does not know the shape would collide and draw against the vanilla box.
 
-Fabric needs Fabric API. NeoForge needs no companion API mod.
+Both loaders need Armature. Fabric also needs Fabric API; NeoForge needs no companion API mod.
 
 ## Data packs and reloads
 

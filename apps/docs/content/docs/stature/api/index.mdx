@@ -89,8 +89,13 @@ stature.registerChannel(new ChannelSpec(
 ```
 
 The id must not already be taken. Ids outside the `stature` namespace are stored as experimental.
-The channel table is server-side state, like the built-ins. See [Channels](/docs/stature/channels/) for the built-in
+The channel table is server-side state, like the built-ins. See [Channels](/docs/stature/scaling/channels/) for the built-in
 set and what each channel drives.
+
+The M10 physical channels need no extra API: `projectile_scale`, `item_pickup_range`,
+`riding_offset`, `explosion_scale` and `drops_scale` are ordinary channels. Read and change them
+with `channelOverride` and `setChannel` exactly like `stature:attack`. A frame declares the same
+overrides through its `channels` object, so an integration does not need a new call for them.
 
 ## Threads and events
 
