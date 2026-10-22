@@ -72,7 +72,7 @@
       "curseforge": "tenet",
       "version": "1.0.0",
       "localPath": "../tenet",
-      "pin": "0e85f560167023abbf80bd4fd56841bd0446bad0",
+      "pin": "1c08f4829ca482cd91c559f04d8538a483a4aa9d",
       "docsPath": "docs",
       "minecraft": "26.3",
       "loaders": [
@@ -88,7 +88,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "0e85f560167023abbf80bd4fd56841bd0446bad0",
+          "pin": "1c08f4829ca482cd91c559f04d8538a483a4aa9d",
           "branch": "main",
           "localPath": "../tenet",
           "default": true
@@ -116,7 +116,7 @@
       "curseforge": "armature-lib",
       "version": "1.0.0",
       "localPath": "../armature",
-      "pin": "c87fb2136f4cc1fc481c4e442b3cf0f7df46d9d3",
+      "pin": "33772560b82dea5d7e52ce336c48d276938e45d0",
       "docsPath": "docs",
       "minecraft": "26.3",
       "loaders": [
@@ -132,7 +132,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "c87fb2136f4cc1fc481c4e442b3cf0f7df46d9d3",
+          "pin": "33772560b82dea5d7e52ce336c48d276938e45d0",
           "branch": "main",
           "localPath": "../armature",
           "default": true
