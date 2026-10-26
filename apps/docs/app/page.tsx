@@ -1,11 +1,25 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 
 import manifest from '@/manifest.json';
 import stats from '@/stats.json';
 import { Arrow } from '@/components/arrow';
+import {
+  LiveBar,
+  LiveBreakdown,
+  LiveCount,
+  LiveDelta,
+  LivePolled,
+  LiveShare,
+  LiveStats,
+  LiveStatus,
+  LiveTotal,
+} from '@/components/live-stats';
 import { ModIcon } from '@/components/mod-icon';
-import { ShuffledNumber } from '@/components/shuffled-number';
+import { World } from '@/components/world';
+import { combined } from '@/lib/downloads';
 import { SITE, social } from '@/lib/metadata';
+import { slim, type Stats } from '@/lib/platforms.mjs';
 import { source } from '@/lib/source';
 
 type SuiteMod = {
@@ -13,35 +27,20 @@ type SuiteMod = {
   name: string;
   /**
    * Which brand the mod belongs to: `stellar` for the developer suite, `ellipog` for the gameplay
-   * portfolio. The catalog's bands group by it, so a mod without one renders in neither band and
-   * disappears from the page without an error — which is why `check.mjs` asserts every entry has it.
+   * portfolio. The bands group by it, so a mod without one renders in neither band and disappears from
+   * the page without an error -- which is why `check.mjs` asserts every entry has it.
    */
   brand?: string;
   status?: string;
   summary: string;
-  /**
-   * Released version, rendered in the footer once the mod ships. Absent while unreleased,
-   * in which case the cell says `unreleased`.
-   */
+  /** Released version. Absent while unreleased, in which case the row says `unreleased`. */
   version?: string;
-  /**
-   * CurseForge slug, linked from the footer as a raised destination beside the repository.
-   * Modrinth slugs get a field of their own the day these ship there too.
-   */
+  /** CurseForge slug, linked from the row as a destination of its own. */
   curseforge?: string;
   modrinth?: string;
-  /**
-   * Where the code lives, and it is the cell's second destination.
-   *
-   * Optional: a mod can be certain enough to list and still have no public repository. The cell renders
-   * the link only when the field is there, so adding a mod to the manifest without one cannot produce a
-   * link to nothing.
-   */
+  /** Where the code lives. Optional: the row renders the link only when the field is there. */
   repo?: string;
-  /**
-   * Documented game versions, latest first. The cell names every line the mod ships;
-   * `minecraft` stays the default for readers that never heard of versions.
-   */
+  /** Documented game versions, latest first. The row names every line the mod ships. */
   versions?: { minecraft: string }[];
   minecraft?: string;
   loaders?: string[];
@@ -57,25 +56,20 @@ type Selected = {
   curseforge?: string;
 };
 
-type StatsFile = {
-  modrinth: Record<string, { downloads: number; url: string }>;
-  curseforge: Record<string, { downloads: number; url: string }>;
-  totals: { modrinth: number; curseforge: number; all: number };
-  notes: string[];
-};
-
-const s = stats as StatsFile;
-const n = (v: number) => v.toLocaleString('en-US');
+/*
+ * The build's snapshot. It is what the static HTML says, and the live figures start from it -- so a
+ * reader without JavaScript, and the first frame for everybody else, sees real numbers. `slim` drops the
+ * titles and URLs before it is handed to the client provider, because whatever crosses that boundary is
+ * serialised into the page a second time.
+ */
+const s = stats as Stats;
 
 /** The author's code host. One spelling, because the Elsewhere band and the structured data both link it. */
 const GITHUB = 'https://github.com/ellipog';
 
 /**
- * The home page's canonical URL and its share card.
- *
- * The tab title is left to the layout's default — this page is the site, so it needs no `%s`. What
- * it does need is the head's other half: without a canonical, `/` and any future `/index.html` are
- * two URLs for one page, and without this the home card would be the only page with no card.
+ * The home page's canonical URL and its share card. The tab title is left to the layout's default: this
+ * page is the site, so it needs no `%s`.
  */
 export const metadata: Metadata = social({
   title: SITE.title,
@@ -84,14 +78,9 @@ export const metadata: Metadata = social({
 });
 
 /**
- * Who and what this site is, for a crawler that reads schema.org.
- *
- * Two nodes and no more. Deliberately **not** a `SoftwareApplication` per mod: a rich result for
- * software is built from ratings or an offer, and inventing either would be marking up claims
- * nobody made — the same judgement the sponsor's badge makes about not saying "verified".
- *
- * `sameAs` is derived from the manifest's author links plus the GitHub profile the Elsewhere band
- * already links, so it cannot point at a profile this page does not show.
+ * Who and what this site is, for a crawler that reads schema.org. Two nodes and no more -- deliberately not
+ * a `SoftwareApplication` per mod, whose rich result is built from ratings or an offer nobody made.
+ * `sameAs` is the manifest's author links plus the GitHub profile the Elsewhere band links.
  */
 const STRUCTURED_DATA = {
   '@context': 'https://schema.org',
@@ -107,240 +96,168 @@ const STRUCTURED_DATA = {
 };
 
 /**
- * Which mods actually have documentation.
- *
- * **Derived from what was synced, not from `status: "active"`.** A mod that is active but has no
- * `docs/` folder produces no pages, and linking its catalog cell to `/docs/<id>/` would be a 404 --
- * a link that looks like a destination and is not one. Reading the built pages makes the cell and the
- * site agree by construction: if there is nothing to read, the cell is not a link.
+ * Which mods actually have documentation -- derived from what was synced, not from `status: "active"`, so
+ * a row links to `/docs/<id>/` only when there is something there to read.
  */
 const documented = new Set(source.getPages().map((page) => page.slugs[0]));
 
-/**
- * One project's downloads across both platforms.
- *
- * Summed rather than picked, because a project on two platforms is one project and showing only the
- * Modrinth figure would undercount the bigger one by more than half. Returns null when neither
- * platform has a number, so a cell can say nothing rather than say zero.
- */
-function combined(item: Selected) {
-  const mr = item.modrinth ? s.modrinth[item.modrinth]?.downloads : undefined;
-  const cf = item.curseforge ? s.curseforge[item.curseforge]?.downloads : undefined;
-  if (mr === undefined && cf === undefined) return null;
-
-  const parts: string[] = [];
-  if (mr !== undefined) parts.push(`${n(mr)} Modrinth`);
-  if (cf !== undefined) parts.push(`${n(cf)} CurseForge`);
-  return { total: (mr ?? 0) + (cf ?? 0), breakdown: parts.join(' · ') };
-}
-
-/** How many placeholder cells a grid needs to close its last row. */
-function fillers(count: number, cols: number) {
-  return (cols - (count % cols)) % cols;
-}
-
-function Filler() {
-  return <div className="grid-filler" aria-hidden />;
-}
+const pad = (n: number) => String(n).padStart(2, '0');
 
 /**
- * A mod in the catalog, and the one cell on the site with three destinations in it.
+ * A mod, as one row of a spec sheet -- and the one element on the site with three destinations in it.
  *
- * **This used to be a single `<a>` around the whole cell, and an `<a>` cannot contain an `<a>`.** That
- * was fine while the cell had one destination. It stopped being fine when the cell gained a second one:
- * a link to the mod's repository, so a visitor can read the code without the documentation being the
- * only way through — and then a third, to its CurseForge page, the day the mods shipped. Nesting is
- * not an option the browser forgives — it closes the outer anchor at the inner one and the rest of the
- * cell silently stops being clickable.
+ * **The row is a `<div>` and the docs link is stretched over it**, because an `<a>` cannot contain an
+ * `<a>`: nesting closes the outer anchor at the inner one and the rest of the row silently stops being a
+ * link. `cell-link`'s `::after` covers the row (which is why `.grid-cell` is `position: relative`), and the
+ * repository and CurseForge links are raised one z-index above it, so each stays its own destination. The
+ * cost, stated: the summary cannot be selected by dragging, because the overlay is on top of it.
  *
- * **So the cell is a `<div>` and the docs link is stretched over it.** `cell-link`'s `::after` is an
- * absolutely positioned box covering the cell's own padding box, which is why `.grid-cell` carries
- * `position: relative` in `global.css`. Nothing about the surface changes for a reader: every pixel that
- * navigated to the docs page before still does. The repository and CurseForge links are raised above
- * that overlay by one z-index, so each stays its own destination rather than being swallowed by the
- * link underneath them.
- *
- * **The one thing this costs, stated rather than discovered:** text inside the cell can no longer be
- * selected by dragging, because the overlay sits over it. Inside an `<a>` it could. That is the trade the
- * stretched-link pattern always makes, it is invisible unless somebody tries to copy the summary, and the
- * alternative — three links and no whole-cell target — makes the commonest action on the page (open the
- * docs) require aiming at a 40px label.
- *
- * **All three links are derived, not written.** The repository comes from the manifest's `repo`, the
- * CurseForge page from its `curseforge` slug, and the docs link from what actually synced, so a mod with
- * no repository, no download page, or no `docs/` folder renders exactly the links it has rather than a
- * link to a page that does not exist. The docs branch is unchanged in that respect; the repository and
- * CurseForge branches follow the same rule for the same reason.
+ * **All three links are derived, not written** -- the repository from `repo`, CurseForge from its slug, the
+ * docs from what synced -- so a row renders exactly the links it has. Each is named for its mod (`Tenet on
+ * GitHub`), so a reader tabbing through hears a subject rather than a column of identical `github`s, and the
+ * visible word is inside the accessible name, which is what label-in-name asks for.
  */
-function SuiteCell({ mod }: { mod: SuiteMod }) {
+function ModRow({ mod, no }: { mod: SuiteMod; no: number }) {
   const hasDocs = documented.has(mod.id);
   const cfUrl = mod.curseforge ? `https://www.curseforge.com/minecraft/mc-mods/${mod.curseforge}` : null;
-  // The manifest lists versions latest-first; the cell reads oldest-first, the way the CurseForge
-  // pages and the release notes name the two lines.
+  // Latest-first in the manifest; oldest-first here, the way the CurseForge pages name the lines.
   const minecrafts = (
     Array.isArray(mod.versions) && mod.versions.length > 0
       ? [...mod.versions].reverse().map((v) => v.minecraft)
       : [mod.minecraft]
   ).filter(Boolean);
 
-  const body = (
-    <>
-      <div className="cell-top">
-        <span className="cell-index">{minecrafts.join(' · ')}</span>
-        <span className="kind">{(mod.loaders ?? []).join(' · ')}</span>
-      </div>
-      {/* The mark sits with the name rather than in the cell's corner: it is part of how the thing is
-          identified, and the corner is where the version already is. */}
-      <div className="name">
-        <ModIcon id={mod.id} size="md" />
-        {mod.name}
-      </div>
-      <p className="summary">{mod.summary}</p>
-      <div className="meta">
-        {/* A shipped mod states its version; anything still unreleased says `unreleased`.
-            `planned` is not a state this page knows: a mod that is not certain to exist is not
-            in the manifest, so there is no cell for it to describe -- see `Home` below, and
-            `manifest.json`'s own note. */}
-        <span className="faint">{mod.version ? `released · v${mod.version}` : 'unreleased'}</span>
-        {hasDocs || mod.repo || cfUrl ? (
-          <span className="cell-links faint">
-            {mod.repo ? (
-              /*
-               * Named per mod rather than left as the bare word `github`.
-               *
-               * This was a `<span>` inside one big anchor when the cell had a single destination, so a
-               * screen reader announced the whole cell — "Tenet, A questing engine…, released · v1.0.0,
-               * docs" — and the words here were only ever a signpost for the eye. Now that they are a
-               * link of their own, "github" on its own is a link with no subject: a reader tabbing
-               * through the catalog hears one identical name per cell.
-               *
-               * The accessible name contains the visible text, which is what WCAG's label-in-name asks
-               * for — the same reason a bare "read more" is a bad link name and "Read the Tenet manual"
-               * is a good one.
-               */
-              <a
-                className="cell-repo"
-                href={mod.repo}
-                target="_blank"
-                rel="noreferrer noopener"
-                aria-label={`${mod.name} on GitHub`}
-              >
-                github <Arrow />
-              </a>
-            ) : null}
-            {mod.repo && (hasDocs || cfUrl) ? (
-              // Punctuation, not content, and no class: a screen reader announcing "middle dot" between
-              // two links is noise, so it is hidden — and it needs no styling of its own, because
-              // `.cell-links` already spaces its children apart. A class here would be a selector in the
-              // stylesheet that does nothing, which is the thing that file's own header warns about.
-              <span aria-hidden="true">·</span>
-            ) : null}
-            {hasDocs ? (
-              // Same reason as the repository link above: `docs` alone would be one of a row of identical
-              // link names on this page. The visible text is inside the accessible one.
-              <a className="cell-link" href={`/docs/${mod.id}/`} aria-label={`${mod.name} documentation`}>
-                docs <Arrow />
-              </a>
-            ) : null}
-            {hasDocs && cfUrl ? (
-              // Same hidden separator as above, between the second and third destinations.
-              <span aria-hidden="true">·</span>
-            ) : null}
-            {cfUrl ? (
-              // Raised above the stretched docs overlay like the repository link: a third destination
-              // in the same cell, named per mod for the same label-in-name reason as the other two.
-              <a
-                className="cell-repo"
-                href={cfUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                aria-label={`${mod.name} on CurseForge`}
-              >
-                curseforge <Arrow />
-              </a>
-            ) : null}
-          </span>
-        ) : null}
-      </div>
-    </>
-  );
+  // Separators are punctuation, not content: hidden, so a screen reader does not announce "middle dot".
+  const links = [
+    mod.repo ? (
+      <a key="repo" className="cell-repo" href={mod.repo} target="_blank" rel="noreferrer noopener" aria-label={`${mod.name} on GitHub`}>
+        github <Arrow />
+      </a>
+    ) : null,
+    hasDocs ? (
+      <a key="docs" className="cell-link" href={`/docs/${mod.id}/`} aria-label={`${mod.name} documentation`}>
+        docs <Arrow within />
+      </a>
+    ) : null,
+    cfUrl ? (
+      <a key="cf" className="cell-repo" href={cfUrl} target="_blank" rel="noreferrer noopener" aria-label={`${mod.name} on CurseForge`}>
+        curseforge <Arrow />
+      </a>
+    ) : null,
+  ].filter(Boolean);
 
   /*
-   * The `grid-cell` class is what inverts on hover, and it is put on the cell only when the cell is a
-   * destination for the docs — the same condition as before, on a different element. A mod with no docs
-   * is a `<div class="pub-cell">` and does not invert, which is `global.css`'s `a.grid-cell` becoming
-   * `.grid-cell`: the qualifier had to go, or every cell in the first band would have quietly stopped
-   * responding to the pointer.
+   * `grid-cell` is what responds to the pointer, and a row has it only when the docs link is stretched over
+   * it. A mod with no docs is a plain `pub-cell` and stays still, which `.pub-cell:not(.grid-cell)` in
+   * `global.css` keys on -- by class, because the row is never an `<a>` any more.
    */
-  return hasDocs ? (
-    <div className="grid-cell pub-cell">{body}</div>
-  ) : (
-    <div className="pub-cell">{body}</div>
+  return (
+    <div className={hasDocs ? 'grid-cell pub-cell mod' : 'pub-cell mod'}>
+      <span className="row-no" aria-hidden="true">
+        {pad(no)}
+      </span>
+      <div className="mod-head">
+        <ModIcon id={mod.id} size="md" />
+        <h3 className="mod-name">{mod.name}</h3>
+      </div>
+      <p className="mod-summary">{mod.summary}</p>
+      <dl className="specs">
+        <div>
+          <dt>minecraft</dt>
+          <dd>{minecrafts.join(' · ')}</dd>
+        </div>
+        <div>
+          <dt>loaders</dt>
+          <dd>{(mod.loaders ?? []).join(' · ')}</dd>
+        </div>
+        <div>
+          <dt>state</dt>
+          {/* A shipped mod states its version; anything else is `unreleased`. There is no third word: a
+              mod that is not certain to exist is not in the manifest, so there is no row to describe. */}
+          <dd>{mod.version ? `released · v${mod.version}` : 'unreleased'}</dd>
+        </div>
+      </dl>
+      {links.length > 0 ? (
+        <span className="cell-links">
+          {links.flatMap((link, i) => (i === 0 ? [link] : [<span key={`sep${i}`} aria-hidden="true">·</span>, link]))}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
-function SelectedCell({ item, index }: { item: Selected; index: number }) {
-  const count = combined(item);
+/** A release from before the suite: a link out, its live download count, and a bar against its peers. */
+function WorkRow({ item, no, peers }: { item: Selected; no: number; peers: Selected[] }) {
+  // Whether the row has a figure at all is decided by the snapshot; the figure itself is live.
+  const count = combined(s, item.modrinth, item.curseforge);
   return (
-    <a className="grid-cell pub-cell" href={item.url} target="_blank" rel="noreferrer noopener">
-      <div className="cell-top">
-        <span className="cell-index">{item.kind}</span>
-      </div>
-      <div className="name">
-        {item.name} <Arrow />
-      </div>
-      <p className="summary">{item.summary}</p>
+    <a className="grid-cell pub-cell work" href={item.url} target="_blank" rel="noreferrer noopener">
+      <span className="row-no" aria-hidden="true">
+        {pad(no)}
+      </span>
+      <span className="work-head">
+        <span className="work-name">
+          {item.name} <Arrow />
+        </span>
+        <span className="work-kind">{item.kind}</span>
+      </span>
+      <span className="work-summary">{item.summary}</span>
       {count ? (
-        <div className="meta">
-          <span className="nums">
-            {/* Staggered by position, so the three settle in sequence rather than at once. The
-                breakdown beside it is left alone on purpose: four numbers shuffling in one cell is
-                noise, and the headline figure is the one worth the flourish. */}
+        <span className="work-figures">
+          <LiveBar
+            modrinth={item.modrinth}
+            curseforge={item.curseforge}
+            peers={peers.map(({ modrinth, curseforge }) => ({ modrinth, curseforge }))}
+          />
+          <span className="work-count">
+            {/* Staggered by position, so the three settle in sequence rather than at once. */}
             <b>
-              <ShuffledNumber value={n(count.total)} delay={100 + index * 90} />
+              <LiveCount modrinth={item.modrinth} curseforge={item.curseforge} delay={500 + no * 90} />
             </b>{' '}
             downloads
           </span>
-          <span className="faint">{count.breakdown}</span>
-        </div>
+          <span className="work-split">
+            <LiveBreakdown modrinth={item.modrinth} curseforge={item.curseforge} />
+          </span>
+        </span>
       ) : null}
     </a>
   );
 }
 
 /**
- * One brand band — and **nothing at all when it has no cells**.
- *
- * A band is a label, a hairline and a row of cells. With no cells it is a label and a hairline, which
- * reads as a section that failed to load rather than as a section with nothing in it. That state is
- * reachable the moment the manifest holds no mod of one brand, and it is the state today: the gameplay
- * portfolio's first mod is not certain to exist, so it is not in the manifest, so there is no band for it
- * until there is something to put in one. **No "coming soon" slot** — the same rule the stack plan states
- * for empty tiers, and the reason this is a component rather than a condition written twice: the band
- * that is empty first is not always the same one.
- *
- * `check.mjs` asserts it in both directions — the band is absent while it holds nothing, and comes back
- * the day the manifest gives it a mod — because "no band" and "an empty band" are one edit apart and only
- * one of them is right.
+ * A band's heading, numbered like a sheet in a set of drawings, with the rule between name and note drawn
+ * as a dimension line. `.label` stays a span holding only the name, because `check.mjs` finds each brand
+ * band by that exact markup.
  */
-function Band({ label, note, mods }: { label: string; note: string; mods: SuiteMod[] }) {
-  if (mods.length === 0) return null;
+function BandHead({ no, label, note }: { no: string; label: string; note?: ReactNode }) {
+  return (
+    <div className="band-head">
+      <h2 className="band-title">
+        <span className="band-no" aria-hidden="true">
+          {no}
+        </span>
+        <span className="label">{label}</span>
+      </h2>
+      <span className="band-rule" aria-hidden="true" />
+      {note ? <span className="band-note">{note}</span> : null}
+    </div>
+  );
+}
 
+/**
+ * One brand band, and **nothing at all when it has no mods**: a heading over nothing reads as a section
+ * that failed to load. `check.mjs` asserts it both ways -- absent while empty, back the day the manifest
+ * gives it a mod.
+ */
+function Band({ no, label, note, mods }: { no: string; label: string; note: string; mods: SuiteMod[] }) {
+  if (mods.length === 0) return null;
   return (
     <section className="band">
-      <div className="band-head">
-        <span className="label">{label}</span>
-        <span className="faint mono">{note}</span>
-      </div>
-      <div className="grid" style={{ ['--cols' as string]: '3' }}>
-        {mods.map((mod) => (
-          <SuiteCell key={mod.id} mod={mod} />
-        ))}
-        {/* The placeholders that close the last row are their own list inside their own grid, so their
-            keys only have to be unique among themselves -- which is why one band's do not need a prefix
-            to stay clear of the other's. */}
-        {Array.from({ length: fillers(mods.length, 3) }, (_, i) => (
-          <Filler key={`f${i}`} />
+      <BandHead no={no} label={label} note={note} />
+      <div className="rows">
+        {mods.map((mod, i) => (
+          <ModRow key={mod.id} mod={mod} no={i + 1} />
         ))}
       </div>
     </section>
@@ -349,92 +266,136 @@ function Band({ label, note, mods }: { label: string; note: string; mods: SuiteM
 
 export default function Home() {
   /*
-   * NOTHING IS LISTED UNLESS IT IS CERTAIN TO EXIST, AND THAT IS THE FILTER RATHER THAN THE MANIFEST.
-   *
-   * The manifest holds only active mods today (see its own note, and AGENT.md), so this changes nothing
-   * about today's page. It is here because the two failure modes are not the same size: a stale manifest
-   * entry is one line somebody forgot to delete, and the cell it would render states a mod, a summary and
-   * a Minecraft version for something that may never ship. Reading the status at the point of rendering
-   * means the leak cannot happen whatever the data says -- a mod is on this page when it is `active` and
-   * at no other time, and the assertion in `check.mjs` holds the manifest to the same rule.
+   * Nothing is listed unless it is certain to exist, and that is the filter rather than the manifest: a
+   * stale entry is one forgotten line, and the row it would render states a mod and a Minecraft version for
+   * something that may never ship. `check.mjs` holds the manifest to the same rule.
    */
   const suite = (manifest.suite as SuiteMod[]).filter((mod) => mod.status === 'active');
-  /*
-   * Brand inside that, and the status word stays off the band.
-   *
-   * The bands used to be status-first — "In development" and "Planned" — which answered *how far along*
-   * before *whose is this*. The architecture says whose first: Stellar is the developer suite, ellipog is
-   * the gameplay portfolio, and a reader who arrives for one mod should see which family it belongs to.
-   * Status did not disappear: every cell states it in its own footer, which is where a reader looks after
-   * the name. What changed is which question the band answers — *whose is this* before *how far along is
-   * it*. `check.mjs` asserts every entry declares a brand, because one without it would render in neither
-   * band — and AGENT.md carries the reasoning.
-   */
+  // Whose before how far along: the bands are the brands, and each row states its own status.
   const stellar = suite.filter((m) => m.brand === 'stellar');
   const gameplay = suite.filter((m) => m.brand === 'ellipog');
   const selected = manifest.selected as Selected[];
 
   const total = s.totals?.all ?? 0;
 
+  // Sheet numbers for the bands that render: an empty band must not leave a gap in the count.
+  let sheet = 0;
+  const no = () => pad(++sheet);
+  const stellarNo = stellar.length > 0 ? no() : '';
+  const gameplayNo = gameplay.length > 0 ? no() : '';
+  const earlierNo = no();
+  const elsewhereNo = no();
+
   return (
-    <main>
-      {/* The one script on this page that is data rather than markup. `check.mjs` parses it back
-          out of the built HTML and asserts it still says WebSite and Person — a `JSON.parse` is the
-          only way to catch a stray character, and a malformed block is invisible in a browser. */}
+    <main className="home">
+      {/* Parsed back out of the built HTML by `check.mjs`: a malformed block is invisible in a browser. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
 
-      <section className="hero">
-        <p className="eyebrow">fabric + neoforge · minecraft</p>
-        <h1>Minecraft mods.</h1>
-        <p className="sub">
-          Everything I release is on Modrinth and CurseForge, for Fabric and NeoForge.
-        </p>
-        {total > 0 ? (
-          <p className="hero-total">
-            <b>
-              <ShuffledNumber value={n(total)} />
-            </b>
-            {/* The label, as a direct child of `.hero-total`. The stylesheet depends on that: the
-                figure's own spans are nested inside `<b>`, and a descendant selector would paint them
-                too -- which is exactly what it did. */}
-            <span>downloads · modrinth + curseforge</span>
-          </p>
-        ) : null}
-      </section>
+      <LiveStats initial={slim(s)} built={s.fetched}>
+        <section className="hero">
+          <div className="hero-side">
+            <div className="hero-copy">
+              <p className="kicker">ellipog.dev / mods</p>
+              <h1>Minecraft mods.</h1>
+              <p className="sub">Everything I release is on Modrinth and CurseForge, for Fabric and NeoForge.</p>
+              <p className="hero-links">
+                <a className="button" href="/docs/">
+                  Read the docs <Arrow within />
+                </a>
+                {/* Both profiles, from the manifest's author links: the sentence above names both platforms. */}
+                {manifest.author.links.map((link) => (
+                  <a key={link.id} className="button button-quiet" href={link.url} target="_blank" rel="noreferrer noopener">
+                    {link.label} <Arrow />
+                  </a>
+                ))}
+              </p>
+            </div>
 
-      <Band label="Stellar" note="the developer suite" mods={stellar} />
-      <Band label="ellipog" note="gameplay" mods={gameplay} />
+            {/*
+             * The counter is an instrument rather than a headline: it says where its numbers come from,
+             * whether they are live, and when it last read -- and it sits under the words, in the same
+             * column, so the first screen is the claim and the evidence for it.
+             */}
+            {total > 0 ? (
+              <div className="tracker" role="group" aria-label="Downloads">
+                <div className="tracker-head">
+                  <span className="label">Downloads · all platforms</span>
+                  <LiveStatus />
+                </div>
+                <p className="hero-total">
+                  <b>
+                    <LiveTotal of="all" />
+                  </b>
+                  <LiveDelta />
+                </p>
+                <LiveShare />
+                {/* The split settles silently on load -- one flourish, on the headline figure, is the
+                    gesture -- and then ticks like the total when a poll moves it. */}
+                <dl className="tracker-split">
+                  <div>
+                    <dt>
+                      <i className="key key-dark" aria-hidden="true" />
+                      Modrinth
+                    </dt>
+                    <dd>
+                      <LiveTotal of="modrinth" still />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>
+                      <i className="key" aria-hidden="true" />
+                      CurseForge
+                    </dt>
+                    <dd>
+                      <LiveTotal of="curseforge" still />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Read</dt>
+                    <dd>
+                      <LivePolled />
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            ) : null}
+          </div>
+
+          <World />
+        </section>
+
+        <Band no={stellarNo} label="Stellar" note="the developer suite" mods={stellar} />
+        <Band no={gameplayNo} label="ellipog" note="gameplay" mods={gameplay} />
+
+        <section className="band">
+          <BandHead
+            no={earlierNo}
+            label="Earlier work"
+            note={
+              <>
+                addons &amp; packs ·{' '}
+                <a href={manifest.author.links[0].url} target="_blank" rel="noreferrer noopener">
+                  everything else <Arrow />
+                </a>
+              </>
+            }
+          />
+          <div className="rows">
+            {selected.map((item, i) => (
+              <WorkRow key={item.id} item={item} no={i + 1} peers={selected} />
+            ))}
+          </div>
+        </section>
+      </LiveStats>
 
       <section className="band">
-        <div className="band-head">
-          <span className="label">Earlier work</span>
-          <span className="faint mono">
-            addons &amp; packs ·{' '}
-            <a href={manifest.author.links[0].url} target="_blank" rel="noreferrer noopener">
-              everything else <Arrow />
-            </a>
-          </span>
-        </div>
-        <div className="grid" style={{ ['--cols' as string]: '3' }}>
-          {selected.map((item, i) => (
-            <SelectedCell key={item.id} item={item} index={i} />
-          ))}
-          {Array.from({ length: fillers(selected.length, 3) }, (_, i) => (
-            <Filler key={`s${i}`} />
-          ))}
-        </div>
-      </section>
-
-      <section className="band">
-        <div className="band-head">
-          <span className="label">Elsewhere</span>
-        </div>
+        <BandHead no={elsewhereNo} label="Elsewhere" />
         <div className="about">
-          <div>
+          <div className="about-copy">
             <p>{manifest.author.bio}</p>
             <p>
-              Download counts are fetched from both platform APIs at build time, and the site rebuilds
-              automatically on a schedule.
+              Download counts are read live from Modrinth and CurseForge while this page is open. The
+              CurseForge figures come through a mirror that refreshes about once an hour.
             </p>
           </div>
           <div className="links">

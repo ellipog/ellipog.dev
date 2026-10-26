@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import { PixelCreeper } from '@/components/pixel-creeper';
+
 /*
  * The 404, rendered to `404.html` by the static export.
  *
@@ -13,9 +15,8 @@ import type { Metadata } from 'next';
  * stay out of the index, and an assertion in `check.mjs` holds it to both halves — one title,
  * still noindex.
  *
- * The markup reuses the home page's `.hero` rather than the docs' `.prose`: this page renders
- * outside `app/docs/layout.tsx`, so `docs.css` is never loaded here, and a second stylesheet for
- * one sentence would be a dependency the page does not need.
+ * Its styles are in `global.css` (`.lost`) rather than the docs' `.prose`: this page renders outside
+ * `app/docs/layout.tsx`, so `docs.css` is never loaded here. The second cell holds the creeper.
  */
 export const metadata: Metadata = {
   title: 'Not found',
@@ -25,12 +26,17 @@ export const metadata: Metadata = {
 export default function NotFound() {
   return (
     <main>
-      <section className="hero">
-        <p className="eyebrow">404</p>
-        <h1>Not found.</h1>
-        <p className="sub">
-          Nothing lives at this address. <a href="/">Back to ellipog.dev</a>
-        </p>
+      <section className="lost">
+        <div className="lost-copy">
+          <p className="eyebrow">404</p>
+          <h1>Not found.</h1>
+          <p className="sub">
+            Nothing lives at this address. <a href="/">Back to ellipog.dev</a>
+          </p>
+        </div>
+        <div className="lost-figure">
+          <PixelCreeper />
+        </div>
       </section>
     </main>
   );

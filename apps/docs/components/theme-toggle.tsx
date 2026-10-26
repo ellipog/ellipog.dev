@@ -28,7 +28,14 @@ export function ThemeToggle() {
     const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
     const next = current === 'dark' ? 'light' : 'dark';
 
-    document.documentElement.setAttribute('data-theme', next);
+    const apply = () => document.documentElement.setAttribute('data-theme', next);
+    // The new theme dissolves in through the same ordered dither as a page change (`global.css`), where
+    // the browser can snapshot the page; elsewhere, and for a reader who asked for less motion, it flips.
+    if ('startViewTransition' in document && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.startViewTransition(apply);
+    } else {
+      apply();
+    }
     try {
       localStorage.setItem('theme', next);
     } catch {

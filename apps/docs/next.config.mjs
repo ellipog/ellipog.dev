@@ -1,6 +1,25 @@
 import { createMDX } from 'fumadocs-mdx/next';
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants.js';
 
 const withMDX = createMDX();
+
+/*
+ * The dev server sends `no-store` on every response, so a refresh always shows the code as it is now.
+ *
+ * Next's own dev default is `no-cache` with an ETag, which still lets the browser answer a refresh with a
+ * 304 or restore the page whole from the back/forward cache, and it serves `public/` with `max-age=0`.
+ * `no-store` closes all three. Scoped to `next dev` by phase, because a static export has no server to
+ * send headers -- set for the build, Next would only warn that they do nothing.
+ */
+const DEV_HEADERS = async () => [
+  {
+    source: '/:path*',
+    headers: [
+      { key: 'Cache-Control', value: 'no-store, max-age=0' },
+      { key: 'Pragma', value: 'no-cache' },
+    ],
+  },
+];
 
 /** @type {import('next').NextConfig} */
 const config = {
@@ -31,4 +50,5 @@ const config = {
   devIndicators: false,
 };
 
-export default withMDX(config);
+export default (phase) =>
+  withMDX(phase === PHASE_DEVELOPMENT_SERVER ? { ...config, headers: DEV_HEADERS } : config);

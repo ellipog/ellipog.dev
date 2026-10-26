@@ -2,7 +2,9 @@
 
 Documentation and project catalog for the ellipog Minecraft mods.
 
-The site is static: a directory of HTML files with no server, no runtime and no database. Every
+The site is static: a directory of HTML files with no server and no database. The one exception is a
+single function, `api/stats.mjs`, which the home page polls for live download counts. The static HTML
+already holds a snapshot of the same figures, so the site still works without that function. Every
 documentation page is copied from the `docs/` folder of the repository that owns the mod, so nothing
 on the site can fall behind the code it describes. **Nothing is written here.**
 
@@ -17,9 +19,11 @@ installed the mod. Both exist, and they are not the same document.
 ```cmd
 bun install
 bun run build      :: sync, fetch stats, build, then check — into apps/docs/out
-bun run dev        :: sync, then a dev server
+bun run dev        :: sync, then a dev server on localhost:3264
 bun run pins       :: show which pinned commits have moved, and change nothing
 ```
+
+The migrator is its own app: `cd apps/migrator && bun run dev` serves it on localhost:3265.
 
 `bun run build` runs the sync first and the check last, so the two steps cannot come out of order and
 a structurally wrong site cannot ship silently.
@@ -42,12 +46,14 @@ will not work as written; see `AGENT.md`.
     ├── manifest.json          the author, the studio, the sponsor and the support link, the suite, releases
     ├── glossary.json          terms defined once, referenced from any mod's docs
     ├── .github/workflows/     refresh-stats.yml, update-pins.yml
+    ├── api/
+    │   └── stats.mjs          the live download counts, edge-cached for a minute; the only code that runs
     ├── design/
     │   ├── icons-source/      the brand SVGs the mod marks are generated from
     │   └── brand-source/      the host's logo and Ko-fi's wordmark, same idea
     ├── scripts/
     │   ├── sync.mjs           checks out each pin, copies docs/ in, wipes the target first
-    │   ├── stats.mjs          fetches both platforms' download counts
+    │   ├── stats.mjs          the build's snapshot of both platforms' download counts
     │   ├── pins.mjs           moves the pins; dry unless --write
     │   ├── icons.mjs          turns the mod icon sources into monochrome glyphs
     │   ├── brand.mjs          the same for the band's brand marks, one table of them
@@ -65,9 +71,16 @@ will not work as written; see `AGENT.md`.
             │   ├── mdx/       the elements a docs page can use
             │   ├── toc.tsx    the contents rail
             │   ├── colophon.tsx  who presents the site, at the foot of every page
-            │   ├── shuffled-number.tsx  the one animation on the site
+            │   ├── world.tsx  the hero's voxel structure: printed, wireframed, minable
+            │   ├── live-stats.tsx  the download figures, kept current while the page is open
+            │   ├── shuffled-number.tsx, scramble.tsx  digits that settle, labels that decode
+            │   ├── pixel-block.tsx, pixel-creeper.tsx  the pixel-art figures
             │   └── …
             ├── lib/           the Fumadocs source, and the docs helpers
+            │   ├── platforms.mjs  the one download-count fetch: build, function and browser share it
+            │   ├── voxels.ts  the camera, the hidden-line faces, and each material's hatch
+            │   ├── structures.ts  the five structures the hero picks between
+            │   └── textures.ts  16×16 block textures, in grey
             ├── content/       GENERATED — committed, and never edited here
             ├── public/        the site mark (tab + masthead), the mod marks, the band's brand marks
             └── out/           the static build
@@ -76,28 +89,54 @@ will not work as written; see `AGENT.md`.
 
 ## The design language
 
-White ground, near-black text, and the structure carried entirely by 1px hairlines rather than
-containers: no shadows, no gradients, no rounded corners, and dividers that run edge to edge. Prose is
-sans, and anything that is an identifier — a mod id, a path, a version — is monospace. Light is the
-default; dark is one attribute away on `<html>`.
+A drawing sheet. White paper, grey ink and a framed page, with the structure carried by 1px hairlines
+rather than containers. There are no shadows, no rounded corners and no fills used as decoration. Each
+band is ruled across the full width and marked with registration crosses where its rule meets the
+frame, the way a technical drawing marks its grid. Prose is sans, and anything that is an identifier
+(a mod id, a path, a version) is monospace. Light is the default; dark is one attribute away on
+`<html>`.
 
 The rules live in `apps/docs/app/global.css`, and the docs layer adds to them in
 `apps/docs/app/docs.css` without breaking any. All of them are commented where they live:
 
-1. **The hairline has a contrast floor.** `#E4E4E7`, not the near-invisible grey the style invites,
-   which disappears on a 1080p panel at 100% zoom.
+1. **Nothing is black, and no line is harsh.** Text is `#1F1F23`, not `#000`. Lines come in grey
+   weights: `--line` for construction lines inside the sheet, `--frame` for the sheet's edge, and
+   `--line-ink` for a drawn object. Each is a token with a dark-theme twin.
 2. **Lines are drawn once, by the element that owns the edge.** A grid of cells each drawing all four
    borders produces 2px seams where two meet.
-3. **Colour is earned.** Paper, ink, one green that means "this is where the code is", and one red
-   reserved for "this loses data". Hover inverts rather than tints, because an inversion is structure
-   and a tint is decoration.
-4. **The scrollbar is drawn, not inherited.** A hairline track with an ink fill — a progress
-   indicator. The standard scrollbar properties are scoped to Gecko with `@supports`, because setting
-   them in Chromium makes it discard every `::-webkit-scrollbar` rule and draw its own bar instead.
+3. **Grey, with one exception.** Paper, ink and the greys between them. The one colour is a red
+   reserved for "this loses data" (a caution callout) and for a docs page marked unreleased.
+4. **Hover is a selection, not a fill.** A hovered row gets CAD-style corner brackets that snap in over
+   three frames. The ground underneath never changes, so nothing inside the row has to re-colour
+   itself to stay visible.
+5. **The scrollbar is drawn, not inherited.** A hairline track with an ink fill, which reads as a
+   progress indicator. The standard scrollbar properties are scoped to Gecko with `@supports`, because
+   setting them in Chromium makes it discard every `::-webkit-scrollbar` rule and draw its own bar
+   instead.
 
-**There is exactly one animation**, and it is deliberately the only one: the download figures on the
-catalog page shuffle into place on load. The real value is in the static HTML, so it is correct before
-JavaScript runs and unchanged when JavaScript is off — see `AGENT.md` → *The one piece of motion*.
+**Motion is stepped, and it only marks something happening.** Every transition runs in `steps()`
+rather than an easing curve, so it reads as frames of pixel art rather than a tween. Motion appears
+when something loads, changes state or navigates. Only three things loop:
+
+- the structure in the hero, which turns slowly while nobody is touching it;
+- the block in the inspector beside it, which turns at 12fps;
+- the creeper on the 404 page, which flashes.
+
+The structure eases to a stop as soon as the pointer is over it. Both the structure and the inspector block
+stop drawing when they are scrolled out of view.
+
+| Where | What moves |
+|---|---|
+| The hero | One of five structures from the game, chosen at random on each visit: a floating island, a desert pyramid, a cottage, a ruined portal or a cut-away chunk. It prints layer by layer like a 3D print, then draws as a hidden-line wireframe, each material shown by its own hatch. Hover selects a block with Minecraft's own outline; click mines it, shift-click places one, drag turns it |
+| The download figures | Digits settle into place on load, and only the digits that changed move again on each poll. A ten-cell pixel meter counts down to the next read |
+| Between pages, and on the theme toggle | A 4×4 Bayer dither dissolve in sixteen steps |
+| Search | The dialog wipes open in six steps over a screen-door backdrop, and a pixel loader runs while the index loads |
+| A code block's copy button | The label decodes through ASCII glyphs to `copied` |
+| The earlier-work rows | Each pixel bar fills as it scrolls into view |
+| The 404 page | A pixel-art creeper whose fuse flashes |
+
+All of it stops under `prefers-reduced-motion`, and none of it carries content. Every figure is
+already in the static HTML before JavaScript runs. See `AGENT.md` → *Motion, and where it is allowed*.
 
 ---
 
@@ -109,9 +148,10 @@ JavaScript runs and unchanged when JavaScript is off — see `AGENT.md` → *The
    becomes `/docs/tenet/guides/tasks/`. Frontmatter is prepended and GFM alerts become callouts, so
    the source stays plain markdown. **The README is not copied** — it is a front door for the
    repository, and its reader is not this site's reader.
-3. `stats.mjs` fetches download counts from Modrinth and CurseForge and downloads the profile picture
-   into `apps/docs/public/`. Both are best-effort: a build with no network still produces a site, and
-   a page with no numbers is better than a page with stale ones.
+3. `stats.mjs` fetches download counts from Modrinth and CurseForge into `apps/docs/stats.json`. This
+   snapshot is what the static HTML carries, and what the page shows until its first poll. It is
+   best-effort: a build with no network still produces a site, and a page with no numbers is better
+   than a page with stale ones.
 4. Fumadocs compiles the MDX, the sidebar and contents list read what was actually synced, and Next
    exports the lot to `apps/docs/out/` as static HTML.
 5. `check.mjs` asserts the result: one title per page, the rails present, the elements rendering, and
@@ -120,9 +160,9 @@ JavaScript runs and unchanged when JavaScript is off — see `AGENT.md` → *The
 A mod with no `docs/` folder is listed in the catalog and gets no docs section, and its catalog cell
 stops being a destination — so nothing points at a page that does not exist.
 
-A cell in that first band carries **two** links, `github ↗ · docs ↗`, so the whole cell cannot be one
-`<a>`: an anchor may not contain another one. The cell is a `<div>` with the docs link stretched over it,
-and the repository link raised above that overlay. The reasoning, and the three selectors that break
+A cell in that first band carries **three** links, `github ↗ · docs → · curseforge ↗`, so the whole
+cell cannot be one `<a>`: an anchor may not contain another one. The cell is a `<div>` with the docs link
+stretched over it, and the other two raised above that overlay. The reasoning, and the three selectors that break
 silently without it, are in `AGENT.md` → *The catalog cell*.
 
 ---
@@ -141,14 +181,19 @@ in **`AGENT.md` → Writing documentation**.
 no rewrite rules are needed, because `trailingSlash` makes Next emit `docs/tenet/index.html` rather
 than `docs/tenet.html`.
 
-`apps/docs/out/` is what gets uploaded. Nothing in it calls an API at runtime: every download count is
-already in the HTML, which is why a visitor costs zero requests.
+**The download figures are live on Vercel.** The home page polls `/api/stats` once a minute. That
+route is the function in `api/stats.mjs`, which Vercel serves from the repository root whatever the
+framework preset is, so `vercel.json` needs no extra key. Its answer is edge-cached for sixty seconds,
+so one upstream fetch serves every open tab in a region. That matters because the CurseForge half
+costs about twenty requests: cfwidget's author listing carries no download counts.
 
-**Freshness comes from a scheduled rebuild.** Add a Deploy Hook URL as the repository secret
-`VERCEL_DEPLOY_HOOK` and `.github/workflows/refresh-stats.yml` calls it twice a day, so Vercel rebuilds
-and `stats.mjs` re-fetches. A fetch in the visitor's browser was measured and rejected: cfwidget's author
-listing carries no download counts, so it would cost about nineteen requests per visitor. See
-`AGENT.md` → *Freshness of the numbers*.
+**Anywhere else, the browser asks the platforms itself.** That covers `next dev` and any static host
+that is not Vercel. The browser uses the same `lib/platforms.mjs`, but polls every five minutes rather
+than every minute. With JavaScript off, the page shows the build's snapshot.
+
+**The snapshot is kept fresh by a scheduled rebuild.** Add a Deploy Hook URL as the repository secret
+`VERCEL_DEPLOY_HOOK`; `.github/workflows/refresh-stats.yml` calls it twice a day, so the numbers in the
+static HTML are never more than half a day behind. See `AGENT.md` → *Freshness of the numbers*.
 
 The one thing to know when deploying: **the docs come from the pinned commits in `manifest.json`**, not
 from the branches. If a page looks out of date, the pin needs moving — `bun run pins` says which.

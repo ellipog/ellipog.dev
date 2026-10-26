@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * A number that resolves itself when the page loads.
@@ -24,10 +24,16 @@ import { useEffect, useState } from 'react';
  * The digits are monospace with `tabular-nums` set on the figure classes, so a scrambling number
  * cannot change width and drag the layout around underneath it — which is the one failure mode this
  * effect genuinely has, and it is closed.
+ *
+ * **When the value changes after load, only the digits that changed move.** The catalog's figures are
+ * live, so `2,707,157` becoming `2,707,163` scrambles the last two places and leaves the rest still —
+ * which is what makes an update readable as an update rather than as the whole number re-rolling. A
+ * change of length (`999,999` to `1,000,000`) has no positions to compare, so it moves every digit.
  */
 export function ShuffledNumber({
   value,
   delay = 0,
+  still = false,
 }: {
   /** The formatted number, exactly as it should read once settled. */
   value: string;
@@ -36,20 +42,43 @@ export function ShuffledNumber({
    * they read as one gesture rather than four unrelated flickers.
    */
   delay?: number;
+  /** Skip the load animation and move only when the value later changes. For secondary figures. */
+  still?: boolean;
 }) {
   const [display, setDisplay] = useState(value);
+  /*
+   * The last value this copy finished settling on, or null before the first one has.
+   *
+   * Written only when an animation completes, and that is what keeps the load animation alive under
+   * Strict Mode: React mounts, cleans up and re-runs every effect once in development, and a ref
+   * written at the *start* of the effect would make the second run see "no change" and skip it.
+   */
+  const settledOn = useRef<string | null>(still ? value : null);
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const from = settledOn.current;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplay(value);
+      settledOn.current = value;
+      return;
+    }
 
     const chars = [...value];
+    const comparable = from !== null && from.length === value.length;
+    const moves = (char: string, i: number) => /\d/.test(char) && (!comparable || from[i] !== char);
 
-    // How many digits come before each character. Punctuation gets -1: it never scrambles, and it
-    // never locks, so it is simply always itself.
+    // How many moving digits come before each character. Punctuation and unchanged digits get -1: they
+    // never scramble and never lock, so they are simply always themselves.
     const ordinal: number[] = [];
     let digits = 0;
-    for (const char of chars) ordinal.push(/\d/.test(char) ? digits++ : -1);
-    if (digits === 0) return;
+    chars.forEach((char, i) => ordinal.push(moves(char, i) ? digits++ : -1));
+    if (digits === 0) {
+      setDisplay(value);
+      settledOn.current = value;
+      return;
+    }
+    // The cascade across cells is a load gesture; an update arrives on its own and settles at once.
+    const wait = from === null ? delay : 0;
 
     // 50ms per digit gives a seven-digit figure about 300ms to settle. Short enough to be a flourish
     // rather than something the reader waits for.
@@ -60,7 +89,7 @@ export function ShuffledNumber({
     const timer = window.setInterval(() => {
       // A positive delay makes this negative at first, so a staggered number is already scrambling by
       // the time its own countdown starts. The cascade is in when they finish, not when they start.
-      const elapsed = performance.now() - startedAt - delay;
+      const elapsed = performance.now() - startedAt - wait;
       let settled = true;
 
       const next = chars
@@ -73,7 +102,10 @@ export function ShuffledNumber({
         .join('');
 
       setDisplay(next);
-      if (settled) window.clearInterval(timer);
+      if (settled) {
+        window.clearInterval(timer);
+        settledOn.current = value;
+      }
     }, FRAME_MS);
 
     return () => window.clearInterval(timer);

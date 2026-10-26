@@ -577,7 +577,9 @@ check(
 );
 check('the maturity chip is styled', /\.maturity\{[^}]*text-transform:uppercase/.test(allCss), show('.maturity{'));
 check('the draft state is distinguished', /\.maturity-draft\{[^}]*border-style:dashed/.test(allCss));
-check('the prerequisites line is styled', /\.prereq\{[^}]*letter-spacing/.test(allCss), show('.prereq{'));
+// Through `declarationsFor`: the line shares its rule with the version switch, and a merged selector list
+// is not `.prereq{` in the built CSS.
+check('the prerequisites line is styled', /letter-spacing/.test(declarationsFor(allCss, '.prereq')), show('.prereq'));
 check('the @since chip is styled', /\.since\{[^}]*font-family:var\(--font-mono\)/.test(allCss), show('.since{'));
 check('inline terms are underlined as terms', /\.term\{[^}]*border-bottom:1px dashed/.test(allCss), show('.term{'));
 
@@ -1354,17 +1356,20 @@ if (sponsor) {
     );
 
     /*
-     * And the chip goes into the inversion with the row.
+     * And the chip keeps its ground when the row is hovered.
      *
-     * It sits inside the link now, so the row's hover flips the ground beneath it. A colour that stayed
-     * put would be faint-on-ink on a near-black ground — invisible rather than merely wrong, and easy to
-     * miss because the resting state is correct. Asserted separately from "the chip renders" for exactly
-     * that reason: the two failures look nothing alike.
+     * The row used to invert on hover, and the chip had to follow it into the inversion or turn
+     * faint-on-ink. The hover is now the site's selection -- corner brackets drawn over the row -- and the
+     * ground stays the paper, so the chip's colours hold. What is asserted is that it stays that way: the
+     * brackets are there, and nothing repaints the row's ground, which is the change that would bring the
+     * old failure back.
      */
+    const sponsorBrackets =
+      declarationsFor(allCss, '.sponsor-link:hover::before') + declarationsFor(allCss, '.sponsor-link:hover:before');
     check(
-      'the chip follows the row into the inversion',
-      /sponsor-link:hover \.sponsor-badge\{[^}]*color:var\(--inv-faint\)/.test(allCss),
-      show('.sponsor-link:hover .sponsor-badge{'),
+      'the row is selected on hover, not inverted',
+      /opacity:\s*1/.test(sponsorBrackets) && !/background/.test(declarationsFor(allCss, '.sponsor-link:hover')),
+      sponsorBrackets || 'no .sponsor-link:hover::before rule',
     );
   }
 
@@ -1637,10 +1642,14 @@ if (support) {
     /@media\s*\(max-width:\s*1024px\)\{[^@]*?flex-direction:\s*column/.test(allCss),
     show('max-width:1024px'),
   );
+  // The mark's knockouts are `--icon-ground`, which must be whatever the cell sits on. The cell's hover no
+  // longer changes its ground, so the knockouts are the paper's colour and no hover rule may say otherwise.
   check(
-    'the tip jar mark follows the cell into the inversion',
-    /--icon-ground:\s*var\(--inv-bg\)/.test(declarationsFor(allCss, '.support-link:hover .brand-mark')),
-    show('.support-link:hover .brand-mark{'),
+    'the tip jar mark is knocked out to the paper, hovered or not',
+    /--icon-ground:\s*var\(--bg\)/.test(declarationsFor(allCss, '.brand-mark')) &&
+      declarationsFor(allCss, '.support-link:hover .brand-mark') === '' &&
+      !/background/.test(declarationsFor(allCss, '.support-link:hover')),
+    show('.brand-mark{'),
   );
   check(
     'the row is on the docs pages too',
@@ -1731,10 +1740,10 @@ if (studio) {
    * The mark, and the one thing about it that is easy to get wrong.
    *
    * It is the colophon's own element and its own pair — the site's pair draws the tab, and the masthead's
-   * image is the portrait — and the row inverts on hover, which means the *file* has to change for the
-   * duration. A raster cannot follow an inverting ground by itself, and getting it wrong is invisible
-   * rather than merely off: the ink and the ground become the same colour. Both halves are asserted
-   * because a single rule would be right in one theme and wrong in the other.
+   * image is the portrait. A raster cannot follow a change of ground by itself, so the file follows the
+   * theme: dark ink on the light page, light ink on the dark one. The row's hover is the selection
+   * brackets and leaves the ground alone, so no hover rule may swap the file -- one that did would put
+   * light ink on white. Both themes are asserted, because one rule is right in one and wrong in the other.
    */
   check(
     'the colophon carries the studio mark',
@@ -1744,15 +1753,17 @@ if (studio) {
   const hoverRule = declarationsFor(allCss, '.colophon-link:hover .colophon-mark');
   const darkHoverRule = declarationsFor(allCss, '[data-theme="dark"] .colophon-link:hover .colophon-mark');
 
+  const markRule = declarationsFor(allCss, '.colophon-mark');
+  const darkMarkRule = declarationsFor(allCss, '[data-theme="dark"] .colophon-mark');
   check(
-    'the mark goes light on the inverted ground, which is dark',
-    hoverRule.includes('aaen-mark-on-dark'),
-    hoverRule || 'no rule',
+    'the mark is dark ink on the light page and light ink on the dark one',
+    markRule.includes('aaen-mark-on-light') && darkMarkRule.includes('aaen-mark-on-dark'),
+    `${markRule || 'no rule'} / ${darkMarkRule || 'no dark rule'}`,
   );
   check(
-    'and back to dark ink in the dark theme, where the inversion is the other way round',
-    darkHoverRule.includes('aaen-mark-on-light'),
-    darkHoverRule || 'no rule',
+    'and no hover swaps it, because the hover no longer changes the ground',
+    hoverRule === '' && darkHoverRule === '',
+    hoverRule || darkHoverRule || 'no hover rule',
   );
 
   // In the root layout, so every page carries it -- the same thing proved for the band above.

@@ -8,10 +8,11 @@
  * from a layout — a coupling that has no reason to exist and is exactly the sort of thing a framework
  * upgrade changes the rules about.
  */
-export function Arrow() {
+export function Arrow({ within = false }: { within?: boolean }) {
+  // `within`: a link that stays on this site points along the line of reading, not out of the page.
   return (
     <span className="arrow" aria-hidden>
-      ↗
+      {within ? '→' : '↗'}
     </span>
   );
 }

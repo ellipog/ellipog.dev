@@ -1,119 +1,186 @@
 /*
- * The documentation layer.
+ * The documentation pages, on the same sheet as the rest of the site (`global.css`).
  *
- * `global.css` is the design system -- tokens, the grid, prose, the scrollbar. This file is what the
- * docs pages add on top of it: the two rails, and the elements a manual needs that a landing page
- * does not (callouts, tabs, step lists, a copy button).
+ * Three columns: the section list on the left, the prose, and the page's contents on the right. The two
+ * rails pin under the masthead and scroll on their own; the prose scrolls with the page. Furniture inside
+ * the prose -- code, callouts, tabs, steps, tables -- is drawn in the same soft hairlines as the home page,
+ * and the one thing that is marked as *selected* (the current page, the current section, the active tab)
+ * takes the darkest grey, `--select`, and a pixel pointer rather than a filled block.
  *
- * Every rule here obeys the four rules in `global.css`. The ones that matter most in this file:
- *
- * - LINES ARE DRAWN ONCE. A column draws one border on the side that faces its neighbour, never a box.
- *   `.docs` puts one on the right of the left rail; `.docs-page` puts one on the left of the right
- *   rail. Each line has exactly one owner.
- * - NO SHADOWS, NO RADIUS. A callout is a band with a heavy left edge, not a floating card. A tab
- *   strip is a row of cells, not a pill.
- * - COLOUR IS EARNED. The four callout kinds are distinguished by the weight of that left edge and by
- *   the label, not by four pastel backgrounds. `caution` gets the only red on the site, because it is
- *   the only thing here that means "this loses data".
+ * Several values here are asserted by `check.mjs` because each of them failed silently once: the top
+ * offset (`--docs-top`) and the gutter (`--docs-gutter`) are tokens that both sides of a column read, the
+ * left rail is sticky and scrolls with no scrollbar of its own, and a heading's anchor clears the masthead.
  */
 
-/* ------------------------------------------------------------------ */
-/* The three columns                                                   */
-/* ------------------------------------------------------------------ */
+/* ---------------------------------------------------------------------------------------- layout */
+
+.docs {
+  --docs-gutter: var(--s7);
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  flex: 1;
+  align-items: stretch;
+  /* The rail's edge, drawn by the grid rather than the rail, so it runs the page's full height however
+     short the list is -- a construction line, like the sheet's own edges. */
+  background: linear-gradient(var(--line) 0 0) calc(var(--rail) - 1px) 0 / 1px 100% no-repeat;
+}
 
 /*
- * A page is prose plus an optional contents rail. `docs-page-with-rail` is only applied when the page
- * has enough headings to be worth a rail -- see the page component.
- *
- * `minmax(0, 1fr)` rather than `1fr`: a grid column defaults to a minimum of its content's width, so
- * a wide table or a long code block would push the rail off the page instead of scrolling inside its
- * own box.
+ * The section list scrolls on its own and shows no scrollbar: a second bar beside the page's is the one
+ * piece of chrome a reading page cannot afford, and the list is short enough to be wheeled through.
  */
-.docs-page {
-  /*
-   * THE ONE THING THAT KEEPS THE RAIL STILL.
-   *
-   * A sticky element is positioned from the viewport, but it lives in the flow, and it only pins once
-   * its flow position would cross the sticky `top`. So if those two disagree, the rail renders at its
-   * flow position on load and then *slides upward* into its pinned position over the first screenful of
-   * scroll. Which is what it did: 152px down on load, jumping to 80px, because `.docs-body` (48px) and
-   * `.docs-rail` (48px) each added top padding the sticky offset knew nothing about.
-   *
-   * Both columns therefore take their top offset from this one token, and the sticky top is built from
-   * the same token. The flow position and the pinned position are then equal by construction rather
-   * than by arithmetic that has to be kept in step.
-   */
-  --docs-top: var(--s6);
+.sidebar {
+  position: sticky;
+  top: var(--masthead);
+  align-self: start;
+  max-height: calc(100vh - var(--masthead));
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: var(--s6) 0 var(--s7);
+}
 
+.sidebar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.sidebar-section {
+  padding: 0 var(--s5);
+}
+
+.sidebar-section + .sidebar-section {
+  margin-top: var(--s5);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--line);
+}
+
+.sidebar-label {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--fg);
+}
+
+.sidebar-label a:hover {
+  color: var(--fg-muted);
+}
+
+.sidebar-section ul {
+  list-style: none;
+  margin-top: var(--s2);
+}
+
+.sidebar-section li a {
+  position: relative;
+  display: block;
+  padding: 3px 0 3px var(--s4);
+  font-size: 13.5px;
+  color: var(--fg-muted);
+  transition: color 0.1s linear;
+}
+
+.sidebar-section li a:hover {
+  color: var(--fg);
+}
+
+/* The current page: ink, and a pixel pointer in the margin -- the cursor of a menu in a game. */
+.sidebar-section li a[aria-current="page"] {
+  color: var(--fg);
+}
+
+.sidebar-section li a[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  width: 6px;
+  height: 8px;
+  translate: 0 -50%;
+  background: var(--select);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.sidebar-group {
+  margin: var(--s2) 0 0 var(--s4);
+}
+
+.sidebar-group ul {
+  margin-top: var(--s1);
+  margin-left: 3px;
+  padding-left: var(--s2);
+  border-left: 1px solid var(--line);
+}
+
+.sidebar-group li a {
+  padding-left: var(--s4);
+}
+
+/* A folder opens with `+` and closes with `−`, in mono: the way a tree is drawn in a terminal. */
+.sidebar-group > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 3px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-faint);
+  transition: color 0.1s linear;
+}
+
+.sidebar-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-group > summary::before {
+  content: "+";
+  display: inline-block;
+  width: 1.5ch;
+  color: var(--fg-faint);
+}
+
+.sidebar-group[open] > summary::before {
+  content: "−";
+}
+
+.sidebar-group > summary:hover {
+  color: var(--fg);
+}
+
+/* The prose column. Its sides come from the one token; its top comes from `--docs-top` on the page. */
+.docs-body {
+  padding: 0 var(--docs-gutter) var(--s8);
+  min-width: 0;
+}
+
+.docs-page {
+  --docs-top: var(--s7);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
 
-/*
- * The right half of the prose gutter.
- *
- * `global.css` supplies the left from `.docs-body`'s padding. Without a matching gap here the prose
- * ran edge to edge into this rail's border — 32px of air on one side and none on the other, which is
- * what it looked like: the callouts and the tables touching the vertical rule.
- *
- * A grid gap rather than padding on the article, because a gap only exists *between* columns. Padding
- * on `.prose` would also apply to the many pages that have no rail at all, where it would stack on top
- * of `.docs-body`'s own padding and give those pages 64px on one side.
- *
- * Both halves resolve to `--docs-gutter`, so they cannot drift apart.
- */
 .docs-page-with-rail {
   grid-template-columns: minmax(0, 1fr) var(--rail-right);
   column-gap: var(--docs-gutter);
 }
 
-/*
- * The article supplies its own top offset now that `.docs-body` no longer does.
- *
- * **`max-width: none` is load-bearing, and it is a fix rather than a preference.** `global.css` caps
- * `.prose` at `--measure` (68ch), which is the right guard for a page of text with nothing beside it.
- * Inside this layout the column already *is* the measure: the shell is 1200px, the left rail takes
- * 232px and the right rail 200px, so the prose column lands at about 704px — 75 characters at this
- * size, at the top of the comfortable range and no wider. Keeping both caps meant the smaller one won
- * and the difference rendered as a void between the text and the rail, roughly 190px of nothing on
- * every page that had a rail.
- *
- * So the column sets the measure here and the character cap stands down. Any rule added between the
- * two columns — padding, a wider rail — changes the line length, which is the trade for filling the
- * width, and the assertion in `check.mjs` is what stops the cap creeping back.
- */
 .docs-page > .prose {
   padding-top: var(--docs-top);
   max-width: none;
 }
 
-/*
- * The rail pads horizontally only.
- *
- * Its vertical inset is the same `--docs-top` the article uses, so the rail's own flow position is
- * already where it will be pinned -- that is the whole fix, and a `padding` shorthand here that added
- * a different top value would undo it.
- */
+/* The contents rail runs to the sheet's right edge, so its padding stops at the gutter on that side. */
 .docs-rail {
+  margin-right: calc(-1 * var(--docs-gutter));
+  padding: var(--docs-top) var(--s5) var(--s5);
   border-left: 1px solid var(--line);
-  padding: var(--docs-top) var(--s4) var(--s5);
 }
 
-/*
- * Sticky under the masthead, and scrolling on its own if a page ever has more headings than fit.
- *
- * `top` is masthead + `--docs-top`, which is exactly where the rail already sits in the flow. See the
- * note on `.docs-page` -- changing either half without the other is how this broke the first time.
- *
- * `max-height` is what makes the inner scroll work: without it the rail is as tall as its list and
- * `position: sticky` has nothing to stick within. The `--s5` is breathing room at the bottom, so the
- * last entry is not flush against the window edge.
- */
 .toc {
   position: sticky;
   top: calc(var(--masthead) + var(--docs-top));
   max-height: calc(100vh - var(--masthead) - var(--docs-top) - var(--s5));
   overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .toc ul {
@@ -121,100 +188,444 @@
   margin-top: var(--s3);
 }
 
-/*
- * The marker track.
- *
- * Each item draws its own 1px line on the left, so the track is a run of short segments rather than
- * one long rule -- which is what makes the active marker look like a marker instead of a thicker
- * column edge. The rail's own left border is the column edge and is a different line, 16px to the
- * left of this one.
- *
- * Deliberately not pulled flush with the column border with a negative margin: that put the track
- * exactly on top of it, so an active marker read as the page's edge getting heavier.
- */
-.toc li {
-  border-left: 1px solid var(--line);
-}
-
 .toc a {
+  position: relative;
   display: block;
-  padding: var(--s1) var(--s3);
+  padding: 3px 0 3px var(--s4);
   font-size: 12.5px;
   line-height: 1.45;
-  color: var(--fg-muted);
-  transition: color 0.12s linear, border-color 0.12s linear;
+  color: var(--fg-faint);
+  transition: color 0.1s linear;
 }
 
 .toc a:hover {
   color: var(--fg);
 }
 
-/*
- * The current section. A 2px ink bar on the track rather than a background or a bolder weight --
- * the bar is structure, and it is the same statement a progress bar makes.
- */
 .toc a[aria-current="location"] {
   color: var(--fg);
-  border-left: 2px solid var(--fg);
-  margin-left: -1px;
-  padding-left: calc(var(--s3) - 2px);
 }
 
-/* A third-level heading, indented so the nesting is visible without a second marker. */
+.toc a[aria-current="location"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 6px;
+  height: 6px;
+  background: var(--select);
+}
+
 .toc-nested a {
+  padding-left: var(--s6);
+}
+
+.toc-nested a[aria-current="location"]::before {
+  left: var(--s4);
+  width: 4px;
+  height: 4px;
+  top: 0.72em;
+}
+
+/* --------------------------------------------------------------------------------------- prose */
+
+.prose {
+  max-width: var(--measure);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.prose > * + * {
+  margin-top: var(--s4);
+}
+
+.prose h1 {
+  font-size: clamp(30px, 3.2vw, 40px);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+
+.prose h2 {
+  margin-top: var(--s8);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--line);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.prose h3 {
+  margin-top: var(--s6);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.prose h4 {
+  margin-top: var(--s5);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.prose h2 + *,
+.prose h3 + * {
+  margin-top: var(--s3);
+}
+
+.prose p,
+.prose li {
+  color: var(--fg-muted);
+}
+
+.prose strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.prose a {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--line-ink);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.1s linear;
+}
+
+.prose a:hover {
+  text-decoration-color: var(--select);
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  padding: 1px 5px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  color: var(--fg);
+}
+
+.prose pre {
+  overflow-x: auto;
+  padding: var(--s4);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.prose pre code {
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: inherit;
+}
+
+.prose ul,
+.prose ol {
   padding-left: var(--s5);
 }
 
-.toc-nested a[aria-current="location"] {
-  padding-left: calc(var(--s5) - 2px);
+.prose li + li {
+  margin-top: var(--s1);
 }
 
-@media (max-width: 1100px) {
-  /* The rail is the first thing to go: the sidebar is navigation and this is orientation. */
-  .docs-page-with-rail {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .docs-rail {
-    display: none;
-  }
+.prose ul > li::marker {
+  content: "–  ";
+  color: var(--fg-faint);
 }
 
-/* ------------------------------------------------------------------ */
-/* Callouts                                                            */
-/* ------------------------------------------------------------------ */
+.prose ol > li::marker {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-faint);
+}
+
+.prose blockquote {
+  padding-left: var(--s4);
+  border-left: 2px solid var(--frame);
+  color: var(--fg-muted);
+}
+
+.prose hr {
+  border: 0;
+  height: 7px;
+  margin: var(--s7) 0;
+  border-left: 1px solid var(--frame);
+  border-right: 1px solid var(--frame);
+  background: linear-gradient(var(--frame) 0 0) center / 100% 1px no-repeat;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.prose th,
+.prose td {
+  padding: var(--s3) var(--s4) var(--s3) 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose td + td,
+.prose th + th {
+  padding-left: var(--s4);
+}
+
+.prose th {
+  border-bottom-color: var(--frame);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+/* A table whose header is empty is a list of definitions: its first column is the term. */
+.prose table:has(thead th:empty):not(:has(thead th:not(:empty))) td:first-child {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.prose thead th:empty {
+  padding: 0;
+  border: 0;
+  line-height: 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: var(--s5) 0;
+}
+
+.table-wrap > table {
+  margin: 0;
+}
+
+.lede {
+  margin-top: var(--s3);
+  padding-bottom: var(--s5);
+  border-bottom: 1px solid var(--line);
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+/* -------------------------------------------------------------------------------- the page's head */
+
+.page-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4);
+}
+
+.page-head h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.maturity {
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid var(--frame);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--fg-faint);
+}
+
+.maturity-stable {
+  border-color: var(--line-ink);
+  color: var(--fg-muted);
+}
+
+.maturity-draft {
+  border-style: dashed;
+}
+
+.maturity-unreleased {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.prereq,
+.version-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--s3);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.version-switch .label {
+  margin-right: var(--s1);
+}
+
+.fact {
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--fg-muted);
+}
+
+.fact-current {
+  border-color: var(--select);
+  color: var(--fg);
+}
+
+.prose a.fact-link,
+a.fact-link {
+  color: var(--fg-muted);
+  text-decoration: none;
+  transition:
+    border-color 0.1s linear,
+    color 0.1s linear;
+}
+
+a.fact-link:hover {
+  border-color: var(--line-ink);
+  color: var(--fg);
+}
 
 /*
- * A callout is a band with a heavy left edge -- the same construction as a blockquote, at three times
- * the weight, which is what separates "a note" from "a quotation" at a glance.
- *
- * Set off from the prose by margins above and below rather than by a background, because the design
- * has no backgrounds other than paper.
+ * The way out to the browser migrator, atop every Tenet page: a third child of a two-track grid, so it
+ * spans both tracks rather than taking the first one and pushing the article into the rail's.
  */
+.migrator-band {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4);
+  margin: 0 calc(-1 * var(--docs-gutter));
+  padding: var(--s3) var(--docs-gutter);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-sunken);
+  transition: background-color 0.1s linear;
+}
+
+.migrator-band:hover {
+  background: var(--bg);
+}
+
+.migrator-band .migrator-go {
+  font-size: 13px;
+  color: var(--fg-muted);
+  text-align: right;
+}
+
+.migrator-band:hover .migrator-go {
+  color: var(--fg);
+}
+
+.migrator-band:hover .arrow {
+  translate: 2px -2px;
+}
+
+/* ---------------------------------------------------------------------------------------- headings */
+
+.heading {
+  position: relative;
+  scroll-margin-top: calc(var(--masthead) + var(--s5));
+}
+
+.heading-anchor {
+  margin-left: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 0.7em;
+  font-weight: 400;
+  color: var(--fg-faint);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.1s steps(2, end);
+}
+
+.prose .heading-anchor {
+  text-decoration: none;
+}
+
+.heading:hover .heading-anchor,
+.heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.heading-anchor:hover {
+  color: var(--fg);
+}
+
+/* ------------------------------------------------------------------------------------------ code */
+
+.code {
+  position: relative;
+  margin: var(--s5) 0;
+}
+
+.prose .code pre {
+  margin: 0;
+  padding-right: 80px;
+}
+
+/* The copy button's label decodes into its new word through ASCII noise (`scramble.tsx`), so the width
+   is fixed: the label changes length, and the button must not. */
+.code-copy {
+  position: absolute;
+  top: var(--s2);
+  right: var(--s2);
+  min-width: 9ch;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--fg-faint);
+  transition:
+    color 0.1s linear,
+    border-color 0.1s linear;
+}
+
+.code-copy:hover {
+  border-color: var(--line-ink);
+  color: var(--fg);
+}
+
+/* -------------------------------------------------------------------------------------- callouts */
+
 .callout {
   margin: var(--s5) 0;
   padding: var(--s3) var(--s4);
-  border-left: 3px solid var(--line-ink);
-  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--line-ink);
 }
 
-/*
- * The mark and the word, on one baseline.
- *
- * `align-items: center` is doing real work rather than tidying: flex items stretch by default, and a
- * 12px box stretched to the line box of 10.5px uppercase mono grows past the cap height it is
- * supposed to sit beside. The gap is 6px because the icon is narrow and the label's own letter
- * spacing already adds air on its right.
- */
 .callout-label {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-bottom: var(--s2);
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--fg);
-  margin-bottom: var(--s2);
+  color: var(--fg-muted);
 }
 
 .callout-icon {
@@ -227,97 +638,36 @@
 
 .callout-body p,
 .callout-body li {
+  font-size: 14px;
   color: var(--fg-muted);
-  font-size: 13.5px;
 }
 
 .callout-body strong {
   color: var(--fg);
 }
 
-/* A tip is the same shape, one step lighter: it is advice, not a fact. */
 .callout-tip {
-  border-left-color: var(--fg-faint);
+  border-left-color: var(--frame);
 }
 
-/* A warning is ink, because it is the same kind of thing as a note but louder. */
 .callout-warning {
-  border-left-color: var(--fg);
-  border-left-width: 4px;
+  border-left-color: var(--select);
 }
 
-/*
- * The only red on the site. Reserved for one meaning: this loses data or breaks a world. If a second
- * thing ever needs red, this rule is the thing to reconsider rather than extend.
- */
+.callout-warning .callout-label {
+  color: var(--fg);
+}
+
 .callout-caution {
   border-left-color: var(--danger);
-  border-left-width: 4px;
 }
 
 .callout-caution .callout-label {
   color: var(--danger);
 }
 
-/* ------------------------------------------------------------------ */
-/* Code                                                                */
-/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------------------------------ tabs */
 
-/*
- * The wrapper exists for the copy button. `position: relative` on it and `absolute` on the button is
- * the whole mechanism -- no layout shift when the label changes from "copy" to "copied".
- */
-.code {
-  position: relative;
-  margin: var(--s4) 0;
-}
-
-.prose .code pre {
-  margin: 0;
-  /* Room for the button, so a long line never runs underneath it. */
-  padding-right: 72px;
-}
-
-/*
- * The copy button: a small uppercase mono label in the block's top-right, on paper rather than on a
- * tint, with a hairline. It inverts on hover like everything else clickable on the site.
- */
-.code-copy {
-  position: absolute;
-  top: var(--s2);
-  right: var(--s2);
-  padding: 3px 7px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--fg-faint);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  cursor: pointer;
-  transition: color 0.12s linear, background-color 0.12s linear, border-color 0.12s linear;
-}
-
-.code-copy:hover {
-  color: var(--bg);
-  background: var(--fg);
-  border-color: var(--fg);
-}
-
-/* Focus reachable by keyboard -- the button is inside a scrollable region otherwise. */
-.code-copy:focus-visible {
-  outline: 2px solid var(--fg);
-  outline-offset: 1px;
-}
-
-/* ------------------------------------------------------------------ */
-/* Tabs                                                                */
-/* ------------------------------------------------------------------ */
-
-/*
- * A strip of cells above a body. The cells share the block's outer hairline, and each draws the
- * border on its own right, so no two lines meet at 2px.
- */
 .tabs {
   margin: var(--s5) 0;
   border: 1px solid var(--line);
@@ -326,34 +676,35 @@
 .tabs-list {
   display: flex;
   border-bottom: 1px solid var(--line);
-  background: var(--bg-sunken);
 }
 
 .tabs-tab {
+  position: relative;
   padding: var(--s2) var(--s4);
+  border-right: 1px solid var(--line);
   font-family: var(--font-mono);
   font-size: 11.5px;
-  letter-spacing: 0.04em;
-  color: var(--fg-muted);
-  background: none;
-  border: 0;
-  border-right: 1px solid var(--line);
-  cursor: pointer;
-  transition: color 0.12s linear, background-color 0.12s linear;
+  color: var(--fg-faint);
+  transition: color 0.1s linear;
 }
 
 .tabs-tab:hover {
   color: var(--fg);
 }
 
-/*
- * The selected tab. Paper against the sunken strip, plus an ink rule along the bottom edge that
- * covers the strip's own border -- the same 2px-bar idea as the contents rail, laid horizontally.
- */
+/* The active tab is underlined by a two-pixel rule, in the selection grey, sitting on the list's own line. */
 .tabs-tab-active {
   color: var(--fg);
-  background: var(--bg);
-  box-shadow: inset 0 -2px 0 var(--fg);
+}
+
+.tabs-tab-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--select);
 }
 
 .tabs-panel {
@@ -368,80 +719,83 @@
   margin-bottom: 0;
 }
 
-/* ------------------------------------------------------------------ */
-/* Steps                                                               */
-/* ------------------------------------------------------------------ */
+/* ----------------------------------------------------------------------------------------- steps */
 
-/*
- * Numbered bands, hairline separated. The number is generated by a counter rather than written, so
- * inserting a step does not mean renumbering the ones after it.
- */
 .steps {
   counter-reset: step;
   margin: var(--s5) 0;
-  border-top: 1px solid var(--line);
 }
 
 .step {
   counter-increment: step;
-  border-bottom: 1px solid var(--line);
-  padding: var(--s4) 0 var(--s4) var(--s6);
   position: relative;
+  padding: 0 0 var(--s5) var(--s7);
 }
 
+/* Each step's number sits in a square, and a hairline joins the squares down the page. */
 .step::before {
   content: counter(step, decimal-leading-zero);
   position: absolute;
   left: 0;
-  top: calc(var(--s4) + 2px);
+  top: 0;
+  width: 28px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--frame);
+  background: var(--bg);
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-faint);
-  letter-spacing: 0.06em;
+  font-size: 10.5px;
+  color: var(--fg-muted);
+}
+
+.step::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 22px;
+  bottom: 0;
+  width: 1px;
+  background: var(--line);
+}
+
+.step:last-child::after {
+  display: none;
 }
 
 .step-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--fg);
 }
 
 .step-body {
-  margin-top: var(--s3);
+  margin-top: var(--s2);
 }
 
 .step-body > * + * {
   margin-top: var(--s3);
 }
 
-/* A step's own code block should not add a second margin on top of the step's. */
 .step-body .code {
   margin: var(--s3) 0;
 }
 
-/* ------------------------------------------------------------------ */
-/* Details                                                             */
-/* ------------------------------------------------------------------ */
+/* --------------------------------------------------------------------------------------- details */
 
-/*
- * Collapsed detail. `<details>` is native, needs no JavaScript, and is the only element here that
- * hides content on purpose -- so it gets a disclosure marker and a hairline, and nothing else. The
- * browser's own triangle is replaced with a mono glyph in the left margin, matching the step numbers.
- */
 .prose details {
   margin: var(--s4) 0;
-  border: 1px solid var(--line);
   padding: var(--s3) var(--s4);
-  background: var(--bg-sunken);
+  border: 1px solid var(--line);
 }
 
 .prose details > summary {
   cursor: pointer;
+  list-style: none;
   font-family: var(--font-mono);
   font-size: 12.5px;
   color: var(--fg);
-  list-style: none;
 }
 
 .prose details > summary::-webkit-details-marker {
@@ -449,64 +803,19 @@
 }
 
 .prose details > summary::before {
-  content: "+ ";
+  content: "[+] ";
   color: var(--fg-faint);
 }
 
 .prose details[open] > summary::before {
-  content: "− ";
+  content: "[−] ";
 }
 
 .prose details > *:not(summary) {
   margin-top: var(--s3);
 }
 
-/* ------------------------------------------------------------------ */
-/* Headings with anchors                                               */
-/* ------------------------------------------------------------------ */
-
-/*
- * The anchor is invisible until the heading is hovered or the anchor itself is focused. A visible `#`
- * on every heading turns a page into a list of hashes; a keyboard-reachable one costs nothing and is
- * the difference between a section being linkable and not.
- */
-.heading {
-  position: relative;
-
-  /*
-   * Where an anchor target stops, so it does not land under the sticky masthead.
-   *
-   * The browser aligns an anchor target with the top of the viewport, and the masthead is 56px of
-   * sticky furniture sitting over it — so without this, following a contents entry puts the heading
-   * you asked for just out of sight. Same tokens as the rail's offset, so the two cannot drift apart.
-   * `scrollIntoView` honours this, not only native hash navigation.
-   */
-  scroll-margin-top: calc(var(--masthead) + var(--s4));
-}
-
-.heading-anchor {
-  margin-left: var(--s2);
-  color: var(--fg-faint);
-  border-bottom: 0;
-  opacity: 0;
-  transition: opacity 0.12s linear, color 0.12s linear;
-}
-
-.heading:hover .heading-anchor {
-  opacity: 1;
-}
-
-.heading-anchor:focus-visible {
-  opacity: 1;
-}
-
-.heading-anchor:hover {
-  color: var(--fg);
-}
-
-/* ------------------------------------------------------------------ */
-/* The foot of a page                                                  */
-/* ------------------------------------------------------------------ */
+/* ----------------------------------------------------------------------------------------- footer */
 
 .docs-footer {
   margin-top: var(--s8);
@@ -517,82 +826,106 @@
 .docs-source {
   display: flex;
   align-items: baseline;
-  gap: var(--s4);
   flex-wrap: wrap;
+  gap: var(--s4);
 }
 
 .docs-source-links {
   display: flex;
-  gap: var(--s4);
   flex-wrap: wrap;
+  gap: var(--s4);
 }
 
-.docs-source-links a {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--fg-muted);
-  border-bottom: 0;
+.prose .docs-source-links a {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  transition: color 0.12s linear;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-decoration: none;
 }
 
-.docs-source-links a:hover {
+.prose .docs-source-links a:hover {
   color: var(--fg);
 }
 
-/* Rows, not cards: prev on the left, next on the right, separated by the same hairline. */
 .docs-nav {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: var(--s4);
-  border-top: 1px solid var(--line);
+  margin-top: var(--s5);
+  border: 1px solid var(--line);
 }
 
 .docs-nav > * {
-  padding: var(--s3) 0;
+  padding: var(--s4);
 }
 
 .docs-nav-next {
-  text-align: right;
   border-left: 1px solid var(--line);
-  padding-left: var(--s4);
+  text-align: right;
 }
 
-.docs-nav a {
+.prose .docs-nav a {
+  position: relative;
   display: block;
-  border-bottom: 0;
+  text-decoration: none;
+}
+
+/* The selection brackets, the site's hover, on the two ways onward. */
+.prose .docs-nav a::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  opacity: 0;
+  --c: var(--select);
+  --l: 10px;
+  background:
+    linear-gradient(var(--c) 0 0) 0 0 / var(--l) 1px,
+    linear-gradient(var(--c) 0 0) 0 0 / 1px var(--l),
+    linear-gradient(var(--c) 0 0) 100% 0 / var(--l) 1px,
+    linear-gradient(var(--c) 0 0) 100% 0 / 1px var(--l),
+    linear-gradient(var(--c) 0 0) 0 100% / var(--l) 1px,
+    linear-gradient(var(--c) 0 0) 0 100% / 1px var(--l),
+    linear-gradient(var(--c) 0 0) 100% 100% / var(--l) 1px,
+    linear-gradient(var(--c) 0 0) 100% 100% / 1px var(--l);
+  background-repeat: no-repeat;
+  transition:
+    inset 0.12s steps(3, end),
+    opacity 0s linear 0.12s;
+}
+
+.prose .docs-nav a:hover::before {
+  inset: 6px;
+  opacity: 1;
+  transition:
+    inset 0.12s steps(3, end),
+    opacity 0s;
 }
 
 .docs-nav-title {
   display: block;
-  margin-top: var(--s1);
-  font-size: 14px;
+  margin-top: 2px;
+  font-size: 15px;
   color: var(--fg-muted);
-  transition: color 0.12s linear;
+  transition: color 0.1s linear;
 }
 
 .docs-nav a:hover .docs-nav-title {
   color: var(--fg);
 }
 
-/* ------------------------------------------------------------------ */
-/* The contents list on /docs/                                         */
-/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------------ the docs index's contents */
 
-/*
- * One band per mod: name and page count on a line, the summary beneath it, then the pages. Rows in a
- * grid rather than cards, because the whole site is rows in a grid.
- */
 .contents {
-  margin: var(--s5) 0;
+  margin: var(--s6) 0;
   border-top: 1px solid var(--line);
 }
 
 .contents-group {
+  padding: var(--s5) 0;
   border-bottom: 1px solid var(--line);
-  padding: var(--s4) 0;
 }
 
 .contents-head {
@@ -603,17 +936,17 @@
 }
 
 .contents-name {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 500;
   letter-spacing: -0.015em;
   color: var(--fg);
 }
 
 .contents-summary {
-  margin-top: var(--s1);
-  font-size: 13px;
-  color: var(--fg-muted);
   max-width: 60ch;
+  margin-top: var(--s1);
+  font-size: 14px;
+  color: var(--fg-muted);
 }
 
 .contents-pages {
@@ -622,31 +955,24 @@
   padding: 0;
 }
 
-.contents-pages li + li {
-  margin-top: 1px;
+.prose .contents-pages li + li {
+  margin-top: 2px;
 }
 
-.contents-pages a {
+.prose .contents-pages a {
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--fg-muted);
-  border-bottom: 0;
-  transition: color 0.12s linear;
+  text-decoration: none;
+  transition: color 0.1s linear;
 }
 
-.contents-pages a:hover {
+.prose .contents-pages a:hover {
   color: var(--fg);
 }
 
-/*
- * A folder inside a mod's band.
- *
- * The label is the same 11px caps the rail uses, so the two lists agree about what a folder looks
- * like, and the folder's pages hang off a hairline rather than a second band -- a rule that says
- * "these belong to the thing above" without pretending to be a section of their own.
- */
 .contents-folder {
   margin-top: var(--s3);
 }
@@ -655,13 +981,12 @@
   margin: 0;
 }
 
-/* A folder with a page of its own says so by being clickable; the label's own ink on hover. */
-.contents-folder .label a {
-  border-bottom: 0;
+.prose .contents-folder .label a {
   color: inherit;
+  text-decoration: none;
 }
 
-.contents-folder .label a:hover {
+.prose .contents-folder .label a:hover {
   color: var(--fg);
 }
 
@@ -671,74 +996,10 @@
   border-left: 1px solid var(--line);
 }
 
-/* ------------------------------------------------------------------ */
-/* Prose corrections                                                   */
-/* ------------------------------------------------------------------ */
-
 /*
- * An empty table header row.
- *
- * `| | |` followed by `| Minecraft | 1.21.1 |` is how a two-column key/value table has to be written
- * in markdown -- GFM requires a header -- and it renders two sunken bold cells with nothing in them.
- * Collapsing them removes the row entirely while keeping the columns, which is what the author meant.
- */
-.prose thead th:empty {
-  padding: 0;
-  border: 0;
-  background: none;
-  line-height: 0;
-}
-
-/*
- * A wide table scrolls sideways inside its own box rather than forcing the page wide.
- *
- * **The wrapper is what makes this work, and the obvious alternative does not.** `display: block;
- * overflow-x: auto` on the `<table>` scrolls, but it takes the element out of table layout; the fix
- * people reach for next (`display: table` on `thead`/`tbody`) makes those two *separate tables*, so
- * the header computes its own column widths and stops lining up with the body. That shipped, and it
- * looked like this: the heading row's first column 145px wider than the body's, with a doubled border
- * at the seam. See `components/mdx/table.tsx`.
- */
-.table-wrap {
-  overflow-x: auto;
-  margin: var(--s4) 0;
-}
-
-/* The tab stop the wrapper needs so a keyboard can scroll it. Visible when it lands. */
-.table-wrap:focus-visible {
-  outline: 2px solid var(--fg);
-  outline-offset: 2px;
-}
-
-.table-wrap > table {
-  margin: 0;
-}
-
-/* ------------------------------------------------------------------ */
-/* "Where to start" — the index table, read as cards                    */
-/* ------------------------------------------------------------------ */
-
-/*
- * The one table on the site that is not data.
- *
- * "Where to start" is a list of pages with a sentence about each: two columns, one of which is
- * nothing but a link. Rendered as a table it read as a grid of cells with a striped header, which is
- * the shape of a reference table and the opposite of what it is -- an invitation. It is the first
- * thing a new reader meets on a mod's front page, and it was the least inviting thing on it.
- *
- * **This is a plain `<table>` being restyled, not a list, and that is deliberate.** The markup comes
- * from the mod repository's markdown by way of `scripts/sync.mjs`, which wipes and rebuilds
- * `content/` -- so the shape of the table is not this site's to change. `display: grid` on the table
- * plus `display: contents` on the body makes the rows the grid's items, which is the only way to
- * turn cells into cards without touching a byte of the source.
- *
- * **`+`, not `~`, and the difference is a bug rather than a style.** `~` has no boundary: it would
- * match every `.table-wrap` that appears anywhere after this heading on the page, so a second
- * heading's data table would silently turn into cards too. The table is the heading's immediate
- * sibling -- verified in the built HTML, not assumed -- so `+` says exactly what is meant.
- *
- * Nothing here is a card in the sense the design language forbids: no radius, no shadow, no fill
- * beyond the sunken hover every other interactable surface on this site already uses.
+ * "Where to start", on the docs index: a two-column table of destinations, laid out as cards. Its own id
+ * is the hook because it is authored markdown, and the grid is applied to the table's rows rather than by
+ * changing the table's display -- `check.mjs` holds tables to table layout everywhere else.
  */
 #where-to-start + .table-wrap table {
   display: grid;
@@ -746,12 +1007,10 @@
   gap: var(--s3);
 }
 
-/* The column headings are "Page" and "What it is" -- true of the table and useless on a card. */
 #where-to-start + .table-wrap thead {
   display: none;
 }
 
-/* Lets the rows become the grid's children rather than the body's. */
 #where-to-start + .table-wrap tbody {
   display: contents;
 }
@@ -759,265 +1018,42 @@
 #where-to-start + .table-wrap tr {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
   padding: var(--s4);
-  transition: background-color 0.12s linear;
+  border: 1px solid var(--line);
+  transition: border-color 0.1s linear;
 }
 
 #where-to-start + .table-wrap tr:hover {
-  background: var(--bg-sunken);
+  border-color: var(--line-ink);
 }
 
 #where-to-start + .table-wrap td {
-  border: 0;
   padding: 0;
+  border: 0;
 }
 
-/* The title is the card's heading, so it takes the ink the prose headings take. */
 #where-to-start + .table-wrap td:first-child a {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--fg);
 }
 
 #where-to-start + .table-wrap td:last-child {
   margin-top: var(--s2);
-  font-size: 12.5px;
-  color: var(--fg-muted);
-}
-
-/*
- * The wrapper keeps its `tabindex="0"` -- see `table.tsx`, it is there so a keyboard can scroll a
- * wide table -- but there is nothing to scroll here any more, so the tab stop lands on a box that
- * does nothing and draws a focus ring around the whole grid. The stop is harmless; the ring around
- * six cards is not, and reads as though the grid itself were the control.
- */
-#where-to-start + .table-wrap:focus-visible {
-  outline: 0;
-}
-
-/* One column when two would be narrower than the sentences inside them. */
-@media (max-width: 640px) {
-  #where-to-start + .table-wrap table {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/* The head of a page                                                  */
-/* ------------------------------------------------------------------ */
-
-/*
- * The title and its maturity marker, on one baseline.
- *
- * **`flex: 1 1 auto` on the heading is load-bearing, not cosmetic.** `.prose h1` draws a rule under
- * itself, and a flex item shrinks to the width of its own text — so the rule would stop where the word
- * does instead of spanning the prose. Stretching the heading keeps that rule full width, which is the
- * entire job it does; it is the line that separates the page head from the page.
- */
-.page-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s3);
-}
-
-.page-head h1 {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-/*
- * `draft` / `stable` / `unreleased`, declared in a document's own frontmatter.
- *
- * Square, like everything else here. `draft` is the quietest and `unreleased` carries the caution
- * colour, because those are the two states a reader needs to know about before trusting anything
- * below — and a page that is aspirational should be able to say so without a prose apology.
- */
-.maturity {
-  flex: none;
-  padding: 2px 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: 1px solid var(--line);
-  color: var(--fg-faint);
-  white-space: nowrap;
-}
-
-.maturity-stable {
-  border-color: var(--fg-faint);
-  color: var(--fg-muted);
-}
-
-/* Dashed, because an unfinished thing should not have the same hard edge as a settled one. */
-.maturity-draft {
-  border-style: dashed;
-}
-
-.maturity-unreleased {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-/*
- * The facts a reader needs before they start — from the manifest, so they cannot drift.
- *
- * A row of chips directly under the title with no rule of its own, so it reads as part of the heading
- * block rather than as the first sentence of the page. It was one monospace line with `·` between the
- * facts, which is a sentence: you read it to find the version you wanted. Chipped, the eye lands on
- * `Minecraft 1.21.1` without reading anything else, which is the only question this row is asked.
- *
- * `letter-spacing` is kept on the row rather than moved to the chips so the chips stay compact while
- * the row keeps the tracking that ties it to the title above it.
- */
-.prereq {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2);
-  margin-top: var(--s2);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
-
-/* Square and hairline, the same construction as the maturity marker that sits on this row's line. */
-.fact {
-  padding: 2px 6px;
-  border: 1px solid var(--line);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--fg-muted);
-  white-space: nowrap;
-}
-
-/*
- * The game-version switcher: one chip per documented version, beside the fact chips.
- *
- * The current version is a chip with a filled marker rather than a second style of chip: the
- * row already has one visual language and a second would read as a second kind of fact. The
- * others are links, and take the destination inversion every other destination here takes. The
- * label is the row's own 11px uppercase voice, so it reads as part of the heading block like
- * the facts do.
- */
-.version-switch {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s2);
-  margin-top: var(--s2);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
-
-.fact-current {
-  border-color: var(--fg);
-  color: var(--fg);
-}
-
-a.fact-link {
-  color: var(--fg-muted);
-  text-decoration: none;
-}
-
-a.fact-link:hover {
-  background: var(--fg);
-  border-color: var(--fg);
-  color: var(--bg);
-}
-
-/* ------------------------------------------------------------------ */
-/* The migrator band                                                   */
-/* ------------------------------------------------------------------ */
-
-/*
- * The way out to the FTB Quests → Tenet migrator, on every Tenet page. A band
- * rather than a chip: it is a destination, not a fact, so it takes the
- * inversion every other destination here takes. Rendered by the page chrome
- * for the tenet section — never authored into synced content, which sync.mjs
- * wipes on every build — and outside the search-index boundary, so Pagefind
- * never sees it.
- *
- * `grid-column: 1 / -1` is the whole of this rule's second job, and it is
- * load-bearing rather than tidiness. The band is a third child of a two-track
- * grid — the article and the contents rail are the two it was built for — so
- * without a placement of its own, auto-placement puts the band in the wide
- * track and the article in the rail's 200px track: the prose squeezed into a
- * column with a void standing where it should have been. Spanning both tracks
- * keeps the band on a row of its own, with the article and the rail below it,
- * on pages with a rail and on pages without one alike.
- *
- * A hairline rather than an ink edge, and tighter all round than a card. The band sits above
- * the title on every Tenet page, so an ink-bordered box there would out-weigh the page head —
- * the manual would open with its exit rather than its name. Destinations still invert on hover;
- * quiet is about the resting state, not the affordance.
- *
- * No side borders, and no top border either: the single bottom rule runs the whole width of
- * the strip, so it reads as a divider with words in it rather than a box. The span above gives
- * the rule the grid's width; the negative side margins bleed out the body's own padding to reach
- * the sidebar rule on the left and the shell edge on the right. Both are the gutter token rather
- * than a number, so the narrow layout — where the gutter shrinks — stays edge to edge with
- * nothing to keep in step. The hover inversion paints the same box, so it arrives as a full-width
- * bar; that is the price of the bleed, and it reads as the point rather than a side effect.
- */
-.migrator-band {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s3);
-  margin: 0 calc(-1 * var(--docs-gutter)) var(--s4);
-  padding: var(--s2) var(--s4);
-  border-bottom: 1px solid var(--line);
-  transition: background-color 0.12s linear, color 0.12s linear;
-}
-
-.migrator-band:hover {
-  background: var(--fg);
-  color: var(--bg);
-}
-
-.migrator-band .migrator-go {
   font-size: 13px;
-  text-align: right;
+  color: var(--fg-muted);
 }
 
-.migrator-band:hover .label {
-  color: var(--inv-faint);
-}
+/* ----------------------------------------------------------------------------------------- terms */
 
-/* ------------------------------------------------------------------ */
-/* A glossary term in prose                                            */
-/* ------------------------------------------------------------------ */
-
-/*
- * Written as `[[canvas]]` and rewritten into a component by `sync.mjs`.
- *
- * A **dashed** rule rather than a solid one. Solid underline means "this takes you somewhere" on this
- * site, and a term does not — it shows you something and leaves you where you were. The distinction is
- * one glyph wide and it is the difference between a reader clicking and a reader hovering.
- */
 .term {
   position: relative;
-  border-bottom: 1px dashed var(--fg-faint);
+  border-bottom: 1px dashed var(--line-ink);
   cursor: help;
 }
 
-.term:focus-visible {
-  outline: 2px solid var(--fg);
-  outline-offset: 2px;
-}
-
 /*
- * The definition.
- *
- * Hidden the way `.sr-only` hides things — one pixel, clipped, `overflow: hidden` — rather than with
- * `display: none` or `visibility: hidden`. Both of those remove an element from the accessibility tree,
- * and `aria-describedby` pointing at something outside that tree is announced as nothing at all. A
- * tooltip injected on hover has the same problem. So it is always *there*, and hover or focus reveals
- * what is already rendered.
- *
- * Absolute, so revealing it shifts nothing; and small rather than `auto` while hidden, or its box would
- * sit over the content below and eat that content's pointer events.
+ * The definition is hidden by clipping, not removed: `display: none` would take it out of the
+ * accessibility tree as well, and the term's description points at it.
  */
 .term-def {
   position: absolute;
@@ -1038,11 +1074,6 @@ a.fact-link:hover {
 .term:focus .term-def,
 .term:focus-within .term-def {
   width: max-content;
-  /*
-   * Capped against the viewport as well as against a comfortable measure: a term near the right edge
-   * of the prose would otherwise push its definition off the page, and without CSS anchor positioning
-   * there is no way to flip it leftward based on where it landed.
-   */
   max-width: min(36ch, 78vw);
   height: auto;
   padding: var(--s3);
@@ -1050,9 +1081,9 @@ a.fact-link:hover {
   clip-path: none;
   white-space: normal;
   background: var(--bg);
-  border: 1px solid var(--line-ink);
+  border: 1px solid var(--frame);
   font-family: var(--font-sans);
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--fg-muted);
   text-align: left;
@@ -1060,12 +1091,12 @@ a.fact-link:hover {
 
 .term-def-name {
   display: block;
+  margin-bottom: var(--s1);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--fg-faint);
-  margin-bottom: var(--s1);
 }
 
 .term-def-see {
@@ -1073,30 +1104,15 @@ a.fact-link:hover {
   margin-top: var(--s2);
   padding-top: var(--s2);
   border-top: 1px solid var(--line);
-  font-size: 11px;
+  font-size: 11.5px;
 }
 
 .term-def-see a {
   color: var(--fg);
-  border-bottom: 1px solid var(--line-ink);
 }
 
-/* ------------------------------------------------------------------ */
-/* The glossary                                                        */
-/* ------------------------------------------------------------------ */
+/* -------------------------------------------------------------------------------------- glossary */
 
-/*
- * A three-column definition list: an ordinal, the term, the meaning.
- *
- * The ordinal comes from a CSS counter rather than from the data, so inserting a term renumbers
- * everything after it — the same trick `.steps` uses, and the reason neither of them can drift out of
- * sequence. It also gives the left edge a column of its own, which is what lets the eye run down the
- * terms without reading them.
- *
- * A grid rather than the browser's default `<dl>` stacking. The whole reason a glossary is easier to
- * read than prose is that every definition starts at the same x, and that only happens if the term
- * column has a fixed width.
- */
 .glossary {
   counter-reset: term;
   margin: var(--s5) 0 0;
@@ -1105,58 +1121,36 @@ a.fact-link:hover {
 
 .glossary-row {
   counter-increment: term;
-
-  /*
-   * Baseline rather than the default stretch: the term is a 14px sans title and the meaning is 13.5px
-   * sans body, so aligning their boxes leaves their first lines at different heights and the row looks
-   * subtly broken without it being obvious why.
-   */
   display: grid;
-  grid-template-columns: 2.5ch minmax(0, 11rem) minmax(0, 1fr);
-  gap: var(--s4);
+  grid-template-columns: 3ch minmax(0, 11rem) minmax(0, 1fr);
   align-items: baseline;
+  gap: var(--s4);
   padding: var(--s4) 0;
   border-bottom: 1px solid var(--line);
 }
 
-/*
- * The ordinal, and the hover marker that shares its column.
- *
- * The marker is an **inset box-shadow**, not a `border-left`, and that is the same technique the active
- * tab uses for its underline. A border appearing on hover would push the whole row 2px sideways every
- * time the pointer crossed it; a shadow is drawn in space that is already reserved.
- */
 .glossary-row::before {
   content: counter(term, decimal-leading-zero);
-  padding-left: var(--s2);
   font-family: var(--font-mono);
   font-size: 10.5px;
-  letter-spacing: 0.06em;
   color: var(--fg-faint);
-  box-shadow: inset 2px 0 0 transparent;
-  transition: color 0.12s linear, box-shadow 0.12s linear;
+  transition: color 0.1s linear;
 }
 
 .glossary-row:hover::before {
   color: var(--fg);
-  box-shadow: inset 2px 0 0 var(--fg);
 }
 
-/*
- * The term itself: sans, because it is a name rather than an identifier — and the identifier sits
- * beside it in mono, where the site's typographic rule says machine names belong.
- */
 .glossary-row dt {
   display: flex;
   align-items: baseline;
-  gap: var(--s2);
   flex-wrap: wrap;
+  gap: var(--s2);
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--fg);
-  /* Clears the sticky masthead when a term is linked to directly. */
-  scroll-margin-top: calc(var(--masthead) + var(--s4));
+  scroll-margin-top: calc(var(--masthead) + var(--s5));
 }
 
 .glossary-id {
@@ -1166,16 +1160,17 @@ a.fact-link:hover {
   color: var(--fg-faint);
 }
 
-/*
- * The anchor, revealed on hover like a heading's. Invisible until wanted, and focusable so a term can
- * be linked to without a mouse — the one affordance a glossary genuinely needs and most do not have.
- */
 .glossary-anchor {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--fg-faint);
+  text-decoration: none;
   opacity: 0;
-  transition: opacity 0.12s linear, color 0.12s linear;
+  transition: opacity 0.1s steps(2, end);
+}
+
+.prose .glossary-anchor {
+  text-decoration: none;
 }
 
 .glossary-row:hover .glossary-anchor,
@@ -1189,17 +1184,11 @@ a.fact-link:hover {
 
 .glossary-row dd {
   margin: 0;
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--fg-muted);
 }
 
-/*
- * Cross-references, under a hairline of their own.
- *
- * Set below the definition rather than inline after it: "See also Task" running on from the end of a
- * sentence reads as part of that sentence, which is exactly the wrong meaning.
- */
 .glossary-see {
   display: block;
   margin-top: var(--s3);
@@ -1219,63 +1208,85 @@ a.fact-link:hover {
 
 .glossary-see a {
   color: var(--fg-muted);
-  border-bottom: 1px solid var(--line-ink);
-  transition: color 0.12s linear;
 }
 
 .glossary-see a:hover {
   color: var(--fg);
 }
 
-/*
- * Below 700px the term column loses the fight for width, so the meaning moves under the term and the
- * ordinal goes. Two columns of text sharing 300px is worse than one.
- */
-@media (max-width: 700px) {
-  .glossary-row {
+/* The `@since` chip, beside the name of a thing that arrived in a later version. */
+.since {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  vertical-align: 1px;
+  color: var(--fg-faint);
+}
+
+/* ---------------------------------------------------------------------------------------- narrow */
+
+@media (max-width: 1100px) {
+  .docs-page-with-rail {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--s2);
   }
-  .glossary-row::before {
+
+  .docs-rail {
     display: none;
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* The `@since` chip                                                   */
-/* ------------------------------------------------------------------ */
+@media (max-width: 860px) {
+  .docs {
+    --docs-gutter: var(--s5);
+    grid-template-columns: minmax(0, 1fr);
+  }
 
-/*
- * Inline and small enough to sit inside a table cell without changing the row height.
- *
- * No fill and no border weight, unlike `.maturity`: this is a fact attached to a name, not a statement
- * about the page it is on.
- */
-.since {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 5px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--fg-faint);
-  border: 1px solid var(--line);
-  vertical-align: 1px;
-  white-space: nowrap;
+  .docs {
+    background: none;
+  }
+
+  .sidebar {
+    position: static;
+    max-height: none;
+    padding: var(--s4) 0;
+    border-bottom: 1px solid var(--line);
+  }
 }
 
 @media (max-width: 700px) {
   .docs-nav {
     grid-template-columns: minmax(0, 1fr);
   }
+
   .docs-nav-next {
     border-left: 0;
+    border-top: 1px solid var(--line);
     text-align: left;
   }
+
   .tabs-list {
     overflow-x: auto;
   }
+
   .step {
-    padding-left: var(--s5);
+    padding-left: var(--s6);
+  }
+
+  .glossary-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s2);
+  }
+
+  .glossary-row::before {
+    display: none;
+  }
+
+  #where-to-start + .table-wrap table {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

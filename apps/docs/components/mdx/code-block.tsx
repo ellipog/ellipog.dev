@@ -2,6 +2,8 @@
 
 import { useRef, useState, type ReactNode } from 'react';
 
+import { Scramble } from '@/components/scramble';
+
 /**
  * A code block with a copy button.
  *
@@ -45,7 +47,7 @@ export function CodeBlock({
         {children}
       </pre>
       <button type="button" className="code-copy" onClick={copy} aria-label="Copy this code">
-        {state === 'copied' ? 'copied' : state === 'failed' ? 'no access' : 'copy'}
+        <Scramble text={state === 'copied' ? 'copied' : state === 'failed' ? 'no access' : 'copy'} />
       </button>
     </div>
   );

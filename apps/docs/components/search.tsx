@@ -327,6 +327,18 @@ export function Search({ mods }: { mods: Mod[] }) {
             </p>
           ) : null}
 
+          {/* Only while nothing is listed yet: a search refining hits already on screen keeps them there. The
+              row is hidden by CSS for its first quarter-second, so a quick answer never flashes it. */}
+          {status === 'loading' && flat.length === 0 ? (
+            <p className="search-note search-loading">
+              <span className="loader" aria-hidden="true">
+                {Array.from({ length: 8 }, (_, i) => (
+                  <i key={i} style={{ ['--i' as string]: i }} />
+                ))}
+              </span>
+              reading the index
+            </p>
+          ) : null}
           {status === 'ready' && flat.length === 0 ? (
             <p className="search-note">Nothing matches “{query.trim()}”.</p>
           ) : null}
@@ -356,6 +368,7 @@ export function Search({ mods }: { mods: Mod[] }) {
                   <span className="search-hit-head">
                     <span className="search-hit-title">{hit.title}</span>
                     {hit.mod ? <span className="search-hit-mod">{hit.mod}</span> : null}
+                    {hit.version ? <span className="search-hit-version">{hit.version}</span> : null}
                   </span>
                   {/* A breadcrumb only when there is a section to name: a section front page is in
                       no folder, and the separator would otherwise be left dangling after the mod. */}

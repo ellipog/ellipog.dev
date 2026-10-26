@@ -156,15 +156,23 @@ different operation, and not one to start from here.
 
 ## Where the numbers come from
 
-`scripts/stats.mjs` runs before every build and writes `apps/docs/stats.json`. Nothing on the site is
-a number typed into a file.
+`scripts/stats.mjs` runs before every build and writes `apps/docs/stats.json`, the snapshot the static
+HTML carries. Nothing on the site is a number typed into a file.
 
-**And the build runs on a schedule, not when somebody remembers.** A GitHub workflow triggers a Vercel
-rebuild, which re-runs the fetch — *Freshness of the numbers, and why not in the browser* below has the
-cadence, the Deploy Hook, and the measured reason the fetch is not in the visitor's browser.
+**The fetching lives in one file, `apps/docs/lib/platforms.mjs`, and three callers share it:**
 
-**Modrinth** needs nothing: `/search?facets=[["author:Ellipog"]]` returns downloads, followers and the
-URL for every project in one request.
+- the build script, for the snapshot;
+- `api/stats.mjs`, the function the home page polls;
+- the browser itself, when that function is not deployed.
+
+It is plain ESM with no Node APIs, because it has to run in all three places. Three copies of this
+logic would drift, and the snapshot would then disagree with the first live reading on the same page.
+*Freshness of the numbers* below has the polling, the cache and the scheduled rebuild.
+
+**Modrinth** needs nothing: `/v2/user/ellipog/projects` returns every project with its download count
+in one request. It used to be `/search`, which also answers in one request but reads an *indexed*
+count that lagged the project endpoint by about 0.2%. A live counter that is behind the platform's own
+page is the wrong way round.
 
 **CurseForge** is the awkward one — its own API (`api.curseforge.com`) requires a key and there is no
 key in this project. So the numbers come from **cfwidget**, a keyless read-only mirror. That is also
@@ -192,15 +200,81 @@ either. If those two numbers ever diverge by anything other than a known gap, on
 
 ---
 
-## The one piece of motion on the site
+## Motion, and where it is allowed
+
+**The rule: motion marks something happening.** It appears when something loads, changes state or
+navigates. Nothing pulses, floats or spins to fill space. **And it is stepped.** Every CSS transition
+and animation runs in `steps()` rather than an easing curve, so it reads as frames of pixel art rather
+than a tween. That makes it read as one family across the site, rather than a different easing per
+component.
+
+| Where | File | What it does, and what triggers it |
+|---|---|---|
+| Hero structure | `components/world.tsx`, `lib/voxels.ts`, `lib/structures.ts` | Prints itself layer by layer on load, then draws as a hidden-line wireframe. Hover, click, shift-click, drag and `next`; see below |
+| Download figures | `components/shuffled-number.tsx`, `components/live-stats.tsx` | Settle on load, then re-settle only the digits a poll changed. The ten-cell meter counts down to the next read and bounces while one is in flight |
+| Page change, theme change | `global.css` → `::view-transition-new(root)` | A 4×4 Bayer dither dissolve in sixteen steps. Cross-document view transitions for navigation; `startViewTransition` for the theme toggle |
+| Search | `components/search.tsx`, `global.css` | The dialog wipes open over `@starting-style` in six steps over a checkerboard backdrop. While the index loads, a pixel loader runs |
+| Copy button | `components/scramble.tsx` | The label decodes through ASCII glyphs to its new word |
+| Hover | `global.css` → the bracket rules | CAD corner brackets snap in over three frames |
+| Earlier-work bars | `global.css` → `view-timeline: --work` | Each bar fills its cells as the row enters view, scroll-driven and with no JavaScript |
+| 404 | `components/pixel-creeper.tsx` | The creeper's fuse flashes |
+
+**Three of those loop, and each is gated.** The structure turns slowly when idle and eases to a stop
+under the pointer. The inspector's block turns at 12fps. The creeper flashes. The two canvases stop
+drawing when they leave the viewport, and the structure also stops when the tab is hidden. Under
+`prefers-reduced-motion: reduce` every row in the table stops: the structure draws finished and still, the
+block shows one frame, the figures do not shuffle, and the view-transition pseudos are switched off.
+
+### The structures
+
+The hero holds one of five structures from the game, drawn on a `<canvas>` as a hidden-line wireframe:
+
+| id | What it is | Its silhouette |
+|---|---|---|
+| `island` | A floating island of grass, dirt and stone, with one oak | A round top over a hanging keel |
+| `pyramid` | A desert pyramid of six sandstone steps, with a doorway and cacti, on a sand plinth | Wide and stepped |
+| `cottage` | A plains cottage: cobblestone floor, plank walls framed in logs, glass windows, a spruce roof and a chimney | A gable |
+| `portal` | A ruined nether portal on a scrap of floating ground, with netherrack, fallen obsidian and a gold block | A tall broken frame |
+| `chunk` | A chunk section with a quarter cut away: layers down to deepslate, a cave, coal, iron and diamonds | A cube with a notch |
+
+**They differ by shape first, because in grey that is all there is to go on.** Five recipes on one
+footprint, each a function in `lib/structures.ts` over a fixed hash, so a structure is the same blocks
+on every load. Only the choice is random: `firstStructure()` picks any but the one shown last time
+(remembered in `localStorage`), so a reload always shows something new, and `next` steps through
+the rest. The camera frames whatever was printed, on its footprint and height at the opening pitch.
+Mining and building do not re-frame it, and neither does dragging.
+
+**A material is a tone and a hatch**, as in an architect's section. Sand and leaves are stippled, wood
+is ruled, sandstone and stone bricks are coursed, obsidian is cross-hatched, and ores and netherrack
+are flecked (`MATERIALS` in `lib/voxels.ts`). The hatches are laid in screen space, as a drawing's
+are. **Glass is the one clear material.** It hides no face behind it, so the inside of the cottage
+shows through its windows, and it is drawn as a veil of paper with two strokes of glint.
+
+A painter's sort of the exposed voxel faces does the occlusion, and the faces are shaded the way
+Minecraft shades them: tops lightest, then the sides, then the bottom. Hover picks the face under the
+pointer and draws Minecraft's block outline around it, and the inspector names the block and shows it
+turning in pixel art (glass, leaves and cactus with their far faces showing through their holes).
+Click mines a block and throws a few pixels of its texture. Shift-click or right-click places one.
+Drag orbits. `wire` shows the hidden lines, `reprint` puts the structure back, and `next` prints
+another.
+
+**Every colour comes from CSS custom properties** (`--world-*`), read again whenever `data-theme`
+changes. Light and dark shade in opposite directions, so `--world-face-top` and `--world-face-step`
+are per-theme numbers rather than one formula. **The canvas is `aria-hidden`** and nothing on it is
+needed to use the page. The keyboard reaches its real buttons, and without JavaScript it is an empty
+frame. Until the canvas has chosen, the caption names no structure, so the static HTML is never wrong
+about which one is showing.
+
+**The textures are Minecraft's.** `lib/textures.ts` holds twenty-odd 16×16 block textures and the
+creeper's face, as greys transcribed from the vanilla 1.21.1 client jar. They are Mojang's artwork. See
+*Known gaps*.
+
+### The shuffled number
 
 `components/shuffled-number.tsx` scrambles a figure's digits and settles them left to right, about
-300ms, staggered across the three earlier-work cells so they read as one gesture. It is used by the hero
-total and by each earlier-work cell's download count.
-
-It is the only animation in the design, and it is allowed to be the only one. A site whose premise is
-that every edge is visible and every line is a hairline does not want things that move; one flourish
-on the largest number on the page is a gesture, four would be decoration.
+300ms, staggered across the earlier-work rows so they read as one gesture. It is used by the hero total
+and by each earlier-work row's download count. When a poll changes the value, only the digits that
+changed move. A change of length has no positions to compare, so then every digit moves.
 
 **Three properties make it safe, and all three are asserted by `check.mjs` rather than trusted:**
 
@@ -538,12 +612,9 @@ something the design does not depend on. The language label on a code block is a
 index is not fetched on page load: `loadSearch` is warmed on the trigger's first hover, and
 `data-pagefind-ignore` keeps the page furniture out of the results.
 
-**10. The shuffle effect is unverified by eye.**
-`ShuffledNumber` is asserted structurally — the static HTML has the true value, the two copies come in
-pairs, the figures are fixed-width — but **nobody has watched it run.** The browser tools in this
-session have no click or evaluate step, so the animation could only be reasoned about and screenshotted
-at rest. It is a forty-line effect with the failure modes above already closed, so the risk is low;
-the way to settle it is to load the catalog page and look at it.
+**10. ~~The shuffle effect is unverified by eye.~~ Closed.** It has been watched running, frame by
+frame, in headless Chrome over the DevTools protocol, alongside the live polls that re-shuffle only the
+changed digits.
 
 ---
 
@@ -608,7 +679,7 @@ overlay by a single `z-index`. Everywhere else in the cell belongs to the docs.
 | What | If it is wrong |
 |---|---|
 | `.grid-cell` is `position: relative` | The overlay resolves against the nearest positioned ancestor instead — the page — so every cell becomes a link to its docs from anywhere in the document |
-| No hover rule is qualified by the element | They were all `a.grid-cell`, back when every cell that inverted was an anchor. Two of them are `<div>`s now, so `a.grid-cell` matches nothing on that band: no ink ground, and no ink knockouts for the marks. CSS does not report a selector that matches nothing |
+| No hover rule is qualified by the element | They were all `a.grid-cell`, back when every cell with a destination was an anchor. Some of them are `<div>`s now, so `a.grid-cell` matches nothing on that band and the selection brackets never appear. CSS does not report a selector that matches nothing |
 | `.pub-cell:not(a)` becomes `:not(.grid-cell)` | `:not(a)` meant "a cell with no destination". It is now *also* true of the two cells that do lead somewhere, so their names go grey while every other rule keeps working — the opposite of the intent |
 
 None of the three produces an error, a warning, or a page that looks obviously broken, which is the whole
@@ -621,8 +692,8 @@ is invisible unless somebody tries to copy a summary.
 
 **All three links are derived rather than written.** The repository comes from the manifest's `repo`, the
 CurseForge page from its `curseforge` slug, and the docs link from what actually synced. A mod with none of
-the three is a plain `.pub-cell` that does not invert — the same rule as before, now applied to a different
-element.
+the three is a plain `.pub-cell` that is never selected on hover — the same rule as before, now applied to
+a different element.
 
 The three links are also **named per mod**, not left as bare `github`, `docs` and `curseforge`. They were
 `<span>`s inside one anchor, where the cell's own text was the accessible name and these words were only a
@@ -819,7 +890,7 @@ saying so costs nothing and inventing more than the arrangement supports is the 
 **The label lives in `manifest.json`** under `sponsor.badge`, so the wording is one edit and the page
 cannot drift from the data. `check.mjs` asserts five things about it: that it renders, that what renders
 matches the manifest, that it contains no "verified" — so the choice is recorded rather than merely made
-once — that the head strip it used to sit in is gone, and that it follows the row into the hover inversion.
+once — that the head strip it used to sit in is gone, and that the row's hover leaves its ground alone.
 
 **It sits inside the link now, and it used to be asserted out of it.** The old rule was that a badge inside
 an `<a>` is one the reader can click, which would make a decoration behave like a destination. That was
@@ -829,10 +900,11 @@ pixel of that row already navigates there. The assertion was replaced rather tha
 that makes the placement deliberate — that the head strip is absent — because what changed is the old
 rule's premise, not its spirit.
 
-**It needs a hover state now, and that is not decoration.** The row inverts beneath it, so a colour that
-stayed put would be faint-on-ink on a near-black ground: invisible rather than merely wrong, and easy to
-miss because the resting state is correct. `check.mjs` asserts that override separately from asserting the
-chip renders, because the two failures look nothing alike.
+**It needs no hover state, and that is asserted rather than assumed.** The row used to invert on hover,
+and the chip had to follow it or turn faint-on-ink: invisible, and easy to miss because the resting state
+was correct. The hover is now the site's selection: corner brackets drawn over the row, with the ground
+left alone. So `check.mjs` asserts the brackets appear and that `.sponsor-link:hover` sets no background.
+A background coming back would bring the old failure back with it.
 
 **It is a `<section aria-label="Sponsored: <host>">`**, not a `<div>`, so it appears in a screen reader's landmark
 list and can be skipped deliberately — which a plain div would not allow.
@@ -879,8 +951,8 @@ scale factor cannot serve.
 **The mask is what replaced the tokens.** `.mod-icon` sets `background-color: currentColor` and
 `mask-image: var(--icon)`, so the shape comes from the PNG's alpha channel and the ink from the text the mark
 sits beside. `--icon-ground` is gone with the knockouts it coloured: a flat silhouette has no interior to show
-the backdrop through, so there is nothing left to re-declare when a catalog cell inverts on hover — the cell's
-text turns to paper and the mark turns with it. One file, both themes, no switching.
+the backdrop through, so there is nothing to re-declare when the theme changes. The mark is always the colour
+of the text beside it. One file, both themes, no switching.
 
 **A mask rather than an `<img>`, and this is the load-bearing part.** An `<img>` draws the file's own black
 ink, and on the dark theme's ground that is a mark the same colour as the page behind it: invisible rather
@@ -1209,32 +1281,26 @@ return either.
 footer and it forms the `contentinfo` landmark, so a screen reader can jump to it — and an `aria-label`
 names that landmark. What was wrong with the old row was its contents, not its semantics.
 
-### The mark in it follows the ground, and that needs two rules
+### The mark in it follows the theme, and only the theme
 
-It renders `<span class="colophon-mark">` from the studio's `aaen` pair rather than the pair the tab names,
-and its theme comes from the `[data-theme='dark']` rule beside its own base rule. (The masthead's portrait
-sidesteps all of this: one transparent file covers both grounds, and the masthead does not hover.) **The
-hover is where it gets interesting.** The row is a link, and a link inverts here rather than tinting — so
-the ground beneath the mark flips for the duration, and a raster cannot follow that on its own because its
-ink is in the pixels.
+It renders `<span class="colophon-mark">` from the studio's `aaen` pair rather than the pair the tab names:
+dark ink on the light page, light ink on the dark one, switched by the `[data-theme='dark']` rule beside its
+own base rule. A raster cannot follow its ground on its own, because its ink is in the pixels, so the *file*
+changes. (The masthead's portrait sidesteps this: one transparent file covers both grounds.)
 
-That is the same problem `--icon-ground` solves for the vector marks, which have knockouts the page has to
-know the colour of. This is the same move by a different mechanism: the *file* changes.
-
-**Two rules rather than one, because the inversion goes in opposite directions in each theme.** On a light
-page the hovered ground is near-black, so the mark goes light; on a dark page it is near-white, so the mark
-goes dark. A single rule would be correct in one theme and wrong in the other — and wrong here means
-*invisible*, because the ink and the ground would be the same colour. Both halves are asserted, and the
-second selector is deliberately more specific than `[data-theme='dark'] .colophon-mark` so it wins where it
-should.
+**There used to be a second pair of rules, for the hover, and their absence is now asserted.** The row
+once inverted on hover, so the ground under the mark flipped and the file had to flip with it: two rules,
+because the inversion runs in opposite directions in each theme. The hover is now the selection brackets,
+and the ground stays put. A hover rule that still swapped the file would put light ink on a light page,
+which is invisible rather than merely wrong. So `check.mjs` asserts both hover rules are empty.
 
 **A 28px box, and the number still comes from the artwork.** `aaen-mark-*.png` are 879×879 with the mark
 fitted to 698×688 — 79% of the box — so the box draws the mark itself at about 22.2px: the weight the row's
 14px label is cut against, and the footprint the masthead's mark had before the portrait arrived. A
 `contain` fit cannot distort it, since the file is square.
 
-**One thing this is not:** the mark in the masthead does not have this problem, because the masthead does
-not hover. If the brand link ever gains a hover inversion, it needs the same pair.
+**If any hover on the site ever changes a ground again**, every raster mark inside it needs the pair of
+hover rules back.
 
 
 
@@ -1267,21 +1333,42 @@ a side effect of being curious about it is a command you learn not to run.
 
 ---
 
-## Freshness of the numbers, and why not in the browser
+## Freshness of the numbers: a snapshot, then live
 
-The catalog's download counts are fetched at **build** time by `scripts/stats.mjs` and baked into the
-HTML. A scheduled rebuild is what keeps them current.
+The figures come in **two layers**:
 
-**Fetching in the visitor's browser was measured and rejected.** Both APIs are CORS-open
-(`Access-Control-Allow-Origin: *`), so it would work — but Modrinth answers a whole author in one call
-where **cfwidget's author listing returns ids and names with no download counts at all**, so every
-project needs its own lookup. That is about **nineteen requests per cold visitor** to move a number that
-changes by tens per day, and it would make the numbers change after paint.
+1. **The snapshot.** `scripts/stats.mjs` fetches the counts at build time and they are baked into the
+   HTML. JavaScript off, a crawler, or both platforms down: the page still shows real numbers.
+   `check.mjs` asserts the snapshot total is in the HTML, and that the status reads `snapshot`
+   rather than `live`. A page that cannot poll has no business claiming to be live.
+2. **The live reading.** `components/live-stats.tsx` polls once the page is open. **It asks
+   `/api/stats` first**: the function in `api/stats.mjs`, with an edge cache of sixty seconds plus
+   `stale-while-revalidate`. However many tabs are open, upstream sees one fetch per region per minute.
+   **When that route is not there** (`next dev`, or any host that is not Vercel), the route answers
+   404 or HTML. The page then fetches the platforms itself through the same `lib/platforms.mjs`, every
+   five minutes rather than every one. Polling pauses while the tab is hidden.
 
-**Vercel's own Cron Jobs cannot do this**, and the reason is worth knowing before somebody tries: cron
-invokes a route on the deployment, and this site is a static export, so every path is a file and there is
-no route that can run code. A **Deploy Hook** is the supported mechanism — it triggers a *build* rather
-than a request, which is exactly what a static site needs.
+**Why the function exists, rather than the browser alone.** Both APIs are CORS-open, so the browser
+can do it, and as a fallback it does. But **cfwidget's author listing returns ids and names with no
+download counts**, so every project needs its own lookup: about twenty-two requests, and around
+1.5MB of project payloads. Per tab, per poll, that was measured and rejected. Behind the function it is
+paid once a minute, and every tab gets the same ~1.5KB answer.
+
+**A figure never goes backwards.** A platform that did not answer keeps its last figures, and so does a
+project that failed to resolve this time. Downloads only accumulate, so a lower number means a lagging
+mirror rather than news. Without this rule, one cfwidget failure would take 400,000 off the total for
+a minute. cfwidget also answers with `max-age=3600`, so **the CurseForge half moves at most hourly**.
+The Modrinth half moves within the minute.
+
+**The function's cache depends on how much it got.** Both platforms answered: sixty seconds. Only one:
+fifteen. Neither: `no-store` and a 502. The page then keeps the figures it has and asks again on its
+next poll.
+
+**The scheduled rebuild still exists, and now it only refreshes the snapshot.** Without it, the
+first paint of a long-lived deploy would show week-old numbers until the first poll replaced them.
+**Vercel's own Cron Jobs cannot do this**, even with a function deployed: cron invokes a route, but the
+snapshot is in files that only a *build* writes. A **Deploy Hook** triggers a build, which is what a
+static export needs.
 
 | Workflow | Cadence | What it does |
 |---|---|---|
@@ -1337,10 +1424,20 @@ numbers, which is where to read today's. One of the missing projects is known an
 "Where the numbers come from". The rest are unaccounted for. If the site's CurseForge total looks low,
 this is the first place to look.
 
-**6. The Modrinth figure is ~0.16% below the canonical sum.**
-`/search` returns an *indexed* `downloads` that lags the per-project endpoint — 296,496 here against
-Beacon's 296,975, which sums eleven individual `/project/{id}` calls. One request instead of eleven is
-the trade; per-project fetches would close it if exact parity ever matters.
+**6. ~~The Modrinth figure is ~0.16% below the canonical sum.~~ Closed.** It came from `/search`,
+which reads an indexed count. `/v2/user/ellipog/projects` is still one request and reads the
+per-project count, which is what the platform's own page shows.
+
+**6a. The textures are Mojang's.** `lib/textures.ts` holds 16×16 block textures and the creeper's
+face, transcribed from the vanilla resource pack and reduced to grey. That is Minecraft artwork, used
+the way fan sites commonly use it, but it is not this project's and no licence was granted. If that
+ever matters, the fix is to redraw the five textures by hand. Nothing else depends on them being
+exact.
+
+**6b. `/api/stats` has only been run locally.** The function was exercised by importing its module
+and calling `GET()`, and the page's fallback path ran in the browser against both platforms. It has
+not yet been deployed. The first deploy should check that `/api/stats` answers JSON, and that the
+status in the hero reads `live` within a minute.
 
 **7. `bun run build` and `bun run dev` must not run at the same time.**
 `sync.mjs` calls `rmSync` on `apps/docs/content/` and then rebuilds it. `bun run dev` is watching that
@@ -1388,8 +1485,11 @@ deploy that ran a different sequence from a local build is a deploy nobody has t
 `next.config.mjs`). Vercel's Next.js preset looks in `.next`, which is the intermediate build
 directory, not the exported site — so without this the deploy would have nothing to serve.
 
-**`framework: null`** stops Vercel applying that preset at all. There is no server, no serverless
-function and no ISR here, just files.
+**`framework: null`** stops Vercel applying that preset at all. There is no server and no ISR here,
+just files, plus **one function**. `api/stats.mjs` sits at the repository root, outside the export,
+and Vercel deploys anything in a root `api/` folder as a function whatever the preset. That is why the
+live download counts did not need a seventh key. The function imports `apps/docs/lib/platforms.mjs` by
+relative path, and Vercel's file tracer bundles that file in with it. See *Freshness of the numbers*.
 
 **`installCommand`.** `bun install --frozen-lockfile`, so the deploy uses the committed `bun.lock` and
 fails loudly if it has drifted from `package.json`. An install that silently resolves different
@@ -1447,6 +1547,17 @@ clear any dashboard Build/Output overrides so the committed `vercel.json` is wha
 redeploy. The two domains (`tenet.ellipog.dev`, assigned; the `*.vercel.app` one, automatic) stay
 where they are — neither was the problem, and the DNS CNAME already points at Vercel.
 
+**It wears this site's design, copied rather than shared.** `apps/migrator/app/global.css` is the main
+site's sheet down to the colophon: the same tokens, the construction lines and registration crosses,
+the corner-bracket selection, the masthead, and the dithered page transition. It is copied because the
+two are separate Vercel projects and the migrator's `@/` alias cannot reach into `apps/docs`. **When
+the two disagree, the main site's file is the right one.** `migrator.css` holds what only the tool has:
+a dashed drop target that dithers while a folder is held over it, square pixel checkboxes, and
+progress drawn in cells. The intake bar fills or sweeps, the pipeline strip names its eight stages and
+blinks the one running, and the log has a block cursor while it is written. The tool's hero carries an
+ASCII figure of what goes in and what comes out (`components/diagram.tsx`), and its 404 page carries
+the site's own map. Locally it serves on **localhost:3265**, beside the main site's 3264.
+
 ---
 
 ## Running it
@@ -1455,7 +1566,7 @@ where they are — neither was the problem, and the DNS CNAME already points at 
 bun install
 bun run build      :: sync, fetch stats, next build, then check
 bun run check      :: assert the built site in apps/docs/out is correct
-bun run dev        :: sync, then fetch stats, then next dev
+bun run dev        :: sync, then fetch stats, then next dev on localhost:3264
 bun run sync       :: just the sync, with a log of what it copied
 bun run stats      :: just the platform fetch, printing both totals
 bun run icons      :: regenerate the mod marks from design/icons-source/

@@ -26,6 +26,11 @@ export type SearchHit = {
   section?: string;
   /** Pagefind's own HTML, with `<mark>` around the matched words. */
   excerpt: string;
+  /**
+   * The game version, for a page from an older version's manual (`/docs/tenet/1.21.1/...`). Both versions are
+   * indexed under the same titles, so without it a search lists what look like duplicates.
+   */
+  version?: string;
 };
 
 /** One result body, as Pagefind hands it over. */
@@ -106,6 +111,7 @@ export async function searchDocs(
       mod: result.meta?.mod,
       section: result.meta?.section,
       excerpt: result.excerpt ?? '',
+      version: /^\/docs\/[^/]+\/(\d+\.\d+(?:\.\d+)?)\//.exec(result.url)?.[1],
     })),
     total: found.results.length,
   };
