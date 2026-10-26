@@ -83,7 +83,7 @@ export default function ReferencePage() {
             head={['FTB task', 'Tenet type', 'Notes for the tool']}
             rows={[
               ['advancement + criterion', 'tenet:advancement', 'Empty criterion ("", all 54 ATM10 uses) means the whole advancement: emitted without criterion.'],
-              ['observation', 'tenet:observation', 'toObserve / timer / observeType; NBT on toObserve is a fuzzy subset match.'],
+              ['observation', 'tenet:observation', 'toObserve / timer / observeType; NBT on toObserve is a fuzzy subset match. An empty to_observe never completes in FTB, so it becomes a tenet:custom placeholder that holds the quest.'],
               ['stat', 'tenet:stat', 'Same two fields, same meaning.'],
               ['forge_energy', 'tenet:energy', 'value + maxInput; absent max_input means unlimited.'],
               ['kill', 'tenet:kill', 'Tag takes precedence over id; NBT fuzzy subset match.'],
@@ -114,7 +114,7 @@ export default function ReferencePage() {
               ['disable_toast', 'disableToast', 'Quiets the reward-level notice.'],
               ['title (from lang)', 'title', 'The row\u2019s own words; checkmarks read their button from here.'],
               ['icon override', 'icon', 'Item, texture file, atlas region, or entity spawn egg.'],
-              ['command + silent', 'tenet:command', 'Placeholders {p} {x}/{y}/{z} {quest} {chapter} {team} carry over.'],
+              ['command + silent', 'tenet:command', 'Placeholders {p} {x}/{y}/{z} {quest} {chapter} {team} carry over. With no permission_level, FTB ran the command at the player’s own level and Tenet runs it at 2 (reported). Console commands (1.19 player_command: false) run at 4 with their output withheld.'],
               ['item + only_one', 'tenet:item + onlyOne', 'Checked by item type, ignoring components.'],
               ['toast', 'tenet:toast', 'Literal text or translation key with fallback.'],
               ['currency', 'tenet:currency', 'Amount passes through; the coin belongs to the installed economy.'],
@@ -145,7 +145,7 @@ export default function ReferencePage() {
               ['show_lock_icons', 'showLockIcons', 'Tool writes explicit true unless FTB says false (absent readings diverge).'],
               ['(no FTB field — FTB has no zoom tiers)', 'disableCanvasLod', 'Tool writes explicit true: preserves the always-drawn canvas. Chapter writes explicit false to opt back into tiers.'],
               ['pause_game / disable_gui', 'pauseGame / disableGui', 'Same switches under Tenet\u2019s names.'],
-              ['drop_loot_crates / loot_crate_no_drop', 'tool-reported', 'No Tenet home (crates out of scope): manual work.'],
+              ['drop_loot_crates / loot_crate_no_drop', 'tool-reported', 'Mob-dropped crates have no Tenet home: manual work. A crate given as a reward rolls its table instead.'],
               ['verify_on_load', 'tool-reported', 'A loader flag with no quest-file meaning.'],
             ]}
           />
@@ -160,13 +160,33 @@ export default function ReferencePage() {
             rows={[
               ['dependencies', 'dependsOn', 'Remapped HEX → slug, order preserved. Gates on task/reward ids lift onto the owning quest and are reported.'],
               ['dependency_requirement', 'prerequisiteMode', 'all/one × completed/started, same four words.'],
-              ['min_required_dependencies', 'minRequired', 'Written only above 0; refused above the dependency count.'],
+              ['min_required_dependencies', 'minRequired', 'Written only above 0; refused above the dependency count. When the excess comes only from task gates lifted onto one quest, the quest waits on all of them (reported).'],
               ['max_completable_dependents', 'maxCompletableDependents', 'Same cap, written only above 0.'],
               ['optional', 'optional', 'Still gates dependants — optional only excuses chapter completion.'],
               ['progression_mode', 'flexibleProgress', 'Quest → chapter → file; flexible anywhere sets the flag.'],
               ['can_repeat', 'repeatable', 'Quest → chapter default_repeatable_quest → false.'],
               ['repeat_cooldown (s)', 'repeatCooldownTicks (×20)', 'Cooldown without repeatable is reported and dropped.'],
               ['dep_control_pts', 'tool-reported', 'Tenet draws its own routes; hand-bent lines are reported.'],
+            ]}
+          />
+        </div>
+      </section>
+
+      <section className="band">
+        <div className="band-head"><span className="label">Add-on mods</span></div>
+        <div>
+          <Table
+            head={['Add-on field', 'Tenet home', 'Notes for the tool']}
+            rows={[
+              ['Item Filters stacks (1.20)', 'tenet:filter', 'tag / mod / block / or / and / not become filter expressions. Inner stacks match by item, as Item Filters compares them. Other kinds become tenet:custom placeholders.'],
+              ['ftbquests:lootcrate as an item', 'tenet:loot', 'Opening a crate rolls its table, so the claim rolls it: once per crate. A crate that no table opens is left out, as FTB would open nothing.'],
+              ['questsadditions killnbt / break', 'tenet:kill / tenet:break', 'An empty NBT test passes everything; block_type 1 is a tag. A held-weapon check (checkItem) has no home: placeholder.'],
+              ['questsadditions secret', 'invisible', 'Hidden until done. A secret task is reported.'],
+              ['questsadditions min_required_tasks', 'tenet:filter', 'Any one of several item tasks folds into one or(…) filter. Other counts keep every task (reported).'],
+              ['questsadditions incompatible', 'exclusiveGroup', 'Quests that all name each other in one chapter share a group. A one-way lock stays open (reported).'],
+              ['ExtraQuests command console', 'tenet:command', 'Runs at level 4 with its output withheld, like the server console.'],
+              ['eternalcurrencies:currency reward', 'tenet:currency', 'Amount passes through; the coin belongs to the installed economy.'],
+              ['other add-on tasks and rewards', 'tenet:custom / dropped', 'Tasks hold the quest as placeholders that list their settings. Rewards are reported as manual work.'],
             ]}
           />
         </div>

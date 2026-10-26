@@ -16,6 +16,16 @@
  *   field), so the stack keeps its id and count and the warning names what it carried.
  *   `Damage: 0` alone is the serializer's default for an unworn tool, not intent, and goes
  *   without a word.
+ * - A loot crate (`ftbquests:lootcrate`) keeps the crate it opens: `tag.type` becomes the
+ *   `ftbquests:loot_crate` component 1.21 FTB reads. The rest of its tag dresses the crate item
+ *   (name, lore, glint), which the reward mapper replaces with a roll of the crate's table.
+ * - An Item Filters stack (`itemfilters:or`, `itemfilters:tag`, …), the 1.20 way to say "any of
+ *   these", becomes the 1.21 `ftbfiltersystem:smart_filter` stack with the same question in
+ *   its expression, so the filter mapper reads both eras alike. Item Filters compares a plain
+ *   stack inside a filter by item alone (`ItemFiltersAPI.areItemStacksEqual` checks NBT only
+ *   for items tagged `itemfilters:check_nbt`), so an inner stack's NBT is not a loss there.
+ *   Filters Tenet cannot answer (NBT, damage, count, regex, custom) keep their name in the
+ *   expression, so the task mapper names them as manual work.
  *
  * Only compounds holding a capital `Count` beside a string `id` are stacks to this pass;
  * quests, tasks and rewards carry hex `id`s and never `Count`, so nothing else is touched.
@@ -26,6 +36,11 @@ import { SnbtNode, snbtGet, snbtToJson } from "./snbt";
 
 const CUSTOM_ICON = "ftbquests:custom_icon";
 const TEXTURE_COMPONENT = "ftbquests:icon";
+const LOOT_CRATE = "ftbquests:lootcrate";
+const CRATE_COMPONENT = "ftbquests:loot_crate";
+const ITEM_FILTERS = "itemfilters:";
+const SMART_FILTER = "ftbfiltersystem:smart_filter";
+const FILTER_COMPONENT = "ftbfiltersystem:filter";
 
 /** The tree with every 1.20-shaped stack in it rewritten; the same object when there is none. */
 export function upgradeLegacyStacks(root: SnbtNode, path: string, report: Report): SnbtNode {
@@ -42,6 +57,17 @@ export function upgradeLegacyStacks(root: SnbtNode, path: string, report: Report
     }
     if (node.kind !== "compound") {
       return node;
+    }
+    const filterId = snbtGet(node, "id");
+    if (
+      filterId !== undefined &&
+      filterId.kind === "string" &&
+      filterId.value.startsWith(ITEM_FILTERS) &&
+      snbtGet(node, "Count") !== undefined
+    ) {
+      // Read whole, before the walk below drops the nested filters' own tags.
+      upgraded++;
+      return filterStack(node, report, path);
     }
     let changed = false;
     let entries = node.entries.map(([key, child]): readonly [string, SnbtNode] => {
@@ -77,11 +103,15 @@ export function upgradeLegacyStacks(root: SnbtNode, path: string, report: Report
       if (id.value === CUSTOM_ICON && icon !== undefined && icon.kind === "string") {
         components = [[TEXTURE_COMPONENT, icon]];
       }
+      const crate = snbtGet(tag, "type");
+      if (id.value === LOOT_CRATE && crate !== undefined && crate.kind === "string" && crate.value !== "") {
+        components = [[CRATE_COMPONENT, crate]];
+      }
       const meaningful = rest.filter(
         ([key, child]) =>
           !(key === "Damage" && (child.kind === "int" || child.kind === "short" || child.kind === "byte") && child.value === 0n),
       );
-      if (meaningful.length > 0) {
+      if (meaningful.length > 0 && id.value !== LOOT_CRATE) {
         report.warn({
           code: "legacy-item-nbt",
           message: `a 1.20 stack of ${id.value} carries NBT (${meaningful.map(([key]) => key).join(", ")}) with no general 1.21 component reading; it converts as the plain item`,
@@ -95,7 +125,12 @@ export function upgradeLegacyStacks(root: SnbtNode, path: string, report: Report
     if (components !== null && snbtGet(node, "components") === undefined) {
       out.push([
         "components",
-        { kind: "compound", entries: components, keyLines: new Map([[TEXTURE_COMPONENT, [node.line]]]), line: node.line },
+        {
+          kind: "compound",
+          entries: components,
+          keyLines: new Map(components.map(([key]) => [key, [node.line]])),
+          line: node.line,
+        },
       ]);
     }
     entries = out;
@@ -120,4 +155,95 @@ export function upgradeLegacyStacks(root: SnbtNode, path: string, report: Report
     });
   }
   return out;
+}
+
+/**
+ * An Item Filters stack as the 1.21 smart filter asking the same question: the expression is
+ * FTB Filter System's vocabulary, the one Tenet's filter task reads. Count travels; the
+ * filter's tag is spent on the expression.
+ */
+function filterStack(node: SnbtNode, report: Report, path: string): SnbtNode {
+  const expression = legacyFilter(node);
+  const count = snbtGet(node, "count") ?? snbtGet(node, "Count");
+  const line = node.line;
+  report.note({
+    code: "legacy-filter",
+    message: `a 1.20 Item Filters stack reads as the filter ${expression.slice(0, 120)}`,
+    path,
+    line,
+    key: "item",
+    value: JSON.stringify(snbtToJson(node)).slice(0, 240),
+  });
+  const entries: Array<readonly [string, SnbtNode]> = [
+    ["id", { kind: "string", value: SMART_FILTER, raw: JSON.stringify(SMART_FILTER), line }],
+  ];
+  if (count !== undefined) {
+    entries.push(["count", count]);
+  }
+  entries.push([
+    "components",
+    {
+      kind: "compound",
+      entries: [[FILTER_COMPONENT, { kind: "string", value: expression, raw: JSON.stringify(expression), line }]],
+      keyLines: new Map([[FILTER_COMPONENT, [line]]]),
+      line,
+    },
+  ]);
+  return { kind: "compound", entries, keyLines: new Map(entries.map(([key]) => [key, [line]])), line };
+}
+
+/** One stack inside or as a filter, in FTB Filter System's expression vocabulary. */
+function legacyFilter(stack: SnbtNode): string {
+  const id = snbtGet(stack, "id");
+  const name = id !== undefined && id.kind === "string" ? id.value : "";
+  if (!name.startsWith(ITEM_FILTERS)) {
+    return `item(${name})`;
+  }
+  const kind = name.slice(ITEM_FILTERS.length);
+  const tag = snbtGet(stack, "tag");
+  const value = tag !== undefined ? snbtGet(tag, "value") : undefined;
+  const text = value !== undefined && value.kind === "string" ? value.value.replace(/^#/, "") : "";
+  const items = tag !== undefined ? snbtGet(tag, "items") : undefined;
+  // An empty slot in an inventory filter holds nothing to compare, so it says nothing.
+  const children =
+    items !== undefined && items.kind === "list" ? items.items.filter(holdsItem).map(legacyFilter) : [];
+  switch (kind) {
+    case "tag":
+      if (text !== "") {
+        return `item_tag(${text})`;
+      }
+      break;
+    case "mod":
+      if (text !== "") {
+        return `mod(${text})`;
+      }
+      break;
+    case "block":
+      return "block()";
+    case "or":
+    case "and":
+      if (children.length === 1) {
+        return children[0] as string;
+      }
+      if (children.length > 1) {
+        return `${kind}(${children.join("")})`;
+      }
+      break;
+    case "not":
+      if (children.length === 1) {
+        return `not(${children[0] as string})`;
+      }
+      if (children.length > 1) {
+        return `not(or(${children.join("")}))`;
+      }
+      break;
+  }
+  // Kept by name, so the filter mapper sees a function Tenet cannot answer and says which;
+  // what the filter carried rides in the legacy-filter note beside it.
+  return `itemfilters_${kind}()`;
+}
+
+function holdsItem(stack: SnbtNode): boolean {
+  const id = snbtGet(stack, "id");
+  return id !== undefined && id.kind === "string" && id.value !== "" && id.value !== "minecraft:air";
 }

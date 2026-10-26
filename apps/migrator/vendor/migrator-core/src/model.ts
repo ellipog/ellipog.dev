@@ -146,6 +146,10 @@ export const CHAPTER_KEYS: ReadonlySet<string> = new Set([
 
 /** Every key a quest may carry (census + jar-real quest fields). */
 export const QUEST_KEYS: ReadonlySet<string> = new Set([
+  // questsadditions (MixinQuest): hidden until done, any N of the tasks, and one-way locks.
+  "secret",
+  "min_required_tasks",
+  "incompatible",
   "id",
   "x",
   "y",
@@ -193,6 +197,8 @@ export const QUEST_KEYS: ReadonlySet<string> = new Set([
 
 /** Every key a task may carry, across all task types (census + jar-real task fields). */
 export const TASK_KEYS: ReadonlySet<string> = new Set([
+  // questsadditions (MixinTask): the task is hidden until done.
+  "secret",
   "id",
   "type",
   "item",
@@ -264,6 +270,8 @@ export const REWARD_KEYS: ReadonlySet<string> = new Set([
   // Legacy 1.20-era spelling of permission level 2, still read by the 1.21 jar.
   "elevate_perms",
   "player_command",
+  // ExtraQuests (CommandRewardMixin): run from the server console instead of the player.
+  "console",
   "command",
   "feedback_message",
   "table_id",
@@ -278,6 +286,28 @@ export const REWARD_KEYS: ReadonlySet<string> = new Set([
   "weight",
   "empty_weight",
 ]);
+
+/**
+ * Add-on task and reward types the converter reads, each with the keys its own mod adds.
+ * Any other namespaced type (`mod:name`) belongs to a mod this converter does not read: it
+ * becomes a placeholder (tasks) or manual work (rewards) as a whole, its own settings named in
+ * that warning, so they are not unmapped fields one by one.
+ */
+const ADDON_KEYS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ["questsadditions:killnbt", new Set([...TASK_KEYS, "nbt", "checkItem"])],
+  ["questsadditions:break", new Set([...TASK_KEYS, "block", "block_type", "checkItem"])],
+  ["eternalcurrencies:currency", new Set([...REWARD_KEYS, "currency"])],
+]);
+
+/** The keys to hold a task or reward to, by its type; null for an add-on type read whole. */
+function keysFor(item: SnbtNode, native: ReadonlySet<string>): ReadonlySet<string> | null {
+  const type = snbtGet(item, "type");
+  const name = type !== undefined && type.kind === "string" ? type.value : "";
+  if (!name.includes(":") || name.startsWith("ftbquests:")) {
+    return native;
+  }
+  return ADDON_KEYS.get(name) ?? null;
+}
 
 /** Every key a reward-table file may carry at its root. */
 export const TABLE_KEYS: ReadonlySet<string> = new Set([
@@ -457,7 +487,7 @@ export function loadQuestBook(
   const tables: Array<ParsedFile> = [];
   for (const file of dedupeById(tableFiles, "reward table", report)) {
     checkKeys(file.root, TABLE_KEYS, `the table file ${file.path}`, file.path, report, options);
-    checkList(file.root, "rewards", REWARD_KEYS, `the table file ${file.path}`, file.path, report, options);
+    checkTypedList(file.root, "rewards", REWARD_KEYS, `the table file ${file.path}`, file.path, report, options);
     reportDuplicates(file.root, file.path, report);
     tables.push(file);
   }
@@ -626,8 +656,8 @@ function readChapter(file: ParsedFile, report: Report, options: ModelOptions): C
   checkKeys(file.root, CHAPTER_KEYS, what, file.path, report, options);
   checkList(file.root, "quests", QUEST_KEYS, `a quest in ${file.path}`, file.path, report, options);
   for (const quest of questList(file.root)) {
-    checkList(quest, "tasks", TASK_KEYS, `a task in ${file.path}`, file.path, report, options);
-    checkList(quest, "rewards", REWARD_KEYS, `a reward in ${file.path}`, file.path, report, options);
+    checkTypedList(quest, "tasks", TASK_KEYS, `a task in ${file.path}`, file.path, report, options);
+    checkTypedList(quest, "rewards", REWARD_KEYS, `a reward in ${file.path}`, file.path, report, options);
   }
   checkList(file.root, "images", IMAGE_KEYS, `an image in ${file.path}`, file.path, report, options);
   checkList(file.root, "quest_links", LINK_KEYS, `a quest link in ${file.path}`, file.path, report, options);
@@ -703,6 +733,28 @@ export function checkKeys(
       report.warn(entry);
     } else {
       report.error(entry);
+    }
+  }
+}
+
+/** {@link checkList} for tasks and rewards, whose allowed keys follow their type. */
+function checkTypedList(
+  node: SnbtNode,
+  listKey: string,
+  native: ReadonlySet<string>,
+  what: string,
+  path: string,
+  report: Report,
+  options: ModelOptions,
+): void {
+  const list = snbtGet(node, listKey);
+  if (list === undefined || list.kind !== "list") {
+    return;
+  }
+  for (const item of list.items) {
+    const allowed = item.kind === "compound" ? keysFor(item, native) : null;
+    if (allowed !== null) {
+      checkKeys(item, allowed, what, path, report, options);
     }
   }
 }

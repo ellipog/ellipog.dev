@@ -111,6 +111,13 @@ export interface IdMap {
   readonly groups: ReadonlyMap<string, IdEntry>;
   /** Lowercase table inner id to its entry. */
   readonly tables: ReadonlyMap<string, FileIdEntry>;
+  /**
+   * A loot crate's name (what an `ftbquests:lootcrate` stack names in `ftbquests:loot_crate`)
+   * to the lowercase id of the table it opens. FTB names a crate by its `string_id`, else by
+   * the table's own hex code (`LootCrate` takes `RewardTable.toString()`). Only tables with a
+   * `loot_crate` have one. Absent from hand-built maps, which name no crates.
+   */
+  readonly crates?: ReadonlyMap<string, string>;
   /** Lowercase task id to its owning quest. Classification only, never an edge target. */
   readonly tasks: ReadonlyMap<string, TaskIdEntry>;
   readonly rewards: ReadonlyMap<string, TaskIdEntry>;
@@ -213,6 +220,7 @@ class IdBuilder {
   private readonly chapters = new Map<string, FileIdEntry>();
   private readonly groups = new Map<string, IdEntry>();
   private readonly tables = new Map<string, FileIdEntry>();
+  private readonly crates = new Map<string, string>();
   private readonly tasks = new Map<string, TaskIdEntry>();
   private readonly rewards = new Map<string, TaskIdEntry>();
   private readonly deadEdges: Array<DeadEdge> = [];
@@ -229,6 +237,7 @@ class IdBuilder {
       chapters: this.chapters,
       groups: this.groups,
       tables: this.tables,
+      crates: this.crates,
       tasks: this.tasks,
       rewards: this.rewards,
       deadEdges: this.deadEdges,
@@ -346,6 +355,11 @@ class IdBuilder {
         continue;
       }
       this.tables.set(id, { source: raw, id, file: table.path });
+      const crate = snbtGet(table.root, "loot_crate");
+      if (crate !== undefined && crate.kind === "compound") {
+        const named = stringField(crate, "string_id");
+        this.crates.set(named !== null && named !== "" ? named : raw.toUpperCase(), id);
+      }
     }
   }
 

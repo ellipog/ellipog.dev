@@ -81,6 +81,8 @@ export function mapReward(node: SnbtNode, ctx: RewardContext): Record<string, un
       return mapStageReward(node, ctx);
     case "currency":
       return mapCurrencyReward(node, ctx);
+    case "eternalcurrencies:currency":
+      return mapAddonCurrency(node, ctx);
     case "random":
     case "loot":
     case "choice":
@@ -147,6 +149,10 @@ function mapItemReward(node: SnbtNode, ctx: RewardContext): Record<string, unkno
       key: "item",
     });
     return null;
+  }
+  const crate = lootCrateRoll(item, node, ctx, true);
+  if (crate !== undefined) {
+    return crate;
   }
   const ref = mapItemStack(item, ctx, `a reward of quest ${ctx.questId}`);
   if (ref === null) {
@@ -234,24 +240,49 @@ function mapCommandReward(node: SnbtNode, ctx: RewardContext): Record<string, un
     return emptyReward(node, ctx, "command", `a command reward of quest ${ctx.questId} names no command, which runs nothing in FTB either; it is left out`);
   }
   out["command"] = rewriteCommand(command, ctx.ids, ctx.slugs, ctx.report, ctx.chapter, node.line, `a command of quest ${ctx.questId}`);
-  // FTB 1.20 and 1.21 run every reward command from the collecting player's own source
-  // (the jar never reads `player_command`), exactly as Tenet does, so there is nothing to
-  // say — except to a book written for FTB 1.19, whose `player_command: false` ran from
-  // the console. That one names whose hands changed, because a console ponder and a
-  // player ponder open for different people.
-  if (snbtGet(node, "player_command") !== undefined && !readBool(node, "player_command", false, ctx)) {
+  // Whose hands run it. FTB 1.19 always writes `player_command`, and `false` runs from the
+  // server console (`MinecraftServer.createCommandSourceStack`); ExtraQuests' `console: true`
+  // does the same on 1.20. The console runs at level 4 and keeps its output in the server
+  // log, so Tenet runs it as the collecting player at 4 with the output withheld: the same
+  // reach and the same quiet chat, and a `{p}` command does the same thing either way.
+  const fromConsole =
+    (snbtGet(node, "player_command") !== undefined && !readBool(node, "player_command", false, ctx)) ||
+    readBool(node, "console", false, ctx);
+  if (fromConsole) {
+    out["permissionLevel"] = 4;
+    out["silent"] = true;
     ctx.report.note({
       code: "player-command-console",
-      message: `a command reward of quest ${ctx.questId} says player_command: false, which ran from the console in FTB 1.19; FTB 1.21 and Tenet run it as the collecting player`,
+      message: `a command reward of quest ${ctx.questId} ran from the server console (${snbtGet(node, "console") !== undefined ? "ExtraQuests' console: true" : "FTB 1.19's player_command: false"}); Tenet runs it as the collecting player at level 4, the console's level, with its output withheld as the console kept it`,
       path: ctx.chapter,
       line: node.line,
-      key: "player_command",
+      key: snbtGet(node, "console") !== undefined ? "console" : "player_command",
     });
+    const feedback = stringField(node, "feedback_message");
+    if (feedback !== null && feedback !== "") {
+      out["feedbackMessage"] = feedback;
+    }
+    return finishReward(node, ctx, out);
   }
   // FTB reads the 1.20-era `elevate_perms` first: true runs at level 2 (Tenet's default,
   // so nothing to write) and the newer field is never consulted.
   const elevated = readBool(node, "elevate_perms", false, ctx);
   const level = elevated ? undefined : snbtGet(node, "permission_level");
+  if (!elevated && (level === undefined || (level.kind === "int" && level.value === 0n))) {
+    // Unset, FTB runs it at the player's own level (`permission_level` reads 0, and 0 skips
+    // `withPermission`): 0 for anyone not an operator, so most commands refuse them. Tenet
+    // sets a level outright, and writing 0 would also strip an operator's, so the command
+    // keeps Tenet's 2 and the difference is named.
+    if (level === undefined) {
+      ctx.report.note({
+        code: "player-level-command",
+        message: `a command reward of quest ${ctx.questId} sets no permission level, so FTB ran it at the collecting player's own (0 unless an operator); Tenet runs it at 2, a command block's, so it now succeeds for every player`,
+        path: ctx.chapter,
+        line: node.line,
+        key: "permission_level",
+      });
+    }
+  }
   if (level !== undefined) {
     const value = integerField(level, ctx, "permission_level");
     if (value === null) {
@@ -352,6 +383,91 @@ function mapCurrencyReward(node: SnbtNode, ctx: RewardContext): Record<string, u
   }
   out["amount"] = value;
   return finishReward(node, ctx, out);
+}
+
+/**
+ * eternalcurrencies' currency reward pays `amount` of the coin `currency` names. Tenet pays
+ * through the one economy registered with it, so the amount travels and the coin is that
+ * economy's; the note names the coin the pack paid in.
+ */
+function mapAddonCurrency(node: SnbtNode, ctx: RewardContext): Record<string, unknown> | null {
+  const out = mapCurrencyReward(node, ctx);
+  if (out !== null) {
+    const coin = stringField(node, "currency");
+    ctx.report.note({
+      code: "economy-currency",
+      message: `a reward of quest ${ctx.questId} pays ${String(out["amount"])} ${coin ?? "of the default coin"} through eternalcurrencies; tenet:currency pays the amount through the economy registered with Tenet`,
+      path: ctx.chapter,
+      line: node.line,
+      key: "currency",
+      value: coin,
+    });
+  }
+  return out;
+}
+
+const LOOT_CRATE = "ftbquests:lootcrate";
+const CRATE_COMPONENT = "ftbquests:loot_crate";
+
+/**
+ * A loot crate given as an item: Tenet has no crate items, and opening one rolls its table
+ * exactly as a `loot` reward does (`LootCrateItem` and `LootReward` both call
+ * `generateWeightedRandomRewards` with the empty band in), so the grant is that roll, made at
+ * the claim instead of at the opening. Several crates roll as many times. Undefined when the
+ * stack is not a named crate; a crate no table opens is left out, as FTB's opens nothing.
+ */
+function lootCrateRoll(
+  stack: SnbtNode,
+  reward: SnbtNode,
+  ctx: RewardContext,
+  questReward: boolean,
+): Record<string, unknown> | null | undefined {
+  const id = snbtGet(stack, "id");
+  if (id === undefined || id.kind !== "string" || id.value !== LOOT_CRATE) {
+    return undefined;
+  }
+  const components = snbtGet(stack, "components");
+  const named = components !== undefined && components.kind === "compound" ? snbtGet(components, CRATE_COMPONENT) : undefined;
+  if (named === undefined || named.kind !== "string" || named.value === "") {
+    return undefined;
+  }
+  const where = questReward ? `a reward of quest ${ctx.questId}` : "a table entry";
+  const table = ctx.ids.crates?.get(named.value);
+  if (table === undefined) {
+    ctx.report.warn({
+      code: "unknown-loot-crate",
+      message: `${where} gives a ${named.value} loot crate, which no reward table opens (FTB's would open nothing); it is left out`,
+      path: ctx.chapter,
+      line: stack.line,
+      key: "item",
+      value: named.value,
+    });
+    return null;
+  }
+  const stackCount = snbtGet(stack, "count");
+  const counted =
+    stackCount !== undefined && (stackCount.kind === "byte" || stackCount.kind === "short" || stackCount.kind === "int" || stackCount.kind === "long")
+      ? Number(stackCount.value)
+      : 1;
+  const grant = grantCount(reward, counted, ctx);
+  if (grant === null) {
+    return null;
+  }
+  const slug = ctx.slugs.tables.get(table) ?? table;
+  const roll: Record<string, unknown> = { type: "tenet:loot", table: slug };
+  ctx.report.note({
+    code: "loot-crate-roll",
+    message: `${where} gives ${grant === 1 ? "a" : String(grant)} ${named.value} loot crate${grant === 1 ? "" : "s"}; Tenet has no crate items, so the claim rolls its table (${slug}) as opening one would`,
+    path: ctx.chapter,
+    line: stack.line,
+    key: "item",
+    value: named.value,
+  });
+  const out: Record<string, unknown> =
+    grant === 1
+      ? roll
+      : { type: "tenet:all_table", inline: { entries: Array.from({ length: grant }, () => ({ reward: { ...roll } })) } };
+  return questReward ? finishReward(reward, ctx, out) : out;
 }
 
 function mapTableReward(
@@ -657,6 +773,12 @@ function mapTableItemReward(item: SnbtNode, ctx: RewardContext): Record<string, 
   if (!shorthand && (stack === undefined || stack.kind !== "compound")) {
     fail(ctx, item, "item", "a table entry names no item object");
     return null;
+  }
+  if (stack !== undefined && stack.kind === "compound") {
+    const crate = lootCrateRoll(stack, item, ctx, false);
+    if (crate !== undefined) {
+      return crate;
+    }
   }
   const ref =
     stack !== undefined && stack.kind === "string"

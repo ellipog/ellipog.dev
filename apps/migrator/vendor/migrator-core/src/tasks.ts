@@ -33,6 +33,20 @@
  *   author port. Filter matches otherwise cycle live on every surface, so mapped filters
  *   carry no still icon.
  *
+ * - An item task naming no item tests every stack as a match (`ItemTask.test` returns true for
+ *   an empty template, in 2001 and 2101 alike), so FTB finishes it on the first stack carried.
+ *   It is left out with a warning: Tenet completes what remains, and a quest left taskless
+ *   completes when it unlocks, the same moment to within a tick.
+ * - Filter expressions are checked against Tenet's whole vocabulary (`item`, `item_tag`,
+ *   `mod`, `block` under `and`, `or`, `not`), not only `component`: any other function is
+ *   one Tenet refuses at load, so the task becomes a placeholder naming it.
+ * - Add-on task types read through their own mod's bytecode where Tenet has the same task:
+ *   questsadditions `killnbt` (an empty `nbt` is a subset every mob passes, and `checkItem`
+ *   off means any weapon) is a kill task, and `break` (`block_type` 0 a block, 1 a tag) with
+ *   `checkItem` off is a break task. The rest stay placeholders, their own settings named.
+ * - questsadditions' `secret` on a task hides it until done; Tenet shows every task, so it
+ *   shows early, with a warning.
+ *
  * Titles inline the canonical lang text (checkmark buttons require it); translations ride
  * the overlay beside them. Icons, toasts, tags, optionality and toast switches travel on
  * every type; task order is preserved exactly, because Tenet progress is index-keyed.
@@ -66,6 +80,19 @@ const OBSERVE_ORDER: ReadonlyArray<string> = [
 const OBSERVE_NAMES: ReadonlySet<string> = new Set(OBSERVE_ORDER);
 const MATCH_WORDS: ReadonlySet<string> = new Set(["none", "fuzzy", "strict"]);
 const SMART_FILTER = "ftbfiltersystem:smart_filter";
+/** The functions Tenet's filter task evaluates (FilterParser.node); any other is refused. */
+const TENET_FILTERS: ReadonlySet<string> = new Set(["and", "or", "not", "item", "item_tag", "mod", "block"]);
+/** Keys every task may carry whatever its type: the rest of a custom type's keys are its own. */
+const COMMON_TASK_KEYS: ReadonlySet<string> = new Set([
+  "id",
+  "type",
+  "title",
+  "icon",
+  "tags",
+  "disable_toast",
+  "optional_task",
+  "secret",
+]);
 const MISSING_ITEM = "ftbquests:missing_item";
 
 /**
@@ -110,6 +137,12 @@ export function mapTask(node: SnbtNode, ctx: TaskContext): Record<string, unknow
       return mapEnergyTask(node, ctx);
     case "gamestage":
       return mapStageTask(node, ctx);
+    case "questsadditions:killnbt":
+      return addonKill(node) ? mapKillTask(node, ctx) : mapCustomTask(node, ctx, kind);
+    case "questsadditions:break": {
+      const mapped = mapAddonBreak(node, ctx);
+      return mapped === undefined ? mapCustomTask(node, ctx, kind) : mapped;
+    }
     default:
       return mapCustomTask(node, ctx, kind);
   }
@@ -131,9 +164,10 @@ function mapCustomTask(
   if (out === null) {
     return null;
   }
+  const own = node.kind === "compound" ? node.entries.map(([key]) => key).filter((key) => !COMMON_TASK_KEYS.has(key)) : [];
   ctx.report.warn({
     code: "custom-task",
-    message: `the ${kind} task of quest ${ctx.questId} has no Tenet task to become; it waits on a tenet:custom handler for ${out["id"]} as manual work`,
+    message: `the ${kind} task of quest ${ctx.questId} has no Tenet task to become; it waits on a tenet:custom handler for ${out["id"]} as manual work${own.length > 0 ? ` (its own settings: ${own.join(", ")})` : ""}`,
     path: ctx.chapter,
     line: node.line,
     key: "type",
@@ -167,13 +201,20 @@ function placeholder(
 
 function mapItemTask(node: SnbtNode, ctx: TaskContext): Record<string, unknown> | null {
   const item = snbtGet(node, "item");
-  if (item !== undefined && item.kind === "string") {
+  if (item === undefined || (item.kind === "string" && item.value.length === 0)) {
+    // FTB tests every stack against an empty template as a match, so the task finishes on the
+    // first stack carried: nothing a player does differs once it is gone (see the header).
+    ctx.report.warn({
+      code: "empty-item-task",
+      message: `an item task of quest ${ctx.questId} names no item, which FTB counts any stack toward; it is left out`,
+      path: ctx.chapter,
+      line: node.line,
+      key: "item",
+    });
+    return null;
+  }
+  if (item.kind === "string") {
     // FTB's shorthand: a bare id names one of the item (`item: "minecraft:torch"`).
-    // An empty string names nothing, like an absent stack.
-    if (item.value.length === 0) {
-      fail(ctx, node, "item", "an item task names no item object");
-      return null;
-    }
     const out: Record<string, unknown> = { type: "tenet:item", item: item.value };
     const count = taskCount(node, ctx);
     if (count === null) {
@@ -192,7 +233,7 @@ function mapItemTask(node: SnbtNode, ctx: TaskContext): Record<string, unknown> 
     mapManual(node, ctx, out, true);
     return finishTask(node, ctx, out);
   }
-  if (item === undefined || item.kind !== "compound") {
+  if (item.kind !== "compound") {
     fail(ctx, node, "item", "an item task names no item object");
     return null;
   }
@@ -264,6 +305,61 @@ function mapItemTask(node: SnbtNode, ctx: TaskContext): Record<string, unknown> 
   return finishTask(node, ctx, out);
 }
 
+/**
+ * questsadditions' killnbt is FTB's kill task with two more questions: `checkItem` (the
+ * killer's weapon passes an item filter) and `nbt` (every key of it sits in the mob's
+ * NBT, `TasksUtils.Compoundequals(task, mob)`). Unasked, both pass every kill.
+ */
+function addonKill(node: SnbtNode): boolean {
+  const nbt = snbtGet(node, "nbt");
+  return !flagSet(node, "checkItem") && (nbt === undefined || (nbt.kind === "compound" && nbt.entries.length === 0));
+}
+
+/**
+ * questsadditions' break task, when it asks only which block: `block_type` 0 names a block
+ * id, 1 a block tag (`BlockInteractionTask.checkBlock`); `checkItem` asks for the tool,
+ * which tenet:break cannot. Undefined means the placeholder.
+ */
+function mapAddonBreak(node: SnbtNode, ctx: TaskContext): Record<string, unknown> | null | undefined {
+  const block = stringField(node, "block");
+  const type = snbtGet(node, "block_type");
+  const whole = (n: SnbtNode | undefined, want: bigint): boolean =>
+    n !== undefined && (n.kind === "int" || n.kind === "byte" || n.kind === "short" || n.kind === "long") && n.value === want;
+  const tagged = whole(type, 1n);
+  const plain = type === undefined || whole(type, 0n);
+  if (block === null || flagSet(node, "checkItem") || (!tagged && !plain)) {
+    return undefined;
+  }
+  const out: Record<string, unknown> = { type: "tenet:break" };
+  out[tagged ? "blockTag" : "block"] = block.replace(/^#/, "");
+  const raw = snbtGet(node, "value");
+  const value = raw === undefined ? 1 : integerField(raw, "value", ctx);
+  if (value === null) {
+    return null;
+  }
+  if (value > 1000000) {
+    ctx.report.warn({
+      code: "clamped-count",
+      message: `a break task of quest ${ctx.questId} asks for ${value}, over Tenet's cap of 1000000`,
+      path: ctx.chapter,
+      line: (raw ?? node).line,
+      key: "value",
+      value: 1000000,
+    });
+  }
+  const clamped = Math.min(1000000, Math.max(1, value));
+  if (clamped !== 1) {
+    out["value"] = clamped;
+  }
+  return finishTask(node, ctx, out);
+}
+
+/** A flag that is set: true or 1b. */
+function flagSet(node: SnbtNode, key: string): boolean {
+  const child = snbtGet(node, key);
+  return child !== undefined && ((child.kind === "boolean" && child.value) || (child.kind === "byte" && child.value === 1n));
+}
+
 function mapFilterTask(
   node: SnbtNode,
   item: SnbtNode,
@@ -273,8 +369,9 @@ function mapFilterTask(
   if (expression === null) {
     return null;
   }
-  if (/component\s*\(/.test(expression)) {
-    return mapUnmappableFilter(node, expression, ctx);
+  const refused = unanswerableFilter(expression);
+  if (refused !== null) {
+    return mapUnmappableFilter(node, expression, refused, ctx);
   }
   const out: Record<string, unknown> = { type: "tenet:filter" };
   out["filter"] = expression;
@@ -316,6 +413,7 @@ function mapFilterTask(
 function mapUnmappableFilter(
   node: SnbtNode,
   expression: string,
+  refused: string,
   ctx: TaskContext,
 ): Record<string, unknown> | null {
   // The placeholder id names the filter kind for handlers to find; the expression rides
@@ -326,13 +424,25 @@ function mapUnmappableFilter(
   }
   ctx.report.warn({
     code: "unmappable-filter",
-    message: `the filter task of quest ${ctx.questId} answers what a quest cannot; it waits on a tenet:custom handler for ${out["id"]} as manual work`,
+    message: `the filter task of quest ${ctx.questId} asks ${refused}(), which a quest cannot answer; it waits on a tenet:custom handler for ${out["id"]} as manual work`,
     path: ctx.chapter,
     line: node.line,
     key: "filter",
     value: expression.slice(0, 120),
   });
   return finishTask(node, ctx, out);
+}
+
+/** The first function in a filter expression Tenet's filter task refuses, or null when none. */
+function unanswerableFilter(expression: string): string | null {
+  for (const match of expression.matchAll(/([A-Za-z0-9_.:-]+)\s*\(/g)) {
+    const full = match[1] as string;
+    const name = full.slice(full.lastIndexOf(":") + 1);
+    if (!TENET_FILTERS.has(name)) {
+      return name;
+    }
+  }
+  return null;
 }
 
 function filterExpression(item: SnbtNode, ctx: TaskContext, task: SnbtNode): string | null {
@@ -514,8 +624,20 @@ function mapObservationTask(node: SnbtNode, ctx: TaskContext): Record<string, un
   out["observeType"] = observe;
   const target = stringField(node, "to_observe");
   if (target === null || target === "") {
-    fail(ctx, node, "to_observe", "an observation task names nothing to observe");
-    return null;
+    // FTB's ObservationTask.observe returns false on an empty to_observe (1.19 through 1.21),
+    // so the task never completes and the quest stays held. A placeholder holds it the same way.
+    const held = placeholder(node, ctx, "migrator:task/");
+    if (held === null) {
+      return null;
+    }
+    ctx.report.warn({
+      code: "empty-observation",
+      message: `an observation task of quest ${ctx.questId} names nothing to observe, so FTB never completed it; it waits on a tenet:custom handler for ${held["id"]}, holding the quest as FTB did`,
+      path: ctx.chapter,
+      line: node.line,
+      key: "to_observe",
+    });
+    return finishTask(node, ctx, held);
   }
   out["toObserve"] = target;
   const timer = snbtGet(node, "timer");
@@ -673,6 +795,15 @@ function finishTask(
   }
   if (readBool(node, "optional_task", false, ctx)) {
     out["optional"] = true;
+  }
+  if (readBool(node, "secret", false, ctx)) {
+    ctx.report.warn({
+      code: "secret-task",
+      message: `a task of quest ${ctx.questId} is secret (questsadditions), hidden until done; Tenet shows every task, so it shows from the start`,
+      path: ctx.chapter,
+      line: (snbtGet(node, "secret") ?? node).line,
+      key: "secret",
+    });
   }
   return out;
 }

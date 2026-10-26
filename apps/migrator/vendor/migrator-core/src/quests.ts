@@ -66,6 +66,13 @@ export interface QuestContext {
   readonly deadEdges: ReadonlyArray<DeadEdge>;
   /** Chapter-hex to gate slugs, planned from the book's chapter edges. */
   readonly chapterGates: ReadonlyMap<string, GateSlugs>;
+  /**
+   * The exclusive group this quest's questsadditions `incompatible` list became, when it and
+   * every quest it names lock each other within this chapter (see {@link exclusiveGroups}).
+   */
+  readonly exclusiveGroup?: string | undefined;
+  /** Lowercase ids sharing that group, so the rest of the list can be told apart. */
+  readonly exclusivePeers?: ReadonlySet<string> | undefined;
 }
 
 const PREREQUISITE_MODES: ReadonlySet<string> = new Set([
@@ -127,6 +134,7 @@ export function emitChapterQuests(
     }
     resolved.push({ node: quest, id, source, resolution });
   }
+  const groups = exclusiveGroups(resolved);
   const nudged = nudgeDuplicates(resolved.map((entry) => ({ x: entry.resolution.x, y: entry.resolution.y })));
   const out: Array<EmittedQuest> = [];
   resolved.forEach((entry, index) => {
@@ -149,6 +157,8 @@ export function emitChapterQuests(
       slugs: base.slugs,
       chapterGates: base.gates.slugsByChapter,
       deadEdges: ids.deadEdges.filter((edge) => edge.quest === entry.id),
+      exclusiveGroup: groups.get(entry.id)?.name,
+      exclusivePeers: groups.get(entry.id)?.members,
     };
     const json = mapQuestBody(entry.node, entry.resolution, { x: point.x, y: point.y }, ctx);
     if (json !== null) {
@@ -253,10 +263,11 @@ function mapQuestBody(
     return null;
   }
   out["iconScale"] = iconScale;
-  const dependsOn = questDependencies(node, ctx);
-  if (dependsOn === null) {
+  const dependencies = questDependencies(node, ctx);
+  if (dependencies === null) {
     return null;
   }
+  const dependsOn = dependencies.slugs;
   if (dependsOn.length > 0) {
     out["dependsOn"] = dependsOn;
   }
@@ -266,7 +277,20 @@ function mapQuestBody(
   // Tenet refuses a minRequired above the dependency count at load; refuse it here
   // with the pack's own numbers instead of emitting a file Tenet would reject.
   const minRequired = out["minRequired"];
-  if (typeof minRequired === "number" && minRequired > dependsOn.length && ctx.report.lossy) {
+  if (typeof minRequired === "number" && minRequired > dependsOn.length && minRequired <= dependsOn.length + dependencies.liftedInto) {
+    // The count is over only because task/reward gates lifted onto a quest already waited
+    // on: FTB counted each of those edges, Tenet holds one. Waiting on every lifted quest is
+    // the lift's own reading (the whole owning quest for its tasks), so the quest waits on all.
+    ctx.report.warn({
+      code: "lifted-min-required",
+      message: `min_required_dependencies is ${minRequired}, counting task or reward gates that lift onto the ${dependsOn.length} quest${dependsOn.length === 1 ? "" : "s"} the quest now waits on; it waits on all of ${dependsOn.length === 1 ? "it" : "them"}, so it unlocks once the owning quests are done rather than those tasks`,
+      path: ctx.chapter.path,
+      line: (snbtGet(node, "min_required_dependencies") ?? node).line,
+      key: "min_required_dependencies",
+      value: minRequired,
+    });
+    out["minRequired"] = dependsOn.length;
+  } else if (typeof minRequired === "number" && minRequired > dependsOn.length && ctx.report.lossy) {
     // FTB never unlocks it either; with loss allowed it waits on every dependency instead.
     ctx.report.warn({
       code: "clamped-min-required",
@@ -291,9 +315,14 @@ function mapQuestBody(
     );
     return null;
   }
-  if (tasks.length > 0) {
-    out["tasks"] = tasks;
+  const required = requiredTasks(node, tasks, ctx);
+  if (required === null) {
+    return null;
   }
+  if (required.length > 0) {
+    out["tasks"] = required;
+  }
+  questIncompatible(node, ctx, out);
   const rewards = questRewards(node, ctx);
   if (rewards === null) {
     return null;
@@ -352,10 +381,20 @@ function readIconScale(node: SnbtNode, ctx: QuestContext): number | null {
   return clamped.value;
 }
 
-function questDependencies(node: SnbtNode, ctx: QuestContext): ReadonlyArray<string> | null {
+/**
+ * The quest slugs a quest waits on, and how many source edges folded into one already there
+ * through a lifted task/reward gate. FTB counts each of those edges toward
+ * `min_required_dependencies`; after the lift they are one Tenet edge.
+ */
+interface Dependencies {
+  readonly slugs: ReadonlyArray<string>;
+  readonly liftedInto: number;
+}
+
+function questDependencies(node: SnbtNode, ctx: QuestContext): Dependencies | null {
   const deps = snbtGet(node, "dependencies");
   if (deps === undefined) {
-    return [];
+    return { slugs: [], liftedInto: 0 };
   }
   if (deps.kind !== "list") {
     fail(ctx, deps, "dependencies", "dependencies is not a list");
@@ -377,6 +416,7 @@ function questDependencies(node: SnbtNode, ctx: QuestContext): ReadonlyArray<str
   // rewritten-dead-edge note), not an author writing one quest twice.
   const seen = new Set<string>();
   const lifted = new Set<string>();
+  let liftedInto = 0;
   for (const dep of deps.items) {
     if (dep.kind !== "string") {
       fail(ctx, dep, "dependencies", "a dependency is not a quest id");
@@ -417,7 +457,9 @@ function questDependencies(node: SnbtNode, ctx: QuestContext): ReadonlyArray<str
       // A collapse onto an already-waited quest through a lifted task/reward gate is
       // the lift itself, already named by the rewritten-dead-edge note below — not a
       // second report. Only two original quest edges naming one quest warn here.
-      if (rewrite === undefined && !lifted.has(slug)) {
+      if (rewrite !== undefined || lifted.has(slug)) {
+        liftedInto += 1;
+      } else {
         ctx.report.note({
           code: "duplicate-dependency",
           message: `the quest ${ctx.questId} names ${dep.value} twice; it waits once`,
@@ -447,7 +489,7 @@ function questDependencies(node: SnbtNode, ctx: QuestContext): ReadonlyArray<str
       key: "dependencies",
     });
   }
-  return out;
+  return { slugs: out, liftedInto };
 }
 
 function questFlags(
@@ -524,6 +566,19 @@ function questFlags(
     if (value > 0) {
       out["invisibleUntilTasks"] = value;
     }
+  }
+  if (readBool(node, "secret", ctx)) {
+    // questsadditions hides a secret quest until it is completed (MixinQuest.isVisible), ahead
+    // of FTB's own rules: Tenet's invisible, with nothing unhiding it early.
+    out["invisible"] = true;
+    delete out["invisibleUntilTasks"];
+    ctx.report.note({
+      code: "secret-quest",
+      message: `the quest ${ctx.questId} is secret (questsadditions), hidden until done; it reads as invisible`,
+      path: ctx.chapter.path,
+      line: (snbtGet(node, "secret") ?? node).line,
+      key: "secret",
+    });
   }
   emitFlag(out, "hideUntilDependenciesVisible", resolution.hideUntilDepsVisible, ctx.chapterDefaults.hideUntilDepsVisible);
   emitFlag(out, "hideUntilDependenciesComplete", resolution.hideUntilDepsComplete, ctx.chapterDefaults.hideUntilDepsComplete);
@@ -635,6 +690,146 @@ function questFlags(
     });
   }
   return true;
+}
+
+/**
+ * questsadditions' `min_required_tasks`: the quest completes once that many of its tasks are
+ * (MixinQuest.isCompletedRaw), where Tenet completes on all of them. "Any one of these items"
+ * is a filter Tenet can say exactly, so plain one-of-each item tasks fold into one
+ * `or(item(a)item(b))` filter task; anything else keeps every task, and the quest asks for more.
+ */
+function requiredTasks(
+  node: SnbtNode,
+  tasks: Array<Record<string, unknown>>,
+  ctx: QuestContext,
+): Array<Record<string, unknown>> | null {
+  const raw = snbtGet(node, "min_required_tasks");
+  if (raw === undefined) {
+    return tasks;
+  }
+  const value = wholeNumber(raw, ctx, "min_required_tasks");
+  if (value === null) {
+    return null;
+  }
+  if (value <= 0 || value >= tasks.length) {
+    return tasks;
+  }
+  const plain = tasks.every(
+    (task) =>
+      task["type"] === "tenet:item" &&
+      Object.keys(task).every((key) => key === "type" || key === "item" || key === "match" || key === "title") &&
+      (task["match"] === undefined || task["match"] === "none"),
+  );
+  if (value === 1 && plain) {
+    const items = [...new Set(tasks.map((task) => String(task["item"])))];
+    ctx.report.note({
+      code: "min-required-tasks",
+      message: `the quest ${ctx.questId} completes on any one of its ${tasks.length} item tasks (questsadditions); they read as one filter task for any of ${items.join(", ")}`,
+      path: ctx.chapter.path,
+      line: raw.line,
+      key: "min_required_tasks",
+    });
+    return [{ type: "tenet:filter", filter: `or(${items.map((item) => `item(${item})`).join("")})` }];
+  }
+  ctx.report.warn({
+    code: "min-required-tasks",
+    message: `the quest ${ctx.questId} completes on any ${value} of its ${tasks.length} tasks (questsadditions); Tenet completes a quest on all of them, so it asks for every one`,
+    path: ctx.chapter.path,
+    line: raw.line,
+    key: "min_required_tasks",
+    value,
+  });
+  return tasks;
+}
+
+/**
+ * questsadditions' `incompatible`: this quest cannot start once any quest it names is done
+ * (MixinTeamData.canStartTasks), one way only. Tenet's exclusive group is the two-way form
+ * within a chapter, so it covers exactly the quests that all name each other there; any other
+ * named quest leaves this one open after it completes, which the warning says.
+ */
+function questIncompatible(node: SnbtNode, ctx: QuestContext, out: Record<string, unknown>): void {
+  const list = snbtGet(node, "incompatible");
+  if (list === undefined || list.kind !== "list") {
+    return;
+  }
+  if (ctx.exclusiveGroup !== undefined) {
+    out["exclusiveGroup"] = ctx.exclusiveGroup;
+  }
+  const open = list.items
+    .map((item) => (item.kind === "string" ? item.value.toLowerCase() : ""))
+    .filter((id) => id !== "" && !(ctx.exclusivePeers?.has(id) ?? false));
+  if (ctx.exclusiveGroup !== undefined) {
+    ctx.report.note({
+      code: "exclusive-group",
+      message: `the quest ${ctx.questId} and the quests it is incompatible with lock each other (questsadditions); they share the exclusive group ${ctx.exclusiveGroup}`,
+      path: ctx.chapter.path,
+      line: list.line,
+      key: "incompatible",
+    });
+  }
+  if (open.length > 0) {
+    const names = open.map((id) => ctx.slugs.quests.get(id) ?? id);
+    ctx.report.warn({
+      code: "incompatible-quest",
+      message: `the quest ${ctx.questId} locks once ${names.join(", ")} ${open.length === 1 ? "is" : "are"} done (questsadditions, one way); Tenet locks only both ways within a chapter, so it stays open`,
+      path: ctx.chapter.path,
+      line: list.line,
+      key: "incompatible",
+      value: names,
+    });
+  }
+}
+
+/**
+ * Exclusive groups for a chapter: the quests whose questsadditions `incompatible` lists all
+ * name each other, every pair both ways, in this chapter. Each such set locks as Tenet's
+ * exclusive group does; the group is named for its lowest id.
+ */
+function exclusiveGroups(
+  resolved: ReadonlyArray<{ readonly node: SnbtNode; readonly id: string }>,
+): Map<string, { name: string; members: ReadonlySet<string> }> {
+  const names = new Map<string, Set<string>>();
+  for (const entry of resolved) {
+    const list = snbtGet(entry.node, "incompatible");
+    if (list !== undefined && list.kind === "list") {
+      names.set(
+        entry.id,
+        new Set(list.items.map((item) => (item.kind === "string" ? item.value.toLowerCase() : "")).filter((id) => id !== "")),
+      );
+    }
+  }
+  const mutual = (a: string, b: string): boolean => (names.get(a)?.has(b) ?? false) && (names.get(b)?.has(a) ?? false);
+  const out = new Map<string, { name: string; members: ReadonlySet<string> }>();
+  const seen = new Set<string>();
+  for (const start of [...names.keys()].sort()) {
+    if (seen.has(start)) {
+      continue;
+    }
+    const members = new Set<string>([start]);
+    const queue = [start];
+    while (queue.length > 0) {
+      const at = queue.pop() as string;
+      for (const next of names.get(at) ?? []) {
+        if (!members.has(next) && mutual(at, next)) {
+          members.add(next);
+          queue.push(next);
+        }
+      }
+    }
+    for (const member of members) {
+      seen.add(member);
+    }
+    const list = [...members].sort();
+    const clique = list.length > 1 && list.every((a) => list.every((b) => a === b || mutual(a, b)));
+    if (clique) {
+      const group = { name: `incompatible_${list[0] as string}`, members };
+      for (const member of list) {
+        out.set(member, group);
+      }
+    }
+  }
+  return out;
 }
 
 function emitFlag(
