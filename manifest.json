@@ -72,7 +72,7 @@
       "curseforge": "tenet",
       "version": "1.0.0",
       "localPath": "../tenet",
-      "pin": "1c08f4829ca482cd91c559f04d8538a483a4aa9d",
+      "pin": "a0d6ccc2a9b1f87d421d94210963578ac58f8158",
       "docsPath": "docs",
       "minecraft": "26.3",
       "loaders": [
@@ -88,7 +88,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "1c08f4829ca482cd91c559f04d8538a483a4aa9d",
+          "pin": "a0d6ccc2a9b1f87d421d94210963578ac58f8158",
           "branch": "main",
           "localPath": "../tenet",
           "default": true
