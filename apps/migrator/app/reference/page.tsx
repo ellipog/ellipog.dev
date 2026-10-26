@@ -88,7 +88,7 @@ export default function ReferencePage() {
               ['forge_energy', 'tenet:energy', 'value + maxInput; absent max_input means unlimited.'],
               ['kill', 'tenet:kill', 'Tag takes precedence over id; NBT fuzzy subset match.'],
               ['location', 'tenet:location', 'Same box; ignore_dim → ignoreDimension.'],
-              ['item + match_components', 'tenet:item + match', 'none / fuzzy / strict identical; 1.20.1 match_nbt becomes match. Integers past ±2⁵³−1 force fuzzy.'],
+              ['item + match_components', 'tenet:item + match', 'none / fuzzy / strict identical. Unmarked is none in FTB but strict in Tenet, so it is written as none. 1.19/1.20 match_nbt: true is strict, with weak_nbt_match fuzzy, else none. Integers past ±2⁵³−1 force strict to fuzzy.'],
               ['item data components', 'verbatim', 'Passed through structurally, never interpreted; 1b/0b read as booleans.'],
               ['item + only_from_crafting', 'tenet:item + onlyFromCrafting', 'Tenet counts lifetime crafted statistics.'],
               ['item + consume_items', 'tenet:item + consumeItems', 'Absent defers to chapter defaultConsumeItems, then file default.'],

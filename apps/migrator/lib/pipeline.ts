@@ -83,7 +83,8 @@ function fmtSize(n: number): string {
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
-function versionOf(book: { data: { root: Parameters<typeof snbtGet>[0] } }): number | null {  const version = snbtGet(book.data.root, 'version');
+function versionOf(book: { data: { root: Parameters<typeof snbtGet>[0] } }): number | null {
+  const version = snbtGet(book.data.root, 'version');
   if (
     version !== undefined &&
     (version.kind === 'int' || version.kind === 'long' || version.kind === 'short' || version.kind === 'byte')
@@ -91,6 +92,29 @@ function versionOf(book: { data: { root: Parameters<typeof snbtGet>[0] } }): num
     return Number(version.value);
   }
   return null;
+}
+
+/**
+ * Why a run stopped, in one sentence the Result head can show. Unknown fields are the one
+ * failure a checkbox fixes, so they say so; parse errors name themselves; the rest point at
+ * the report, which names every one.
+ */
+function failureSentence(report: Report, options: PipelineOptions, phase: 'load' | 'convert'): string {
+  const errors = report.sorted().filter((entry) => entry.severity === 'error');
+  const n = errors.length;
+  const plural = (count: number, word: string): string => `${count} ${word}${count === 1 ? '' : 's'}`;
+  if (n > 0 && errors.every((entry) => entry.code === 'unmapped-field')) {
+    return options.allowLoss
+      ? `${plural(n, 'field')} this converter has no mapping for — see the report.`
+      : `${plural(n, 'field')} this converter has no mapping for. Allow loss to convert without them, each listed as a warning.`;
+  }
+  if (errors.some((entry) => entry.code === 'parse-error')) {
+    return `${plural(errors.filter((entry) => entry.code === 'parse-error').length, 'file')} would not parse — see the report.`;
+  }
+  const lead = phase === 'load' ? 'The quest book did not load' : 'Conversion failed';
+  return options.allowLoss
+    ? `${lead}: ${plural(n, 'error')} — see the report.`
+    : `${lead}: ${plural(n, 'error')}. Allow loss leaves out what cannot convert and lists it, or see the report.`;
 }
 
 function fail(
@@ -130,7 +154,9 @@ export async function convertVfs(
   onProgress: ProgressFn = noop,
   skipped: ReadonlyArray<SkippedFile> = [],
 ): Promise<PipelineResult> {
-  const report = new Report();
+  // Allow-loss also lets one broken task, reward, table entry or picture go on its own
+  // (warned) instead of stopping the run; see Report.lossy in the core.
+  const report = new Report({ lossy: options.allowLoss });
   onProgress('detect', 0, 7);
   for (const s of skipped) {
     report.note({
@@ -169,7 +195,7 @@ export async function convertVfs(
   const rebased = rebaseToRoot(allFiles, root);
   const book = loadQuestBook(rebased, { allowLoss: options.allowLoss }, report);
   if (book === null) {
-    return fail(report, allFiles.length, 'No quest book here — see the report.', {
+    return fail(report, allFiles.length, failureSentence(report, options, 'load'), {
       detectedRoot: root,
       outputRoot,
       evidence: picked.evidence,
@@ -219,7 +245,7 @@ export async function convertVfs(
     return {
       ...fail(report, allFiles.length, options.strict && !report.failed
         ? 'Strict mode: warnings fail the run — see the report.'
-        : 'Conversion failed — see the report.', {
+        : failureSentence(report, options, 'convert'), {
         detectedRoot: root,
         outputRoot,
         evidence: picked.evidence,

@@ -46,13 +46,14 @@ export {
   IMAGE_KEYS,
   LINK_KEYS,
 } from "./model";
-export type { ModelOptions, ParsedFile, ChapterInput, QuestBookInput } from "./model";
+export type { ModelOptions, ParsedFile, ChapterInput, QuestBookInput, InlineText } from "./model";
+export { upgradeLegacyStacks } from "./legacy";
 export { buildIds, resolveQuestRef, resolveQuestSlug, remapTableId, idsJson } from "./ids";
 export { buildSlugs, slugifyTitle, questTitleCandidate, readableItem } from "./slugs";
 export type { SlugMaps, TitleCandidate, TitleOrigin } from "./slugs";
 export type { IdMap, IdEntry, QuestIdEntry, FileIdEntry, TaskIdEntry, DeadEdge, ChapterEdge } from "./ids";
 export { LangPool, collectImageIds, proseBreaks, proseLine } from "./lang";
-export type { LangOptions } from "./lang";
+export type { LangOptions, LangSources } from "./lang";
 export {
   readFileDefaults,
   readChapterDefaults,

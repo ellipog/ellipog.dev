@@ -28,6 +28,7 @@ import { IdMap, remapTableId } from "./ids";
 import { componentsToJson, mapIcon } from "./icons";
 import { LangPool } from "./lang";
 import { Report } from "./report";
+import { readTagItems, tenetStage } from "./tags";
 import { SnbtNode, snbtGet, snbtToJson } from "./snbt";
 import { rewriteCommand } from "./commands";
 import { SlugMaps } from "./slugs";
@@ -42,7 +43,6 @@ export interface RewardContext {
 }
 
 const MAX_COUNT = 6400;
-const TAG_PATTERN = /^[a-z0-9_]{1,64}$/;
 const AUTO_WORDS: ReadonlySet<string> = new Set([
   "default",
   "disabled",
@@ -196,12 +196,12 @@ function mapXpReward(
     fail(ctx, node, key, `an xp reward names no ${key}`);
     return null;
   }
-  const value = integerField(amount, ctx, key);
-  if (value === null) {
+  const raw = integerField(amount, ctx, key);
+  if (raw === null) {
     return null;
   }
-  if (value < 1 || value > 100000) {
-    fail(ctx, amount, key, `${key} ${value} stands outside 1–100000`);
+  const value = xpAmount(raw, amount, key, ctx);
+  if (value === null) {
     return null;
   }
   out["amount"] = value;
@@ -230,27 +230,28 @@ function mapCommandReward(node: SnbtNode, ctx: RewardContext): Record<string, un
   const out: Record<string, unknown> = { type: "tenet:command" };
   const command = stringField(node, "command");
   if (command === null || command === "") {
-    fail(ctx, node, "command", "a command reward names no command");
-    return null;
+    // FTB runs the empty command, which does nothing: a placeholder row, left out.
+    return emptyReward(node, ctx, "command", `a command reward of quest ${ctx.questId} names no command, which runs nothing in FTB either; it is left out`);
   }
   out["command"] = rewriteCommand(command, ctx.ids, ctx.slugs, ctx.report, ctx.chapter, node.line, `a command of quest ${ctx.questId}`);
-  // FTB's default is console execution; Tenet runs reward commands as the
-  // collecting player, always. True is Tenet's own reading (nothing to say);
-  // anything else names whose hands changed, because a console ponder and a
+  // FTB 1.20 and 1.21 run every reward command from the collecting player's own source
+  // (the jar never reads `player_command`), exactly as Tenet does, so there is nothing to
+  // say — except to a book written for FTB 1.19, whose `player_command: false` ran from
+  // the console. That one names whose hands changed, because a console ponder and a
   // player ponder open for different people.
-  if (!readBool(node, "player_command", false, ctx)) {
-    // Tenet runs reward commands as the collecting player, always: a console
-    // execution has no Tenet reading, so the reward keeps the command and says
-    // whose hands it changed. A ponder opening for the collector reads the same.
+  if (snbtGet(node, "player_command") !== undefined && !readBool(node, "player_command", false, ctx)) {
     ctx.report.note({
       code: "player-command-console",
-      message: `a command reward of quest ${ctx.questId} ran from the console in FTB; in Tenet it runs as the collecting player`,
+      message: `a command reward of quest ${ctx.questId} says player_command: false, which ran from the console in FTB 1.19; FTB 1.21 and Tenet run it as the collecting player`,
       path: ctx.chapter,
       line: node.line,
       key: "player_command",
     });
   }
-  const level = snbtGet(node, "permission_level");
+  // FTB reads the 1.20-era `elevate_perms` first: true runs at level 2 (Tenet's default,
+  // so nothing to write) and the newer field is never consulted.
+  const elevated = readBool(node, "elevate_perms", false, ctx);
+  const level = elevated ? undefined : snbtGet(node, "permission_level");
   if (level !== undefined) {
     const value = integerField(level, ctx, "permission_level");
     if (value === null) {
@@ -287,10 +288,33 @@ function mapStageReward(node: SnbtNode, ctx: RewardContext): Record<string, unkn
   const out: Record<string, unknown> = { type: "tenet:stage" };
   const stage = stringField(node, "stage");
   if (stage === null) {
-    fail(ctx, node, "stage", "a stage reward names no stage");
+    // FTB grants the empty stage name, which nothing ever checks: the reward does nothing
+    // there (packs use it as a titled placeholder row), so it is left out, not failed.
+    ctx.report.warn({
+      code: "empty-reward",
+      message: `a stage reward of quest ${ctx.questId} names no stage, which grants nothing in FTB either; it is left out`,
+      path: ctx.chapter,
+      line: node.line,
+      key: "stage",
+    });
     return null;
   }
-  out["stage"] = stage;
+  const spelled = tenetStage(stage);
+  if (spelled === null) {
+    fail(ctx, node, "stage", `a stage reward of quest ${ctx.questId} names the stage ${JSON.stringify(stage)}, which has nothing an id can keep`);
+    return null;
+  }
+  if (spelled !== stage) {
+    ctx.report.warn({
+      code: "renamed-stage",
+      message: `a stage reward of quest ${ctx.questId} names the stage ${JSON.stringify(stage)}; Tenet stages are ids, so it reads ${JSON.stringify(spelled)} (scripts granting or checking the old name must follow)`,
+      path: ctx.chapter,
+      line: node.line,
+      key: "stage",
+      value: spelled,
+    });
+  }
+  out["stage"] = spelled;
   if (readBool(node, "remove", false, ctx)) {
     out["remove"] = true;
   }
@@ -379,8 +403,8 @@ function mapTableReward(
     }
     out["inline"] = tableJson;
   } else {
-    fail(ctx, node, "table_id", `a ${kind} reward names no table`);
-    return null;
+    // FTB rolls nothing from a table it cannot find: a placeholder row, left out.
+    return emptyReward(node, ctx, "table_id", `a ${kind} reward of quest ${ctx.questId} names no table, which rolls nothing in FTB either; it is left out`);
   }
   return finishReward(node, ctx, out);
 }
@@ -442,13 +466,23 @@ function mapTableBody(root: SnbtNode, ctx: RewardContext): Record<string, unknow
   const out: Record<string, unknown> = {};
   const size = snbtGet(root, "loot_size");
   if (size !== undefined) {
-    const value = integerField(size, ctx, "loot_size");
-    if (value === null) {
+    const read = integerField(size, ctx, "loot_size");
+    if (read === null) {
       return null;
     }
+    let value = read;
     if (value < 1 || value > 1000) {
-      fail(ctx, size, "loot_size", `loot size ${value} stands outside 1–1000`);
-      return null;
+      // FTB rolls whatever the editor saved; Tenet rolls 1–1000, so the size clamps there.
+      const clamped = Math.min(1000, Math.max(1, value));
+      ctx.report.warn({
+        code: "clamped-loot-size",
+        message: `a table rolls ${value} times; Tenet rolls 1–1000, so it rolls ${clamped}`,
+        path: ctx.chapter,
+        line: size.line,
+        key: "loot_size",
+        value,
+      });
+      value = clamped;
     }
     if (value !== 1) {
       out["lootSize"] = value;
@@ -515,10 +549,14 @@ function mapTableBody(root: SnbtNode, ctx: RewardContext): Record<string, unknow
     // A null with no new error is a skip with its own report (a custom kind left out
     // as manual work); only a new error stops the table.
     const errorsBefore = ctx.report.errorCount;
+    const mark = ctx.report.mark();
     const entry = mapTableEntry(item, ctx);
     if (entry === null) {
       if (ctx.report.errorCount > errorsBefore) {
-        return null;
+        if (!ctx.report.lossy) {
+          return null;
+        }
+        ctx.report.soften(mark, "with loss allowed, this table entry is left out");
       }
       continue;
     }
@@ -614,11 +652,16 @@ function mapTableEntryReward(item: SnbtNode, ctx: RewardContext): Record<string,
 
 function mapTableItemReward(item: SnbtNode, ctx: RewardContext): Record<string, unknown> | null {
   const stack = snbtGet(item, "item");
-  if (stack === undefined || stack.kind !== "compound") {
+  // FTB's shorthand, as on quest rewards: a bare id is a stack of one of the item.
+  const shorthand = stack !== undefined && stack.kind === "string" && stack.value.length > 0;
+  if (!shorthand && (stack === undefined || stack.kind !== "compound")) {
     fail(ctx, item, "item", "a table entry names no item object");
     return null;
   }
-  const ref = mapItemStack(stack, ctx, "a table entry");
+  const ref =
+    stack !== undefined && stack.kind === "string"
+      ? { item: stack.value, stackCount: 1, components: undefined }
+      : mapItemStack(stack as SnbtNode, ctx, "a table entry");
   if (ref === null) {
     return null;
   }
@@ -680,15 +723,52 @@ function mapTableLevelsReward(item: SnbtNode, ctx: RewardContext): Record<string
     fail(ctx, item, "xp_levels", "a table entry names no levels");
     return null;
   }
-  const value = integerField(levels, ctx, "xp_levels");
+  const raw = integerField(levels, ctx, "xp_levels");
+  if (raw === null) {
+    return null;
+  }
+  const value = xpAmount(raw, levels, "xp_levels", ctx);
   if (value === null) {
     return null;
   }
-  if (value < 1 || value > 100000) {
-    fail(ctx, levels, "xp_levels", `levels ${value} stand outside 1–100000`);
+  return { type: "tenet:xp", amount: value, levels: true };
+}
+
+/** A reward that grants nothing on either side: warned and left out, never failed. */
+function emptyReward(node: SnbtNode, ctx: RewardContext, key: string, message: string): null {
+  ctx.report.warn({ code: "empty-reward", message, path: ctx.chapter, line: node.line, key });
+  return null;
+}
+
+/**
+ * An xp grant inside Tenet's 1–100000. FTB stores what the editor saved: zero or less grants
+ * nothing there, so the reward is left out (warned, never failed); more than Tenet's cap
+ * clamps to it, warned with the pack's own number.
+ */
+function xpAmount(value: number, node: SnbtNode, key: string, ctx: RewardContext): number | null {
+  if (value < 1) {
+    ctx.report.warn({
+      code: "empty-reward",
+      message: `an xp reward of quest ${ctx.questId} grants ${key} ${value}, which gives nothing in FTB either; it is left out`,
+      path: ctx.chapter,
+      line: node.line,
+      key,
+      value,
+    });
     return null;
   }
-  return { type: "tenet:xp", amount: value, levels: true };
+  if (value > 100000) {
+    ctx.report.warn({
+      code: "clamped-xp",
+      message: `an xp reward of quest ${ctx.questId} grants ${key} ${value}, over Tenet's cap of 100000; it grants 100000`,
+      path: ctx.chapter,
+      line: node.line,
+      key,
+      value,
+    });
+    return 100000;
+  }
+  return value;
 }
 
 function finishReward(
@@ -757,7 +837,9 @@ function finishReward(
 function rewardTitle(node: SnbtNode, ctx: RewardContext): string | null {
   const title = snbtGet(node, "title");
   if (title === undefined) {
-    return null;
+    // 1.21 books keep a reward's words in the language files, `reward.<HEX>.title`.
+    const id = snbtGet(node, "id");
+    return id !== undefined && id.kind === "string" ? ctx.lang.rewardTitle(id.value) : null;
   }
   if (title.kind !== "string") {
     fail(ctx, title, "title", "a reward title is not text");
@@ -800,15 +882,7 @@ function readTags(node: SnbtNode, ctx: RewardContext): ReadonlyArray<string> | n
     fail(ctx, tags, "tags", "tags is not a list");
     return null;
   }
-  const out: Array<string> = [];
-  for (const item of tags.items) {
-    if (item.kind !== "string" || !TAG_PATTERN.test(item.value)) {
-      fail(ctx, item, "tags", "a tag breaks the lowercase-letters-digits-underscores rule");
-      return null;
-    }
-    out.push(item.value);
-  }
-  return out;
+  return readTagItems(tags.items, ctx.report, ctx.chapter, `a reward of quest ${ctx.questId}`);
 }
 
 interface StackRef {

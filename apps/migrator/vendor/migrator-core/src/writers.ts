@@ -43,6 +43,7 @@ import { mapIcon, mapItemRef } from "./icons";
 import { LangPool, collectImageIds } from "./lang";
 import { ChapterInput, QuestBookInput } from "./model";
 import { Report } from "./report";
+import { readTagItems } from "./tags";
 import { FileDefaults, readChapterDefaults, readFileDefaults } from "./resolve";
 import type { ChapterDefaults } from "./resolve";
 import { SnbtNode, snbtGet } from "./snbt";
@@ -73,7 +74,6 @@ const SCHEMA = {
   quest: "https://ellipog.dev/tenet/_schema/quest.schema.json",
 };
 
-const TAG_PATTERN = /^[a-z0-9_]{1,64}$/;
 
 /**
  * Convert a loaded, identity-built book into output files. Quest files carry their P8 content
@@ -92,6 +92,7 @@ export function convertBook(
     book.lang,
     { canonicalLocale: options.canonicalLocale, fallbackLocale: options.fallbackLocale },
     report,
+    { parts: book.langParts, inline: book.inlineText, inlineLocale: book.inlineLocale },
   );
   const slugs = buildSlugs(book, ids, pool);
   pool.checkOrphans(ids, collectImageIds(book));
@@ -130,7 +131,7 @@ export function convertBook(
   for (const group of groups) {
     files.push({
       path: `${group.slug}/group.json`,
-      text: emitJson(writeGroup(pool, group, chaptersByGroup.get(group.id) ?? [], slugs, report)),
+      text: emitJson(writeGroup(pool, group, chaptersByGroup.get(group.id) ?? [], slugs, report, book.groups?.path ?? "chapter_groups.snbt")),
     });
   }
   // Emitted slug graph for the gate-cycle check: quest and gate `dependsOn` alike,
@@ -289,8 +290,8 @@ function orderedGroups(
   book: QuestBookInput,
   ids: IdMap,
   slugs: SlugMaps,
-): Array<{ id: string; source: string; slug: string }> {
-  const out: Array<{ id: string; source: string; slug: string }> = [];
+): Array<{ id: string; source: string; slug: string; node: SnbtNode }> {
+  const out: Array<{ id: string; source: string; slug: string; node: SnbtNode }> = [];
   if (book.groups !== null) {
     const list = snbtGet(book.groups.root, "chapter_groups");
     if (list !== undefined && list.kind === "list") {
@@ -302,7 +303,7 @@ function orderedGroups(
         if (id !== undefined && id.kind === "string") {
           const entry = ids.groups.get(id.value.toLowerCase());
           if (entry !== undefined && !out.some((group) => group.id === entry.id)) {
-            out.push({ id: entry.id, source: entry.source, slug: slugs.groups.get(entry.id) ?? entry.id });
+            out.push({ id: entry.id, source: entry.source, slug: slugs.groups.get(entry.id) ?? entry.id, node: item });
           }
         }
       }
@@ -383,6 +384,18 @@ function writeIndex(
   writeBoolSetting(book, "pause_game", "pauseGame", settings, report);
   writeBoolSetting(book, "disable_gui", "disableGui", settings, report);
   writeBoolSetting(book, "drop_book_on_death", "dropBookOnDeath", settings, report);
+  const bookToast = snbtGet(book.data.root, "disable_toast");
+  if (bookToast !== undefined && readOptBool(book.data.root, "disable_toast") !== false) {
+    // FTB toasts a book whose every quest is done (BaseQuestFile.onCompleted); Tenet never
+    // announces a whole book, so the flag silences nothing there.
+    report.note({
+      code: "no-book-toast",
+      message: "the book silences the toast FTB raises once every quest is done; Tenet raises none, so nothing changes",
+      path: book.data.path,
+      line: bookToast.line,
+      key: "disable_toast",
+    });
+  }
   const grid = readNumber(book.data.root, "grid_scale", 0.5);
   if (grid !== 0.5) {
     settings["gridScale"] = grid;
@@ -392,7 +405,17 @@ function writeIndex(
     settings["lockMessage"] = lockMessage;
   }
   const cooldown = readInt(book.data.root, "emergency_items_cooldown", 0);
-  settings["emergencyItemsCooldown"] = cooldown;
+  if (cooldown > 86400) {
+    // Tenet waits at most a day between grants; a longer wait reads as that day.
+    report.warn({
+      code: "clamped-cooldown",
+      message: `emergency_items_cooldown is ${cooldown}; Tenet waits at most 86400 seconds (a day), so it waits that long`,
+      path: book.data.path,
+      key: "emergency_items_cooldown",
+      value: cooldown,
+    });
+  }
+  settings["emergencyItemsCooldown"] = Math.min(cooldown, 86400);
   const emergency = snbtGet(book.data.root, "emergency_items");
   if (emergency !== undefined && emergency.kind === "list" && emergency.items.length > 0) {
     const items: Array<unknown> = [];
@@ -477,10 +500,11 @@ function reportNoHomeSettings(book: QuestBookInput, report: Report): void {
 
 function writeGroup(
   pool: LangPool,
-  group: { id: string; source: string; slug: string },
+  group: { id: string; source: string; slug: string; node: SnbtNode },
   chapters: Array<ChapterInput>,
   slugs: SlugMaps,
   report: Report,
+  path: string,
 ): Record<string, unknown> {
   const doc: Record<string, unknown> = { $schema: SCHEMA.group, id: group.slug };
   const title = pool.groupTitle(group.source);
@@ -493,6 +517,10 @@ function writeGroup(
     doc["title"] = "";
   } else {
     doc["title"] = title;
+  }
+  const icon = mapIcon(snbtGet(group.node, "icon"), report, path, `the chapter group ${group.source}'s icon`);
+  if (icon !== null) {
+    doc["icon"] = icon;
   }
   doc["chapters"] = chapters.map((chapter) => {
     const hex = (chapter.id ?? "").toLowerCase();
@@ -572,11 +600,12 @@ function writeChapter(
     doc["completesWhen"] = completesWhen;
   }
   const disableToast = snbtGet(chapter.node, "disable_toast");
-  if (disableToast !== undefined) {
-    // No Tenet chapter home, and Tenet never toasts a chapter: the flag is a no-op here.
+  if (disableToast !== undefined && readOptBool(chapter.node, "disable_toast") !== false) {
+    // FTB reads it for the chapter's own completion toast only (Chapter.onCompleted). Tenet
+    // announces every finished chapter and has no switch to quiet one, so the toast returns.
     report.note({
       code: "no-chapter-toast",
-      message: "the chapter silences its own completion toast, which Tenet never shows",
+      message: "the chapter silences its own completion toast; Tenet announces every finished chapter and has no switch for it, so this one is announced",
       path: chapter.path,
       line: disableToast.line,
       key: "disable_toast",
@@ -705,21 +734,7 @@ function readTags(chapter: ChapterInput, report: Report): ReadonlyArray<string> 
     });
     return null;
   }
-  const out: Array<string> = [];
-  for (const item of tags.items) {
-    if (item.kind !== "string" || !TAG_PATTERN.test(item.value)) {
-      report.error({
-        code: "malformed-tag",
-        message: `tag ${JSON.stringify(item.kind === "string" ? item.value : null)} breaks the lowercase-letters-digits-underscores rule`,
-        path: chapter.path,
-        line: item.line,
-        key: "tags",
-      });
-      return null;
-    }
-    out.push(item.value);
-  }
-  return out;
+  return readTagItems(tags.items, report, chapter.path, `the chapter ${chapter.id ?? "?"}`);
 }
 
 function readOptBool(node: SnbtNode, key: string): boolean | null {

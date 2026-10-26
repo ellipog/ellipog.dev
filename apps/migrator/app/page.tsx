@@ -12,6 +12,8 @@
  */
 import { Fragment, useRef, useState } from 'react';
 
+import { CONVERSION, Diagram } from '@/components/diagram';
+import { PixelBar, Stages } from '@/components/progress';
 import type { ReportEntry, VfsFile } from '@/lib/core';
 import { alreadyMigrated, detectBooks } from '@/lib/detect';
 import type { Detection } from '@/lib/detect';
@@ -240,8 +242,9 @@ export default function MigratorPage() {
 
   const migratedReason = files ? alreadyMigrated(files) : null;
 
-  // Locales present in the detected book's lang/ (merged build artefacts excluded,
-  // same rule as the core) — shown under the canonical input so the choice is informed.
+  // Locales present in the detected book's lang/ — a locale file or a split folder
+  // (lang/<locale>/…), merged build artefacts excluded, same rule as the core — shown
+  // under the canonical input so the choice is informed.
   const langRoot =
     effectiveRoot === undefined ? null : effectiveRoot === '' ? 'lang' : `${effectiveRoot}/lang`;
   const foundLocales =
@@ -251,12 +254,16 @@ export default function MigratorPage() {
           files.flatMap((f) => {
             if (!f.path.startsWith(`${langRoot}/`) || !f.path.endsWith('.snbt')) return [];
             const base = f.path.slice(langRoot.length + 1, -'.snbt'.length);
-            return base.includes('/') || base.endsWith('_merged') ? [] : [base];
+            const cut = base.indexOf('/');
+            if (cut > 0) return [base.slice(0, cut)];
+            return base.endsWith('_merged') ? [] : [base];
           }),
         )].sort();
 
-  async function run(): Promise<void> {
+  async function run(override: Partial<PipelineOptions> = {}): Promise<void> {
     if (!files || files.length === 0 || running) return;
+    const chosen = { ...opts, ...override };
+    if (override.allowLoss !== undefined) setOpts(chosen);
     setRunning(true);
     setResult(null);
     setRunError(null);
@@ -265,7 +272,7 @@ export default function MigratorPage() {
     setProgress({ stage: 'detect', done: 0, total: 7 });
     // Geometry scales are intentionally unexposed: the core's measured ×64/×48
     // always apply. The pipeline keeps the override fields for scripts, not UI.
-    const effective = { ...opts, coordinateScale: null, sizeScale: null };
+    const effective = { ...chosen, coordinateScale: null, sizeScale: null };
     const handle = runPipeline(files, effective, selectedRoot, (stage, done, total) => {
       setProgress({ stage, done, total });
       setLog((lines) => [...lines, `${stage} — ${done}/${total}`]);
@@ -340,13 +347,22 @@ export default function MigratorPage() {
 
   return (
     <main>
-      <section className="hero">
-        <p className="eyebrow">ftb quests 1.21.1 → tenet · client-side</p>
-        <h1>FTB Quests → Tenet migrator.</h1>
-        <p className="sub">
-          Drop a quest export, get back a Tenet tree. Parsing and conversion run in this page —{' '}
-          <strong>files never leave the browser</strong>.
-        </p>
+      <section className="hero hero-split">
+        <div className="hero-copy">
+          <p className="eyebrow">ftb quests 1.21.1 → tenet · client-side</p>
+          <h1>FTB Quests → Tenet migrator.</h1>
+          <p className="sub">
+            Drop a quest export, get back a Tenet tree. Parsing and conversion run in this page —{' '}
+            <strong>files never leave the browser</strong>.
+          </p>
+        </div>
+        <figure className="hero-figure">
+          <figcaption className="figure-label">
+            <span>fig. 1</span>
+            <span>what goes in, and what comes out</span>
+          </figcaption>
+          <Diagram lines={CONVERSION} />
+        </figure>
       </section>
 
       <section className="stage">
@@ -366,6 +382,7 @@ export default function MigratorPage() {
             onClick={() => folderRef.current?.click()}
             onKeyDown={(e) => { if (e.key === 'Enter') folderRef.current?.click(); }}
           >
+            <span className="dropzone-glyph" aria-hidden="true">↓</span>
             <h2>Drop a quest folder or .zip here</h2>
             <p className="muted">…or pick below. Anything from the quest book up to the whole profile or instance zip works — the book is found where it lives, and files too big to hold (jars, saves) are listed, not copied.</p>
             <div className="btnrow" onClick={(e) => e.stopPropagation()}>
@@ -377,23 +394,11 @@ export default function MigratorPage() {
           </div>
           {scan && (
             <div>
-              <div
-                className="prog"
-                data-mode={scan.total === null ? 'ind' : undefined}
-                role="progressbar"
-                aria-label={scan.label}
-                aria-valuenow={scan.total === null ? undefined : scan.done}
-                aria-valuemax={scan.total ?? undefined}
-              >
-                <span
-                  style={
-                    scan.total === null || scan.total === 0
-                      ? undefined
-                      : { width: `${(scan.done / scan.total) * 100}%` }
-                  }
-                />
-              </div>
-              <p className="mono muted" style={{ fontSize: 12 }}>
+              <PixelBar
+                label={scan.label}
+                value={scan.total === null || scan.total === 0 ? null : scan.done / scan.total}
+              />
+              <p className="pixelbar-note">
                 {scan.label}… {scan.total === null ? `${scan.done} files so far` : `${scan.done}/${scan.total} files`}
               </p>
             </div>
@@ -471,8 +476,8 @@ export default function MigratorPage() {
               </label>
               <label>
                 <span className="label">Unknown fields</span>
-                <span className="checkline"><input type="checkbox" checked={opts.allowLoss} onChange={(e) => setOpts({ ...opts, allowLoss: e.target.checked })} /> allow loss (unknown keys warn)</span>
-                <span className="help">Other packs aren&rsquo;t ATM10: modded or newer FTB fields fail here by default, each named. On to convert anyway with them reported as warnings.</span>
+                <span className="checkline"><input type="checkbox" checked={opts.allowLoss} onChange={(e) => setOpts({ ...opts, allowLoss: e.target.checked })} /> allow loss (convert anyway)</span>
+                <span className="help">Fields this converter has no mapping for, and a task, reward or picture that cannot convert, stop the run by default, each named. On: they are left out and listed as warnings.</span>
               </label>
               <label>
                 <span className="label">Output</span>
@@ -484,8 +489,9 @@ export default function MigratorPage() {
             </div>
             <p className="muted" style={{ fontSize: 13 }}>
               Every locale found is emitted as a <span className="mono">lang/</span> overlay; canonical text is
-              inlined. Unknown fields fail the run unless allow-loss is on. ATM10 converts with zero errors;
-              everything approximated is listed in the report.
+              inlined. Older books (text inside the quest files, split <span className="mono">lang/&lt;locale&gt;/</span> folders,
+              1.20 item stacks) read as their 1.21 equivalents. ATM10 converts with zero errors; everything
+              approximated is listed in the report.
             </p>
           </div>
         </section>
@@ -520,10 +526,13 @@ export default function MigratorPage() {
             </div>
             {(running || log.length > 0) && (
               <>
-                <div className="prog" role="progressbar" aria-valuenow={progress.done} aria-valuemax={progress.total}>
-                  <span style={{ width: `${(progress.done / progress.total) * 100}%` }} />
-                </div>
-                <div className="log">{log.join('\n')}</div>
+                <Stages
+                  done={progress.done}
+                  running={running}
+                  complete={!running && !!result && !result.failed}
+                  failed={!running && (!!runError || !!result?.failed)}
+                />
+                <div className="log" data-live={running}>{log.join('\n')}</div>
               </>
             )}
             {runError && <p style={{ color: 'var(--danger)' }}>{runError}</p>}
@@ -536,7 +545,7 @@ export default function MigratorPage() {
           <div className="stage-head">
             <span className="label">5 · Result</span>
             <span className="faint mono">
-              {result.failed ? `failed — ${result.fatal ?? 'see report'}` : `${result.filesOut} files out`}
+              {result.failed ? `failed · ${result.errors} error${result.errors === 1 ? '' : 's'}` : `${result.filesOut} files out`}
             </span>
           </div>
           <div className="stage-body">
@@ -549,6 +558,20 @@ export default function MigratorPage() {
               {skipped.length > 0 && <span><b>{skipped.length}</b> too big, in report</span>}
             </div>
             {result.evidence && <p className="evidence">{result.evidence} → {result.outputRoot === '' ? '(book root)' : <span className="mono">{result.outputRoot}/</span>}</p>}
+
+            {result.failed && (
+              <>
+                <p className="muted" style={{ fontSize: 13 }}>{result.fatal ?? 'See the report below.'}</p>
+                {!opts.allowLoss && (
+                  <div className="toolbar">
+                    <button type="button" className="btn" data-primary="true" disabled={running} onClick={() => void run({ allowLoss: true })}>
+                      Convert with loss allowed
+                    </button>
+                    <span className="help">Leaves out what cannot convert, each one listed as a warning.</span>
+                  </div>
+                )}
+              </>
+            )}
 
             {!result.failed && (
               <>
@@ -592,7 +615,7 @@ export default function MigratorPage() {
                         onClick={() => setFoldFiles({ ...foldFiles, [kind]: folded })}
                       >
                         <span className="fold-title">
-                          <span className="fold-caret" aria-hidden>{folded ? '▸' : '▾'}</span>
+                          <span className="fold-caret" aria-hidden>{folded ? '[+]' : '[−]'}</span>
                           <span className="fold-name">
                             {FILE_KIND_LABEL[kind]}
                             <span className="fold-sub">{FILE_KIND_SUB[kind]}</span>
@@ -657,7 +680,7 @@ export default function MigratorPage() {
                     onClick={() => setFoldReport({ ...foldReport, [sev]: folded })}
                   >
                     <span className="fold-title">
-                      <span className="fold-caret" aria-hidden>{folded ? '▸' : '▾'}</span>
+                      <span className="fold-caret" aria-hidden>{folded ? '[+]' : '[−]'}</span>
                       {REPORT_SEV_LABEL[sev]}
                     </span>
                     <span className="fold-count">{rows.length}</span>

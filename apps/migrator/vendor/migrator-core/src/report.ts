@@ -40,6 +40,33 @@ interface EntryInput {
 export class Report {
   private readonly entries: Array<ReportEntry> = [];
 
+  /**
+   * Losses the caller accepts (`allowLoss`): a task, reward, table entry or picture that cannot
+   * convert is left out, its errors kept as warnings, instead of stopping the run. Only the
+   * places that can drop one such object whole — nothing else pointing at it — soften what
+   * they recorded; ids, parsing and the schema check stay errors either way.
+   */
+  readonly lossy: boolean;
+
+  constructor(options: { readonly lossy?: boolean } = {}) {
+    this.lossy = options.lossy ?? false;
+  }
+
+  /** Where the report stands now, for {@link soften}. */
+  mark(): number {
+    return this.entries.length;
+  }
+
+  /** Every error recorded since `mark`, kept as a warning naming what was left out. */
+  soften(mark: number, leftOut: string): void {
+    for (let index = mark; index < this.entries.length; index++) {
+      const entry = this.entries[index] as ReportEntry;
+      if (entry.severity === "error") {
+        this.entries[index] = { ...entry, severity: "warning", message: `${entry.message}; ${leftOut}` };
+      }
+    }
+  }
+
   error(input: EntryInput): void {
     this.entries.push({ severity: "error", ...input, value: jsonSafe(input.value) });
   }

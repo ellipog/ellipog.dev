@@ -525,7 +525,11 @@ function legacyHide(quest: SnbtNode, path: string, report: Report): boolean | nu
   return null;
 }
 
-/** An FTB node shape into its Tenet spelling, or null when no node draws it. */
+/**
+ * An FTB node shape into its Tenet spelling. A name outside both sets is a pack's own shape,
+ * drawn from textures its resource pack registers; Tenet has no such node, so it draws as a
+ * circle (FTB's own fallback for a name nothing registers) and the warning names it.
+ */
 export function mapShapeName(shape: string, report: Report, path: string, line: number): string | null {
   if (shape === "rsquare") {
     report.note({
@@ -539,15 +543,15 @@ export function mapShapeName(shape: string, report: Report, path: string, line: 
     return "rounded";
   }
   if (!TENET_SHAPES.has(shape)) {
-    report.error({
+    report.warn({
       code: "unmapped-shape",
-      message: `asks for the shape ${JSON.stringify(shape)}, which Tenet has no node for`,
+      message: `asks for the shape ${JSON.stringify(shape)}, a pack-drawn shape Tenet has no node for; it draws as a circle`,
       path,
       line,
       key: "shape",
       value: shape,
     });
-    return null;
+    return "circle";
   }
   return shape;
 }

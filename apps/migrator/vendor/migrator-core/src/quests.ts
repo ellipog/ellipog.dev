@@ -36,6 +36,7 @@ import { LangPool } from "./lang";
 import { mapIcon } from "./icons";
 import { ChapterInput } from "./model";
 import { Report } from "./report";
+import { readTagItems } from "./tags";
 import {
   ChapterDefaults,
   FileDefaults,
@@ -73,7 +74,6 @@ const PREREQUISITE_MODES: ReadonlySet<string> = new Set([
   "all_started",
   "one_started",
 ]);
-const TAG_PATTERN = /^[a-z0-9_]{1,64}$/;
 
 /**
  * One quest node into its Tenet JSON (without nudging: single-quest callers like tests),
@@ -266,7 +266,22 @@ function mapQuestBody(
   // Tenet refuses a minRequired above the dependency count at load; refuse it here
   // with the pack's own numbers instead of emitting a file Tenet would reject.
   const minRequired = out["minRequired"];
-  if (typeof minRequired === "number" && minRequired > dependsOn.length) {
+  if (typeof minRequired === "number" && minRequired > dependsOn.length && ctx.report.lossy) {
+    // FTB never unlocks it either; with loss allowed it waits on every dependency instead.
+    ctx.report.warn({
+      code: "clamped-min-required",
+      message: `min_required_dependencies is ${minRequired} but the quest waits on only ${dependsOn.length}, so it could never unlock; with loss allowed it waits on all of them`,
+      path: ctx.chapter.path,
+      line: (snbtGet(node, "min_required_dependencies") ?? node).line,
+      key: "min_required_dependencies",
+      value: minRequired,
+    });
+    if (dependsOn.length > 0) {
+      out["minRequired"] = dependsOn.length;
+    } else {
+      delete out["minRequired"];
+    }
+  } else if (typeof minRequired === "number" && minRequired > dependsOn.length) {
     const child = snbtGet(node, "min_required_dependencies") ?? node;
     fail(
       ctx,
@@ -596,14 +611,7 @@ function questFlags(
       fail(ctx, tags, "tags", "tags is not a list");
       return false;
     }
-    const out2: Array<string> = [];
-    for (const item of tags.items) {
-      if (item.kind !== "string" || !/^[a-z0-9_]{1,64}$/.test(item.value)) {
-        fail(ctx, item, "tags", "a tag breaks the lowercase-letters-digits-underscores rule");
-        return false;
-      }
-      out2.push(item.value);
-    }
+    const out2 = readTagItems(tags.items, ctx.report, ctx.chapter.path, `the quest ${ctx.questId}`);
     if (out2.length > 0) {
       out["tags"] = out2;
     }
@@ -653,6 +661,7 @@ function questTasks(node: SnbtNode, ctx: QuestContext): Array<Record<string, unk
   const out: Array<Record<string, unknown>> = [];
   for (const item of tasks.items) {
     const errorsBefore = ctx.report.errorCount;
+    const mark = ctx.report.mark();
     const mapped = mapTask(item, {
       questId: ctx.questId,
       chapter: ctx.chapter.path,
@@ -660,9 +669,13 @@ function questTasks(node: SnbtNode, ctx: QuestContext): Array<Record<string, unk
       report: ctx.report,
     });
     if (mapped === null) {
-      // Skipped tasks report themselves (manual work); only a new error stops the quest.
+      // Skipped tasks report themselves (manual work); only a new error stops the quest —
+      // unless the caller accepts losses, when the one task goes and the quest stays.
       if (ctx.report.errorCount > errorsBefore) {
-        return null;
+        if (!ctx.report.lossy) {
+          return null;
+        }
+        ctx.report.soften(mark, `with loss allowed, this task of quest ${ctx.questId} is left out`);
       }
       continue;
     }
@@ -682,6 +695,7 @@ function questRewards(node: SnbtNode, ctx: QuestContext): Array<Record<string, u
   const out: Array<Record<string, unknown>> = [];
   for (const item of rewards.items) {
     const errorsBefore = ctx.report.errorCount;
+    const mark = ctx.report.mark();
     const mapped = mapReward(item, {
       questId: ctx.questId,
       chapter: ctx.chapter.path,
@@ -692,7 +706,10 @@ function questRewards(node: SnbtNode, ctx: QuestContext): Array<Record<string, u
     });
     if (mapped === null) {
       if (ctx.report.errorCount > errorsBefore) {
-        return null;
+        if (!ctx.report.lossy) {
+          return null;
+        }
+        ctx.report.soften(mark, `with loss allowed, this reward of quest ${ctx.questId} is left out`);
       }
       continue;
     }

@@ -698,7 +698,19 @@ function optRotation(node: SnbtNode, ctx: CanvasContext, id: string): number | n
     fail(ctx, child, "rotation", `the image ${id} turns by something that is not a number`);
     return null;
   }
-  return value;
+  // Tenet turns by whole degrees; FTB's editor saves whatever the drag left (22.5, 89.99…).
+  const whole = Math.round(value);
+  if (whole !== value) {
+    ctx.report.note({
+      code: "rounded-rotation",
+      message: `the image ${id} turns by ${value}°; Tenet turns by whole degrees, so it turns by ${whole}°`,
+      path: ctx.chapterPath,
+      line: child.line,
+      key: "rotation",
+      value,
+    });
+  }
+  return whole;
 }
 
 /** An integral field value, or null when it is not a whole number. */
@@ -780,9 +792,13 @@ export function emitChapterCanvas(
     for (const image of images.items) {
       const id = image.kind === "compound" ? snbtGet(image, "id") : undefined;
       const source = id !== undefined && id.kind === "string" ? id.value : "";
+      const mark = ctx.report.mark();
       const mapped = mapImage(image, source, ctx);
       if (mapped !== null) {
         elements.push(mapped);
+      } else if (ctx.report.lossy) {
+        // A picture is decoration nothing points at: with loss allowed, it alone goes.
+        ctx.report.soften(mark, `with loss allowed, this image in ${ctx.chapterPath} is left out`);
       }
     }
   }

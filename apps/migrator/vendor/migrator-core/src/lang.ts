@@ -6,7 +6,12 @@
  * Flat dotted keys in one compound per locale: `quest.<HEX>.title` (always a string),
  * `quest.<HEX>.quest_subtitle` (always a string), `quest.<HEX>.quest_desc` (always a list),
  * `chapter.<HEX>.chapter_subtitle` (always a single-element list), plus `title` strings for
- * chapters, groups, tasks, tables, images and the one `file.0000000000000001.title`.
+ * chapters, groups, tasks, tables, images, rewards and the one `file.0000000000000001.title`.
+ *
+ * <p>A locale reads from up to three places, lowest first: text written into the objects
+ * themselves (1.20-era books; FTB moves it into the table on first load, under anything the
+ * file already says), the locale file `lang/<locale>.snbt`, and split files under
+ * `lang/<locale>/` (the FTB Quests Lang Splitter layout, put over the table by that mod).
  *
  * <h2>Two levels of escapes</h2>
  *
@@ -37,7 +42,7 @@
  * (and `ids.json`) carries both spellings for audits.
  */
 
-import { ParsedFile } from "./model";
+import { InlineText, ParsedFile } from "./model";
 import { Report } from "./report";
 import { IdMap } from "./ids";
 import { QuestBookInput } from "./model";
@@ -50,9 +55,23 @@ export interface LangOptions {
   readonly fallbackLocale: string;
 }
 
+/**
+ * Text beyond the locale files: split translation files per locale (they win over the locale
+ * file, as the splitter mod puts them), and inline object text (under it, as FTB's own
+ * first-load move does). Both empty for a 1.21 book that keeps one file per locale.
+ */
+export interface LangSources {
+  readonly parts?: ReadonlyMap<string, ReadonlyArray<ParsedFile>> | undefined;
+  readonly inline?: ReadonlyArray<InlineText> | undefined;
+  readonly inlineLocale?: string | undefined;
+}
+
 interface LocaleFile {
-  readonly file: ParsedFile;
+  /** The file a locale-wide finding names: the locale file, else its first source. */
+  readonly path: string;
   readonly keys: ReadonlyMap<string, SnbtNode>;
+  /** Where each key was read, so a finding names the file that holds the line. */
+  readonly paths: ReadonlyMap<string, string>;
 }
 
 const KNOWN_PREFIXES: ReadonlySet<string> = new Set([
@@ -63,6 +82,7 @@ const KNOWN_PREFIXES: ReadonlySet<string> = new Set([
   "reward_table",
   "image",
   "file",
+  "reward",
 ]);
 
 const FILE_TITLE_KEY = "file.0000000000000001.title";
@@ -98,26 +118,56 @@ export class LangPool {
     files: ReadonlyMap<string, ParsedFile>,
     options: LangOptions,
     report: Report,
+    sources: LangSources = {},
   ) {
     this.canonical = options.canonicalLocale;
     this.fallback = options.fallbackLocale;
     this.report = report;
-    for (const [locale, file] of files) {
-      const keys = new Map<string, SnbtNode>();
+    const building = new Map<string, { path: string; keys: Map<string, SnbtNode>; paths: Map<string, string> }>();
+    const layer = (locale: string, path: string): { path: string; keys: Map<string, SnbtNode>; paths: Map<string, string> } => {
+      let entry = building.get(locale);
+      if (entry === undefined) {
+        entry = { path, keys: new Map(), paths: new Map() };
+        building.set(locale, entry);
+      }
+      return entry;
+    };
+    // Lowest rung first, so each later source overwrites: inline text, the locale file, then
+    // split parts in path order. Within one file a repeated key reads as its last writing,
+    // as FTB's compound does (and the duplicate-key warning says).
+    const inlineLocale = sources.inlineLocale ?? "en_us";
+    for (const text of sources.inline ?? []) {
+      const target = layer(inlineLocale, text.path);
+      target.keys.set(text.key, text.node);
+      target.paths.set(text.key, text.path);
+    }
+    const read = (locale: string, file: ParsedFile): void => {
+      const target = layer(locale, file.path);
       if (file.root.kind === "compound") {
         for (const [key, value] of file.root.entries) {
-          if (!keys.has(key)) {
-            keys.set(key, value);
-          }
+          target.keys.set(key, value);
+          target.paths.set(key, file.path);
         }
       }
-      this.locales.set(locale, { file, keys });
+    };
+    for (const [locale, file] of files) {
+      read(locale, file);
+      // The locale file names locale-wide findings even when inline text arrived first.
+      layer(locale, file.path).path = file.path;
+    }
+    for (const [locale, list] of sources.parts ?? new Map<string, ReadonlyArray<ParsedFile>>()) {
+      for (const part of list) {
+        read(locale, part);
+      }
+    }
+    for (const [locale, entry] of building) {
+      this.locales.set(locale, entry);
     }
     this.missingCanonicalFile = !this.locales.has(this.canonical);
     if (this.missingCanonicalFile) {
       report.error({
         code: "missing-locale",
-        message: `no ${this.canonical}.snbt: every canonical string falls back to ${this.fallback} or empty`,
+        message: `no ${this.canonical} text (no ${this.canonical}.snbt, no ${this.canonical}/ folder, no inline text): every canonical string falls back to ${this.fallback === "" ? "nothing" : this.fallback} or empty`,
       });
     }
   }
@@ -170,6 +220,15 @@ export class LangPool {
     return title === null ? null : proseLine(title);
   }
 
+  /** A reward's own words, from `reward.<HEX>.title`. Blank reads as no title, FTB's own rule. */
+  rewardTitle(source: string): string | null {
+    const node = this.find(`reward.${source}.title`);
+    if (node === null || node.kind !== "string" || node.value.trim().length === 0) {
+      return null;
+    }
+    return proseLine(node.value);
+  }
+
   imageTitle(source: string): string | null {
     const title = this.string(`image.${source}.title`);
     return title === null ? null : proseLine(title);
@@ -191,6 +250,7 @@ export class LangPool {
       return [];
     }
     const out: Array<{ key: string; value: string | ReadonlyArray<string> }> = [];
+    const untranslated: Array<string> = [];
     for (const [flat, node] of file.keys) {
       const skipped = this.excluded.get(locale);
       if (skipped !== undefined && skipped.has(flat)) {
@@ -198,6 +258,16 @@ export class LangPool {
       }
       const mapped = tenetKey(flat);
       if (mapped === null) {
+        // A reward's words have no conventional Tenet key: canonical text rides inline on
+        // the reward itself, and another locale's wording is the loss counted below.
+        if (
+          locale !== this.canonical &&
+          flat.startsWith("reward.") &&
+          node.kind === "string" &&
+          node.value.trim().length > 0
+        ) {
+          untranslated.push(flat);
+        }
         continue;
       }
       const value = overlayValue(node, flat.slice(flat.lastIndexOf(".") + 1));
@@ -205,13 +275,22 @@ export class LangPool {
         this.report.error({
           code: "malformed-lang",
           message: `the language key ${JSON.stringify(flat)} holds no text`,
-          path: file.file.path,
+          path: file.paths.get(flat) ?? file.path,
           line: node.line,
           key: flat,
         });
         continue;
       }
       out.push({ key: mapped, value });
+    }
+    if (untranslated.length > 0) {
+      this.report.warn({
+        code: "untranslatable-reward-title",
+        message: `${untranslated.length} reward title(s) in ${locale} have no Tenet translation key; rewards show the ${this.canonical} wording there`,
+        path: file.path,
+        key: "reward",
+        value: untranslated.slice(0, 5),
+      });
     }
     return out;
   }
@@ -241,7 +320,7 @@ export class LangPool {
           this.report.warn({
             code: "stale-lang-key",
             message: `the language key ${JSON.stringify(flat)} names no kind this converter knows`,
-            path: file.file.path,
+            path: file.paths.get(flat) ?? file.path,
             line: node.line,
             key: flat,
           });
@@ -255,7 +334,7 @@ export class LangPool {
           this.report.warn({
             code: "stale-lang-key",
             message: `the language key ${JSON.stringify(flat)} names no object`,
-            path: file.file.path,
+            path: file.paths.get(flat) ?? file.path,
             line: node.line,
             key: flat,
           });
@@ -275,7 +354,7 @@ export class LangPool {
         this.report.warn({
           code: "stale-lang-key",
           message: `${unique.length} ${prefix} key(s) in ${locale} name ids that no object in the pack has — leftovers from an earlier build of the pack`,
-          path: file.file.path,
+          path: file.path,
           key: prefix,
           value: unique.slice(0, 5),
         });
@@ -294,7 +373,7 @@ export class LangPool {
       this.report.error({
         code: "malformed-lang",
         message: `the language key ${JSON.stringify(flat)} is not text`,
-        path: holder.file.path,
+        path: holder.paths.get(flat) ?? holder.path,
         line: node.line,
         key: flat,
       });
@@ -306,7 +385,7 @@ export class LangPool {
       this.report.warn({
         code: "blank-text",
         message: `the language key ${JSON.stringify(flat)} is empty`,
-        path: holder.file.path,
+        path: holder.paths.get(flat) ?? holder.path,
         line: node.line,
         key: flat,
       });
@@ -327,7 +406,7 @@ export class LangPool {
       this.report.error({
         code: "malformed-lang",
         message: `the language key ${JSON.stringify(flat)} is neither text nor a list of text`,
-        path: holder.file.path,
+        path: holder.paths.get(flat) ?? holder.path,
         line: node.line,
         key: flat,
       });
@@ -339,7 +418,7 @@ export class LangPool {
         this.report.error({
           code: "malformed-lang",
           message: `the language key ${JSON.stringify(flat)} lists something that is not text`,
-          path: holder.file.path,
+          path: holder.paths.get(flat) ?? holder.path,
           line: item.line,
           key: flat,
         });
@@ -351,7 +430,7 @@ export class LangPool {
       this.report.warn({
         code: "blank-text",
         message: `the language key ${JSON.stringify(flat)} is empty`,
-        path: holder.file.path,
+        path: holder.paths.get(flat) ?? holder.path,
         line: node.line,
         key: flat,
       });
@@ -483,6 +562,8 @@ function orphanKnown(
       return ids.tables.has(id);
     case "image":
       return imageIds.has(id);
+    case "reward":
+      return ids.rewards.has(id);
     case "file":
       return false;
     default:

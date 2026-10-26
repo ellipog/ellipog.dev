@@ -6,8 +6,15 @@
  * - Goal counts live on the task, not the stack: `ItemTask` reads `count` with a floor of 1
  *   and writes its display stack at count 1, so `item.count` is display size and never the
  *   goal. Tenet's `count` is the goal: task-level `count`, default 1, clamped to 1–6400.
- * - `match_components` absent reads strict (like Tenet's own default), so only `fuzzy` and
- *   explicit `none` travel; anything else fails naming it.
+ * - `match_components` absent reads `none`: `ItemTask` starts at `NONE`, writes the key only
+ *   when it is not `NONE` and reads it through `NameMap.of(NONE, …)` (every 2101 build from
+ *   1.0 to 1.36 alike), so an unmarked task takes any stack of its item. Tenet's default is
+ *   strict, so `none` and `fuzzy` travel and `strict` goes as the default; anything else
+ *   fails naming it. A 1.19 or 1.20 book says the same with `match_nbt` and `weak_nbt_match`:
+ *   `match_nbt: true` compares the whole tag (strict), adding `weak_nbt_match` compares only
+ *   what the task names (fuzzy), and `false` or absent compares the item alone (none). Absent
+ *   is FTB's `DEFAULT`, which checks the tag only for items tagged `ftbquests:check_nbt`; a
+ *   book cannot say which items a pack tags, so it reads none.
  * - `task_screen_only` is `manualOnly` under Tenet's name; the piped task-screen path is a
  *   documented loss, the manual half is kept.
  * - `observation_type` is legacy when `observe_type` is present (FTB prefers the ordinal):
@@ -34,6 +41,7 @@
 import { componentsToJson, mapIcon } from "./icons";
 import { LangPool } from "./lang";
 import { Report } from "./report";
+import { readTagItems, tenetStage } from "./tags";
 import { SnbtNode, snbtGet, snbtToJson } from "./snbt";
 
 export interface TaskContext {
@@ -46,7 +54,6 @@ export interface TaskContext {
 }
 
 const MAX_COUNT = 6400;
-const TAG_PATTERN = /^[a-z0-9_]{1,64}$/;
 const OBSERVE_ORDER: ReadonlyArray<string> = [
   "block",
   "block_tag",
@@ -224,15 +231,15 @@ function mapItemTask(node: SnbtNode, ctx: TaskContext): Record<string, unknown> 
       // template could never equal a carried stack and the quest would sit incompletable.
       // Fuzzy over the surviving components is the closest achievable reading — for a
       // definitionally-fixed value like infinite energy it decides exactly the same gates.
-      // An explicit fuzzy or none stands as written; the drop itself is still reported.
-      const explicit = snbtGet(node, "match_components") !== undefined;
+      // Fuzzy or none (FTB's default) stands as written; the drop itself is still reported.
+      // Strict only ever arrives explicitly, so forcing always overrides the author.
       const forced = out["match"] !== "fuzzy" && out["match"] !== "none";
       if (forced) {
         out["match"] = "fuzzy";
       }
       ctx.report.warn({
         code: "huge-long-component",
-        message: `an item task of quest ${ctx.questId} gates on integers JSON cannot hold exactly; ${droppedTop.join(", ")} goes without them${forced ? " and the task reads fuzzy so it can still match" : ""}${forced && explicit ? ", overriding an explicit strict" : ""}`,
+        message: `an item task of quest ${ctx.questId} gates on integers JSON cannot hold exactly; ${droppedTop.join(", ")} goes without them${forced ? " and the task reads fuzzy so it can still match" : ""}${forced ? ", overriding an explicit strict" : ""}`,
         path: ctx.chapter,
         line: node.line,
         key: "components",
@@ -619,7 +626,22 @@ function mapStageTask(node: SnbtNode, ctx: TaskContext): Record<string, unknown>
     fail(ctx, node, "stage", "a stage task names no stage");
     return null;
   }
-  out["stage"] = stage;
+  const spelled = tenetStage(stage);
+  if (spelled === null) {
+    fail(ctx, node, "stage", `a stage task of quest ${ctx.questId} names the stage ${JSON.stringify(stage)}, which has nothing an id can keep`);
+    return null;
+  }
+  if (spelled !== stage) {
+    ctx.report.warn({
+      code: "renamed-stage",
+      message: `a stage task of quest ${ctx.questId} names the stage ${JSON.stringify(stage)}; Tenet stages are ids, so it reads ${JSON.stringify(spelled)} (scripts granting or checking the old name must follow)`,
+      path: ctx.chapter,
+      line: node.line,
+      key: "stage",
+      value: spelled,
+    });
+  }
+  out["stage"] = spelled;
   if (readBool(node, "team_stage", false, ctx)) {
     out["teamStage"] = true;
   }
@@ -703,6 +725,13 @@ function taskCount(node: SnbtNode, ctx: TaskContext): number | null {
 function mapMatch(node: SnbtNode, ctx: TaskContext, out: Record<string, unknown>): boolean {
   const match = snbtGet(node, "match_components");
   if (match === undefined) {
+    const legacy = legacyMatch(node, ctx);
+    if (legacy === null) {
+      return false;
+    }
+    if (legacy !== "strict") {
+      out["match"] = legacy;
+    }
     return true;
   }
   if (match.kind !== "string" || !MATCH_WORDS.has(match.value)) {
@@ -713,6 +742,43 @@ function mapMatch(node: SnbtNode, ctx: TaskContext, out: Record<string, unknown>
     out["match"] = match.value;
   }
   return true;
+}
+
+/** A task without `match_components`: the 1.19/1.20 flags, or FTB's item-only default. */
+function legacyMatch(node: SnbtNode, ctx: TaskContext): string | null {
+  const matchNbt = snbtGet(node, "match_nbt");
+  if (matchNbt === undefined) {
+    return "none";
+  }
+  const on = flagValue(matchNbt);
+  if (on === null) {
+    fail(ctx, matchNbt, "match_nbt", "match_nbt is not true or false");
+    return null;
+  }
+  if (!on) {
+    return "none";
+  }
+  const weak = snbtGet(node, "weak_nbt_match");
+  if (weak === undefined) {
+    return "strict";
+  }
+  const partial = flagValue(weak);
+  if (partial === null) {
+    fail(ctx, weak, "weak_nbt_match", "weak_nbt_match is not true or false");
+    return null;
+  }
+  return partial ? "fuzzy" : "strict";
+}
+
+/** FTB writes flags as true/false and as 1b/0b; anything else is null. */
+function flagValue(node: SnbtNode): boolean | null {
+  if (node.kind === "boolean") {
+    return node.value;
+  }
+  if (node.kind === "byte" && (node.value === 0n || node.value === 1n)) {
+    return node.value === 1n;
+  }
+  return null;
 }
 
 function mapConsume(
@@ -850,15 +916,7 @@ function readTags(node: SnbtNode, ctx: TaskContext): ReadonlyArray<string> | nul
     fail(ctx, tags, "tags", "tags is not a list");
     return null;
   }
-  const out: Array<string> = [];
-  for (const item of tags.items) {
-    if (item.kind !== "string" || !TAG_PATTERN.test(item.value)) {
-      fail(ctx, item, "tags", "a tag breaks the lowercase-letters-digits-underscores rule");
-      return null;
-    }
-    out.push(item.value);
-  }
-  return out;
+  return readTagItems(tags.items, ctx.report, ctx.chapter, `a task of quest ${ctx.questId}`);
 }
 
 function intTriple(node: SnbtNode, key: string, ctx: TaskContext): ReadonlyArray<number> | null {

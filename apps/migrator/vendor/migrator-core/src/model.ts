@@ -25,6 +25,7 @@ import {
   snbtToJson,
 } from "./snbt";
 import { Report } from "./report";
+import { upgradeLegacyStacks } from "./legacy";
 import { VfsFile, vfsText } from "./vfs";
 
 export interface ModelOptions {
@@ -47,6 +48,14 @@ export interface ChapterInput {
   readonly quests: ReadonlyArray<SnbtNode>;
 }
 
+/** One string a book carries outside its language files, under the flat key FTB files it as. */
+export interface InlineText {
+  /** The flat FTB key the text would carry in a language file (`quest.<HEX>.title`). */
+  readonly key: string;
+  readonly node: SnbtNode;
+  readonly path: string;
+}
+
 export interface QuestBookInput {
   readonly data: ParsedFile;
   readonly groups: ParsedFile | null;
@@ -54,6 +63,19 @@ export interface QuestBookInput {
   readonly tables: ReadonlyArray<ParsedFile>;
   /** Locale id (`en_us`) to its language file. `*_merged` build artefacts never arrive. */
   readonly lang: ReadonlyMap<string, ParsedFile>;
+  /**
+   * Split translation files, per locale, sorted by path: `lang/<locale>/**.snbt`, the layout
+   * the FTB Quests Lang Splitter mod reads (its merged-away copies end `.snbt_merged` and never
+   * arrive). The splitter puts every key over the locale file's table, so these win.
+   */
+  readonly langParts?: ReadonlyMap<string, ReadonlyArray<ParsedFile>>;
+  /**
+   * Text written into the objects themselves, the 1.20-era layout (`title`, `subtitle`,
+   * `description` beside the ids). FTB moves it into `inlineLocale`'s table on first load,
+   * under any string the language file already holds, so it is the lowest rung of that locale.
+   */
+  readonly inlineText?: ReadonlyArray<InlineText>;
+  readonly inlineLocale?: string;
 }
 
 /** Every key `data.snbt` may carry (census + jar-real `emergency_items`). */
@@ -66,6 +88,8 @@ export const DATA_KEYS: ReadonlySet<string> = new Set([
   "default_reward_team",
   "detection_delay",
   "disable_gui",
+  // The toast for a finished book (BaseQuestFile.onCompleted), which Tenet never raises.
+  "disable_toast",
   "drop_book_on_death",
   "drop_loot_crates",
   "emergency_items",
@@ -82,6 +106,8 @@ export const DATA_KEYS: ReadonlySet<string> = new Set([
   "progression_mode",
   "show_lock_icons",
   "suppress_all_autoclaiming",
+  // Legacy 1.20-era inline text: the book's title, read as `file.0000000000000001.title`.
+  "title",
   "verify_on_load",
 ]);
 
@@ -113,6 +139,9 @@ export const CHAPTER_KEYS: ReadonlySet<string> = new Set([
   "progression_mode",
   "preset",
   "tags",
+  // Legacy 1.20-era inline text, read as `chapter.<HEX>.title` / `.chapter_subtitle`.
+  "title",
+  "subtitle",
 ]);
 
 /** Every key a quest may carry (census + jar-real quest fields). */
@@ -156,6 +185,10 @@ export const QUEST_KEYS: ReadonlySet<string> = new Set([
   "dep_control_pts",
   // Legacy 1.20-era compat shim FTB still reads: `hide` behaves as hide_until_deps_visible.
   "hide",
+  // Legacy 1.20-era inline text, read as `quest.<HEX>.title` / `.quest_subtitle` / `.quest_desc`.
+  "title",
+  "subtitle",
+  "description",
 ]);
 
 /** Every key a task may carry, across all task types (census + jar-real task fields). */
@@ -168,6 +201,8 @@ export const TASK_KEYS: ReadonlySet<string> = new Set([
   "consume_items",
   "only_from_crafting",
   "match_components",
+  "match_nbt",
+  "weak_nbt_match",
   "task_screen_only",
   "optional_task",
   "title",
@@ -226,6 +261,8 @@ export const REWARD_KEYS: ReadonlySet<string> = new Set([
   "disable_toast",
   "silent",
   "permission_level",
+  // Legacy 1.20-era spelling of permission level 2, still read by the 1.21 jar.
+  "elevate_perms",
   "player_command",
   "command",
   "feedback_message",
@@ -253,6 +290,8 @@ export const TABLE_KEYS: ReadonlySet<string> = new Set([
   "hide_tooltip",
   "empty_weight",
   "icon",
+  // Legacy 1.20-era inline text, read as `reward_table.<HEX>.title`.
+  "title",
 ]);
 
 /** Every key a chapter image may carry (census + jar-real image fields). */
@@ -297,7 +336,8 @@ export const LINK_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 const GROUP_FILE_KEYS: ReadonlySet<string> = new Set(["chapter_groups"]);
-const GROUP_ENTRY_KEYS: ReadonlySet<string> = new Set(["id"]);
+// `title` is legacy 1.20-era inline text (`chapter_group.<HEX>.title`); `icon` is the row's picture.
+const GROUP_ENTRY_KEYS: ReadonlySet<string> = new Set(["id", "title", "icon"]);
 const PRESET_KEYS: ReadonlySet<string> = new Set(["shape", "size"]);
 
 /**
@@ -330,7 +370,9 @@ export function loadQuestBook(
         });
         continue;
       }
-      parsed.push({ path: file.path, root });
+      // Language files hold no stacks; everything else reads 1.20-shaped stacks as 1.21 ones.
+      const upgraded = file.path.startsWith("lang/") ? root : upgradeLegacyStacks(root, file.path, report);
+      parsed.push({ path: file.path, root: upgraded });
     } catch (error) {
       const message = error instanceof SnbtError ? error.message : String(error);
       report.error({ code: "parse-error", message, path: file.path });
@@ -352,23 +394,25 @@ export function loadQuestBook(
     return null;
   }
 
-  const chapters: Array<ChapterInput> = [];
-  const tables: Array<ParsedFile> = [];
+  const chapterFiles: Array<ParsedFile> = [];
+  const tableFiles: Array<ParsedFile> = [];
   const lang = new Map<string, ParsedFile>();
+  const langParts = new Map<string, Array<ParsedFile>>();
   for (const file of parsed) {
-    const parent = parentDir(file.path);
-    const base = basename(file.path);
     if (file === data || file === groups) {
       continue;
     }
-    if (parent === "chapters") {
-      chapters.push(readChapter(file, report, options));
-    } else if (parent === "reward_tables") {
-      checkKeys(file.root, TABLE_KEYS, `the table file ${file.path}`, file.path, report, options);
-      checkList(file.root, "rewards", REWARD_KEYS, `the table file ${file.path}`, file.path, report, options);
-      reportDuplicates(file.root, file.path, report);
-      tables.push(file);
-    } else if (parent === "lang") {
+    // Classified by place under the book root, the way FTB opens them: `chapters/` and
+    // `reward_tables/` one level deep, never a namesake folder deeper down (a split
+    // translation folder holds its own `chapters/`, which is text, not quests).
+    const segments = file.path.split("/");
+    const top = segments[0];
+    const base = basename(file.path);
+    if (segments.length === 2 && top === "chapters") {
+      chapterFiles.push(file);
+    } else if (segments.length === 2 && top === "reward_tables") {
+      tableFiles.push(file);
+    } else if (segments.length === 2 && top === "lang") {
       if (base.endsWith("_merged.snbt")) {
         // Build artefacts beside the real locales — ignored, never converted.
         report.note({
@@ -379,16 +423,44 @@ export function loadQuestBook(
         continue;
       }
       lang.set(base.slice(0, -".snbt".length), file);
+    } else if (segments.length > 2 && top === "lang") {
+      const locale = segments[1] as string;
+      const list = langParts.get(locale) ?? [];
+      list.push(file);
+      langParts.set(locale, list);
     } else {
-      report.error({
-        code: "unknown-layout",
-        message: `lives outside data.snbt, chapters/, reward_tables/ and lang/: not a quest book`,
+      // FTB never opens a file here, so nothing in it can be quest content: it travels with
+      // the rest of the tree untouched, and the warning names it in case it was meant to.
+      report.warn({
+        code: "ignored-file",
+        message: "sits outside data.snbt, chapters/, reward_tables/ and lang/, where FTB Quests never reads; it passes through unconverted",
         path: file.path,
         line: file.root.line,
       });
     }
   }
-  chapters.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  const byPath = (a: { path: string }, b: { path: string }): number =>
+    a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
+  chapterFiles.sort(byPath);
+  tableFiles.sort(byPath);
+  for (const list of langParts.values()) {
+    list.sort(byPath);
+    for (const part of list) {
+      reportDuplicates(part.root, part.path, report);
+    }
+  }
+
+  const chapters: Array<ChapterInput> = [];
+  for (const file of dedupeById(chapterFiles, "chapter", report)) {
+    chapters.push(readChapter(file, report, options));
+  }
+  const tables: Array<ParsedFile> = [];
+  for (const file of dedupeById(tableFiles, "reward table", report)) {
+    checkKeys(file.root, TABLE_KEYS, `the table file ${file.path}`, file.path, report, options);
+    checkList(file.root, "rewards", REWARD_KEYS, `the table file ${file.path}`, file.path, report, options);
+    reportDuplicates(file.root, file.path, report);
+    tables.push(file);
+  }
 
   checkKeys(data.root, DATA_KEYS, "data.snbt", data.path, report, options);
   checkPresets(data, report, options);
@@ -401,7 +473,134 @@ export function loadQuestBook(
   if (report.errorCount > errorsBefore) {
     return null;
   }
-  return { data, groups, chapters, tables, lang };
+  const inlineText = collectInlineText(data, groups, chapters, tables);
+  const fallback = stringKey(data.root, "fallback_locale");
+  return {
+    data,
+    groups,
+    chapters,
+    tables,
+    lang,
+    langParts,
+    inlineText,
+    inlineLocale: fallback !== null && fallback !== "" ? fallback : "en_us",
+  };
+}
+
+/**
+ * Two files claiming one id: a pack update that renamed a file leaves the old copy behind
+ * (`Tier1_Seed Bag.snbt` beside `tier1_seed_bag.snbt`), and FTB loads both into one id slot,
+ * the later reading winning. Identical copies collapse to the first with a note; copies that
+ * differ keep the last by path and warn, naming both, since only one of them can be the book.
+ */
+function dedupeById(files: ReadonlyArray<ParsedFile>, what: string, report: Report): Array<ParsedFile> {
+  const byId = new Map<string, Array<ParsedFile>>();
+  const order: Array<string> = [];
+  const loose: Array<ParsedFile> = [];
+  for (const file of files) {
+    const id = stringKey(file.root, "id");
+    if (id === null) {
+      // No id to share: ids.ts reports the malformed file itself.
+      loose.push(file);
+      continue;
+    }
+    const key = id.toLowerCase();
+    const list = byId.get(key);
+    if (list === undefined) {
+      byId.set(key, [file]);
+      order.push(key);
+    } else {
+      list.push(file);
+    }
+  }
+  const out: Array<ParsedFile> = [...loose];
+  for (const key of order) {
+    const list = byId.get(key) as Array<ParsedFile>;
+    const first = list[0] as ParsedFile;
+    if (list.length === 1) {
+      out.push(first);
+      continue;
+    }
+    const reading = JSON.stringify(snbtToJson(first.root));
+    const identical = list.every((file) => JSON.stringify(snbtToJson(file.root)) === reading);
+    const kept = identical ? first : (list[list.length - 1] as ParsedFile);
+    const others = list.filter((file) => file !== kept).map((file) => file.path);
+    if (identical) {
+      report.note({
+        code: "duplicate-file",
+        message: `holds the same ${what} as ${others.join(", ")}, a copy left by an earlier build of the pack; it converts once`,
+        path: kept.path,
+        line: kept.root.line,
+      });
+    } else {
+      report.warn({
+        code: "duplicate-file",
+        message: `claims the ${what} id ${key} that ${others.join(", ")} also claims, with different content; only this one converts`,
+        path: kept.path,
+        line: kept.root.line,
+      });
+    }
+    out.push(kept);
+  }
+  return out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
+/** Prose written into the objects, under the flat keys a language file would file it as. */
+function collectInlineText(
+  data: ParsedFile,
+  groups: ParsedFile | null,
+  chapters: ReadonlyArray<ChapterInput>,
+  tables: ReadonlyArray<ParsedFile>,
+): Array<InlineText> {
+  const out: Array<InlineText> = [];
+  const take = (node: SnbtNode, field: string, key: string, path: string): void => {
+    const child = snbtGet(node, field);
+    if (child !== undefined) {
+      out.push({ key, node: child, path });
+    }
+  };
+  take(data.root, "title", "file.0000000000000001.title", data.path);
+  if (groups !== null) {
+    const list = snbtGet(groups.root, "chapter_groups");
+    if (list !== undefined && list.kind === "list") {
+      for (const entry of list.items) {
+        const id = stringKey(entry, "id");
+        if (id !== null) {
+          take(entry, "title", `chapter_group.${id}.title`, groups.path);
+        }
+      }
+    }
+  }
+  for (const chapter of chapters) {
+    if (chapter.id !== null) {
+      take(chapter.node, "title", `chapter.${chapter.id}.title`, chapter.path);
+      take(chapter.node, "subtitle", `chapter.${chapter.id}.chapter_subtitle`, chapter.path);
+    }
+    for (const quest of chapter.quests) {
+      const id = stringKey(quest, "id");
+      if (id !== null) {
+        take(quest, "title", `quest.${id}.title`, chapter.path);
+        take(quest, "subtitle", `quest.${id}.quest_subtitle`, chapter.path);
+        take(quest, "description", `quest.${id}.quest_desc`, chapter.path);
+      }
+      const tasks = snbtGet(quest, "tasks");
+      if (tasks !== undefined && tasks.kind === "list") {
+        for (const task of tasks.items) {
+          const taskId = stringKey(task, "id");
+          if (taskId !== null) {
+            take(task, "title", `task.${taskId}.title`, chapter.path);
+          }
+        }
+      }
+    }
+  }
+  for (const table of tables) {
+    const id = stringKey(table.root, "id");
+    if (id !== null) {
+      take(table.root, "title", `reward_table.${id}.title`, table.path);
+    }
+  }
+  return out;
 }
 
 /** Exactly zero or one — two `data.snbt` files fail naming both, never picking a winner. */
@@ -577,14 +776,4 @@ export function describeValue(node: SnbtNode): unknown {
 function basename(path: string): string {
   const cut = path.lastIndexOf("/");
   return cut < 0 ? path : path.slice(cut + 1);
-}
-
-function parentDir(path: string): string {
-  const cut = path.lastIndexOf("/");
-  if (cut < 0) {
-    return "";
-  }
-  const rest = path.slice(0, cut);
-  const parent = rest.lastIndexOf("/");
-  return parent < 0 ? rest : rest.slice(parent + 1);
 }

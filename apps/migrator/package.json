@@ -4,9 +4,9 @@
   "private": true,
   "description": "FTB Quests → Tenet config migrator web app (static export, client-side only)",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3265",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3265",
     "types": "tsc --noEmit"
   },
   "dependencies": {

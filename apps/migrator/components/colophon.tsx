@@ -15,8 +15,8 @@ type Studio = {
  *
  * Same construction as the docs colophon — a labelled row with the studio's own
  * mark pair (the eye over the A-frame, not the tab mark), the domain derived
- * from the URL, inverting on hover like every clickable surface here. A site
- * with no `studio` in the manifest renders nothing at all.
+ * from the URL, selected on hover by the corner brackets like every
+ * destination here. A site with no `studio` in the manifest renders nothing.
  */
 export function Colophon() {
   const s = (manifest as { studio?: Studio }).studio;
