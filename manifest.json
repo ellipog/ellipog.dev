@@ -70,9 +70,9 @@
       "repo": "https://github.com/ellipog/tenet",
       "issues": "https://github.com/ellipog/tenet/issues",
       "curseforge": "tenet",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "localPath": "../tenet",
-      "pin": "6af220a839d34363f8666bd21a02e51d55e91053",
+      "pin": "32c181d07485a79c2d7dd54a852b0e0dc2c0e2dc",
       "docsPath": "docs",
       "minecraft": "26.3",
       "loaders": [
@@ -88,7 +88,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "6af220a839d34363f8666bd21a02e51d55e91053",
+          "pin": "32c181d07485a79c2d7dd54a852b0e0dc2c0e2dc",
           "branch": "main",
           "localPath": "../tenet",
           "default": true
@@ -100,7 +100,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "a37d5537973ebd63e6b8e928ac41148dc4d0d7ad",
+          "pin": "670567ecdfb9014f3a437cf63a64174400f2ed38",
           "branch": "mc-1.21.1"
         }
       ]
@@ -114,9 +114,9 @@
       "repo": "https://github.com/ellipog/armature",
       "issues": "https://github.com/ellipog/armature/issues",
       "curseforge": "armature-lib",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "localPath": "../armature",
-      "pin": "4d1ac729a5768f1638abe6a6b54916def6a40934",
+      "pin": "fa27d3e017bd6f8414366100f68542b3e100e336",
       "docsPath": "docs",
       "minecraft": "26.3",
       "loaders": [
@@ -132,7 +132,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "4d1ac729a5768f1638abe6a6b54916def6a40934",
+          "pin": "fa27d3e017bd6f8414366100f68542b3e100e336",
           "branch": "main",
           "localPath": "../armature",
           "default": true
@@ -144,7 +144,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "d859a7503a7e4d96a8cf72ec86dc69e660b7131a",
+          "pin": "987c650d971e6f8c73dea768b529dbf36c0719ba",
           "branch": "mc-1.21.1"
         }
       ]
