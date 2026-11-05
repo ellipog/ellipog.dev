@@ -4,7 +4,7 @@ import { absoluteUrl, SITE, social } from '@/lib/metadata';
 
 const TITLE = 'FTB Quests alternative';
 const DESCRIPTION =
-  'Tenet is a free FTB Quests alternative for Minecraft 1.21.1 on Fabric and NeoForge: JSON quest files, server-authoritative progress, and a one-click migrator.';
+  'Tenet is a free FTB Quests alternative for Minecraft 26.3 and 1.21.1, Fabric and NeoForge: JSON quest files, server-side progress, and a one-click migrator.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -89,7 +89,7 @@ export default function AlternativePage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
 
       <section className="hero">
-        <p className="eyebrow">ftb quests alternative · minecraft 1.21.1</p>
+        <p className="eyebrow">ftb quests alternative · minecraft 26.3 · 1.21.1</p>
         <h1>An FTB Quests alternative.</h1>
         <p className="sub">
           Tenet is a visual questing engine for Fabric and NeoForge that ships no questlines of its own — JSON
@@ -205,8 +205,9 @@ export default function AlternativePage() {
         <div className="refwrap">
           <div className="prose">
             <p>
-              <strong>Which Minecraft versions?</strong> Tenet targets 1.21.1 on Fabric and NeoForge. Older
-              versions stay on FTB Quests.
+              <strong>Which Minecraft versions?</strong> Tenet runs on 26.3 and 1.21.1, on Fabric and
+              NeoForge, and reads the same quest files on both, so a converted book loads on either. The
+              migrator reads books written by FTB Quests for 1.21.1. Older versions stay on FTB Quests.
             </p>
             <p>
               <strong>Do my FTB teams carry over?</strong> Both ways. Keep FTB Teams (or Open Parties and

@@ -39,6 +39,17 @@ interface EntryInput {
 
 export class Report {
   private readonly entries: Array<ReportEntry> = [];
+  /**
+   * Entries per severity, kept as they are recorded. The mappers read `errorCount` before and after
+   * every quest and task to see whether that one failed, and counting the whole report each time made
+   * that quadratic in the report's size (thousands of warnings on a big pack).
+   */
+  private readonly counts: Record<Severity, number> = { error: 0, warning: 0, note: 0 };
+
+  private record(entry: ReportEntry): void {
+    this.entries.push(entry);
+    this.counts[entry.severity]++;
+  }
 
   /**
    * Losses the caller accepts (`allowLoss`): a task, reward, table entry or picture that cannot
@@ -63,25 +74,27 @@ export class Report {
       const entry = this.entries[index] as ReportEntry;
       if (entry.severity === "error") {
         this.entries[index] = { ...entry, severity: "warning", message: `${entry.message}; ${leftOut}` };
+        this.counts.error--;
+        this.counts.warning++;
       }
     }
   }
 
   error(input: EntryInput): void {
-    this.entries.push({ severity: "error", ...input, value: jsonSafe(input.value) });
+    this.record({ severity: "error", ...input, value: jsonSafe(input.value) });
   }
 
   warn(input: EntryInput): void {
-    this.entries.push({ severity: "warning", ...input, value: jsonSafe(input.value) });
+    this.record({ severity: "warning", ...input, value: jsonSafe(input.value) });
   }
 
   note(input: EntryInput): void {
-    this.entries.push({ severity: "note", ...input, value: jsonSafe(input.value) });
+    this.record({ severity: "note", ...input, value: jsonSafe(input.value) });
   }
 
   /** True once any error lands: the run must stop before it writes. */
   get failed(): boolean {
-    return this.entries.some((entry) => entry.severity === "error");
+    return this.counts.error > 0;
   }
 
   get errorCount(): number {
@@ -101,13 +114,7 @@ export class Report {
   }
 
   private count(severity: Severity): number {
-    let found = 0;
-    for (const entry of this.entries) {
-      if (entry.severity === severity) {
-        found++;
-      }
-    }
-    return found;
+    return this.counts[severity];
   }
 
   /** Entries in report order: severity first, then path, line, code — stable across runs. */

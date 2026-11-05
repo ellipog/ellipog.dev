@@ -76,6 +76,8 @@ export class SnbtError extends Error {
 }
 
 const WS = new Set([" ", "\t", "\r", "\n"]);
+/** The same four characters as {@link WS}, by code: the parser's loops read char codes, not strings. */
+const isSpace = (code: number): boolean => code === 32 || code === 9 || code === 13 || code === 10;
 // Sticky (not `^`-anchored: `^` means offset zero even with `lastIndex` set, which would refuse
 // every key past the first byte).
 const KEY_PATTERN = /[A-Za-z0-9_.+\-]+/y;
@@ -96,11 +98,11 @@ export class SnbtParser {
   constructor(text: string, file = "<input>") {
     this.text = text;
     this.file = file;
+    // `indexOf` jumps from newline to newline natively; reading the text a character at a time here was
+    // 5% of a whole conversion on ATM10.
     const starts: Array<number> = [0];
-    for (let i = 0; i < text.length; i++) {
-      if (text[i] === "\n") {
-        starts.push(i + 1);
-      }
+    for (let i = text.indexOf("\n"); i !== -1; i = text.indexOf("\n", i + 1)) {
+      starts.push(i + 1);
     }
     this.lineStarts = starts;
   }
@@ -140,9 +142,12 @@ export class SnbtParser {
   }
 
   private whitespace(): void {
-    while (this.pos < this.text.length && WS.has(this.text[this.pos] as string)) {
-      this.pos++;
+    const text = this.text;
+    let pos = this.pos;
+    while (pos < text.length && isSpace(text.charCodeAt(pos))) {
+      pos++;
     }
+    this.pos = pos;
   }
 
   private value(what: string): SnbtNode {
@@ -241,42 +246,53 @@ export class SnbtParser {
     return match[0];
   }
 
+  /**
+   * A quoted string. The text between escapes is taken as one slice rather than a character at a time:
+   * appending each character was the converter's single hottest line (15% of a conversion on ATM10,
+   * whose quest descriptions are long quoted strings). Same characters, same escapes, same errors.
+   */
   private quoted(line: number): { text: string; raw: string } {
+    const text = this.text;
     const start = this.pos;
-    this.pos++; // "
+    let pos = start + 1; // past the opening "
+    let run = pos; // where the current unescaped run began
     let out = "";
     for (;;) {
-      if (this.pos >= this.text.length) {
+      if (pos >= text.length) {
+        this.pos = pos;
         throw new SnbtError(this.file, line, "found the end of the file inside a string");
       }
-      const char = this.text[this.pos] as string;
-      if (char === '"') {
-        this.pos++;
-        return { text: out, raw: this.text.slice(start, this.pos) };
+      const code = text.charCodeAt(pos);
+      if (code === 34 /* " */) {
+        out += text.slice(run, pos);
+        this.pos = pos + 1;
+        return { text: out, raw: text.slice(start, this.pos) };
       }
-      if (char === "\\") {
-        const next = this.pos + 1 < this.text.length ? (this.text[this.pos + 1] as string) : "";
-        out += readEscape(next, this.text, this.pos, line, this.file);
-        this.pos += next === "u" ? 6 : 2;
+      if (code === 92 /* \ */) {
+        out += text.slice(run, pos);
+        const next = pos + 1 < text.length ? (text[pos + 1] as string) : "";
+        this.pos = pos;
+        out += readEscape(next, text, pos, line, this.file);
+        pos += next === "u" ? 6 : 2;
+        run = pos;
         continue;
       }
-      out += char;
-      this.pos++;
+      pos++;
     }
   }
 
   private bare(line: number, what: string): SnbtNode {
+    const text = this.text;
     const start = this.pos;
-    while (
-      this.pos < this.text.length &&
-      !WS.has(this.text[this.pos] as string) &&
-      this.text[this.pos] !== "," &&
-      this.text[this.pos] !== "]" &&
-      this.text[this.pos] !== "}"
-    ) {
-      this.pos++;
+    let pos = start;
+    for (; pos < text.length; pos++) {
+      const code = text.charCodeAt(pos);
+      if (isSpace(code) || code === 44 /* , */ || code === 93 /* ] */ || code === 125 /* } */) {
+        break;
+      }
     }
-    const raw = this.text.slice(start, this.pos);
+    this.pos = pos;
+    const raw = text.slice(start, pos);
     if (raw.length === 0) {
       throw this.fail(`expected ${what}, found ${describeChar(this.peek())}`);
     }

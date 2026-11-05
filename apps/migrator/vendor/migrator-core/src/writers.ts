@@ -198,12 +198,20 @@ export function convertBook(
       files.push(emitted);
     }
   }
+  // Every locale carries mostly the same keys, so each is renamed once and reused: a pack with a
+  // dozen translations otherwise renamed the same key a dozen times.
+  const renamed = new Map<string, string>();
   for (const locale of pool.localeIds()) {
     // Tenet lang files are flat string maps: paragraph lists join with "\n", the exact
     // inverse of the client's split, so translations round-trip paragraph for paragraph.
     const overlay: Record<string, string> = {};
     for (const { key, value } of pool.overlay(locale)) {
-      overlay[renameOverlayKey(key, slugs)] = typeof value === "string" ? value : value.join("\n");
+      let name = renamed.get(key);
+      if (name === undefined) {
+        name = renameOverlayKey(key, slugs);
+        renamed.set(key, name);
+      }
+      overlay[name] = typeof value === "string" ? value : value.join("\n");
     }
     files.push({ path: `lang/${locale}.json`, text: emitJson(overlay) });
   }

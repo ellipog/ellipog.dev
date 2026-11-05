@@ -91,13 +91,13 @@ export default function QuestingModsPage() {
       <section className="band">
         <div className="band-head">
           <h2 className="label">Tenet</h2>
-          <span className="faint mono">ours — for new 1.21.1 packs</span>
+          <span className="faint mono">ours — for new 26.3 and 1.21.1 packs</span>
         </div>
         <div className="refwrap">
           <div className="prose">
             <p>
               A visual questing engine that ships no questlines of its own: JSON files in, a pannable canvas
-              out, progress decided by the server. One mod covering Fabric and NeoForge on 1.21.1, MIT open
+              out, progress decided by the server. One mod covering Fabric and NeoForge on 26.3 and 1.21.1, MIT open
               source, with an in-game editor, EMI pages, and parties through Armature teams. Pick it when you
               want quest files that live happily in git — and when you are coming from FTB Quests, read{' '}
               <a href="/ftb-quests-alternative/">the FTB Quests alternative guide</a> and convert with{' '}

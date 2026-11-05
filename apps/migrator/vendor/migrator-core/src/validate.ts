@@ -27,8 +27,8 @@ import rewardTableSchema from "./schemas/reward_table.schema.json";
 import { Report } from "./report";
 
 export const SCHEMA_STAMP = {
-  tenetCommit: "6f0e7c8",
-  vendored: "2026-10-11",
+  tenetCommit: "11579ee",
+  vendored: "2026-10-12",
   files: [
     "index.schema.json",
     "group.schema.json",
