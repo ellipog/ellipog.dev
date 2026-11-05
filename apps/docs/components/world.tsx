@@ -161,6 +161,18 @@ export function World() {
     // the light always comes from above whichever way round the theme is.
     let faceTop = 0;
     let faceStep = 0.6;
+    // A face's fill depends only on its tone, and there are a few dozen tones, so each colour string is
+    // built once per theme rather than once per face per frame (and parsed by the canvas each time).
+    let fills = new Map<number, string>();
+    let pane = 'rgba(255,255,255,0.55)';
+    const fillFor = (tone: number) => {
+      let fill = fills.get(tone);
+      if (fill === undefined) {
+        fill = mix(paper, ink, Math.max(0, Math.min(1, faceTop + tone * faceStep)));
+        fills.set(tone, fill);
+      }
+      return fill;
+    };
     const readColours = () => {
       const style = getComputedStyle(canvas);
       paper = rgbOf(style.getPropertyValue('--world-paper'), paper);
@@ -170,6 +182,8 @@ export function World() {
       select = style.getPropertyValue('--world-select').trim() || select;
       faceTop = Number(style.getPropertyValue('--world-face-top')) || 0;
       faceStep = Number(style.getPropertyValue('--world-face-step')) || 0.6;
+      fills = new Map();
+      pane = `rgba(${paper[0]},${paper[1]},${paper[2]},0.55)`;
       hatches = {};
       for (const [name, { size, ink: inked }] of Object.entries(HATCHES) as [Hatch, (typeof HATCHES)[Hatch]][]) {
         const tile = document.createElement('canvas');
@@ -283,7 +297,7 @@ export function World() {
             ctx!.stroke();
             continue;
           }
-          ctx!.fillStyle = `rgba(${paper[0]},${paper[1]},${paper[2]},0.55)`;
+          ctx!.fillStyle = pane;
           ctx!.fill();
           ctx!.strokeStyle = line;
           ctx!.stroke();
@@ -296,7 +310,7 @@ export function World() {
           ctx!.stroke();
           continue;
         }
-        ctx!.fillStyle = mix(paper, ink, Math.max(0, Math.min(1, faceTop + face.tone * faceStep)));
+        ctx!.fillStyle = fillFor(face.tone);
         ctx!.fill();
         // The material's hatch over its tone: what tells sand from sandstone, or a plank from a log.
         const hatch = material.hatch && hatches[material.hatch];

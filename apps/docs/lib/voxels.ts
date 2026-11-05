@@ -234,7 +234,15 @@ export function projectFaces(exposed: readonly Exposed[], cam: Camera): Face[] {
   for (let i = 0; i < exposed.length; i += 1) {
     const { block, dir: d } = exposed[i];
     const [nx, ny, nz] = NORMALS[d];
-    const corners = CORNERS[d].map(([cx, cy, cz]) => transform(block.x + cx, block.y + cy, block.z + cz, basis));
+    // Four direct calls rather than a `.map` with a callback: this loop runs for every exposed face on
+    // every frame, and the closures were a measurable share of the frame in Chrome. Same arithmetic.
+    const k = CORNERS[d];
+    const corners = [
+      transform(block.x + k[0][0], block.y + k[0][1], block.z + k[0][2], basis),
+      transform(block.x + k[1][0], block.y + k[1][1], block.z + k[1][2], basis),
+      transform(block.x + k[2][0], block.y + k[2][1], block.z + k[2][2], basis),
+      transform(block.x + k[3][0], block.y + k[3][1], block.z + k[3][2], basis),
+    ];
     const centre: Vec3 = [
       (corners[0][0] + corners[2][0]) / 2,
       (corners[0][1] + corners[2][1]) / 2,
@@ -249,7 +257,7 @@ export function projectFaces(exposed: readonly Exposed[], cam: Camera): Face[] {
     faces[i] = {
       block,
       dir: d,
-      points: corners.map((p) => toScreen(p, cam)),
+      points: [toScreen(corners[0], cam), toScreen(corners[1], cam), toScreen(corners[2], cam), toScreen(corners[3], cam)],
       depth: Math.hypot(toEye[0], toEye[1], toEye[2]),
       tone: MATERIALS[block.kind].tone + DIRECTION_TONE[d],
       front,
