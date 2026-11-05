@@ -1,5 +1,6 @@
 import { Arrow } from '@/components/arrow';
 import type { Neighbour } from '@/lib/docs';
+import { canonicalPath } from '@/lib/metadata';
 
 type SuiteMod = {
   id: string;
@@ -54,7 +55,7 @@ export function DocsFooter({
       {prev || next ? (
         <nav className="docs-nav" aria-label="Page navigation">
           {prev ? (
-            <a className="docs-nav-prev" href={prev.url}>
+            <a className="docs-nav-prev" href={canonicalPath(prev.url)}>
               <span className="label">Previous</span>
               <span className="docs-nav-title">← {prev.title}</span>
             </a>
@@ -62,7 +63,7 @@ export function DocsFooter({
             <span />
           )}
           {next ? (
-            <a className="docs-nav-next" href={next.url}>
+            <a className="docs-nav-next" href={canonicalPath(next.url)}>
               <span className="label">Next</span>
               <span className="docs-nav-title">{next.title} →</span>
             </a>

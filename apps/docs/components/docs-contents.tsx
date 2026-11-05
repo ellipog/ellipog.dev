@@ -1,5 +1,6 @@
 import { Arrow } from '@/components/arrow';
 import { sectionTrees } from '@/lib/docs';
+import { canonicalPath } from '@/lib/metadata';
 
 /**
  * The contents list on `/docs/`.
@@ -39,7 +40,7 @@ export function DocsContents() {
           <ul className="contents-pages">
             {tree.overview ? (
               <li>
-                <a href={tree.overview.url}>
+                <a href={canonicalPath(tree.overview.url)}>
                   {tree.overview.data.title}
                   <Arrow />
                 </a>
@@ -47,7 +48,7 @@ export function DocsContents() {
             ) : null}
             {tree.loose.map((page) => (
               <li key={page.url}>
-                <a href={page.url}>
+                <a href={canonicalPath(page.url)}>
                   {page.data.title}
                   <Arrow />
                 </a>
@@ -65,12 +66,12 @@ export function DocsContents() {
             return (
               <div className="contents-folder" key={group.folder}>
                 <p className="label">
-                  {front ? <a href={front.url}>{group.label}</a> : group.label}
+                  {front ? <a href={canonicalPath(front.url)}>{group.label}</a> : group.label}
                 </p>
                 <ul className="contents-pages">
                   {rest.map((page) => (
                     <li key={page.url}>
-                      <a href={page.url}>
+                      <a href={canonicalPath(page.url)}>
                         {page.data.title}
                         <Arrow />
                       </a>

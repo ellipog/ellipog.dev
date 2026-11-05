@@ -25,7 +25,7 @@ const STRUCTURED_DATA = {
       name: `tenet migrator | ${TITLE}`,
       url: absoluteUrl('/ftb-quests-alternative/'),
       description: DESCRIPTION,
-      isPartOf: { '@type': 'WebSite', name: SITE.title, url: SITE.url },
+      isPartOf: { '@type': 'WebSite', '@id': `${SITE.url}/#website`, name: SITE.title, url: `${SITE.url}/` },
     },
     {
       '@type': 'BreadcrumbList',
@@ -34,15 +34,22 @@ const STRUCTURED_DATA = {
         { '@type': 'ListItem', position: 2, name: TITLE, item: absoluteUrl('/ftb-quests-alternative/') },
       ],
     },
+    /*
+     * No `softwareVersion`. It said `0.2.0` while Tenet shipped 1.2.1: this app cannot read the main
+     * site's manifest (separate Vercel project, and `@/` stops at apps/migrator), so a typed version is
+     * a fact nobody keeps true, the reason apps/docs gives for leaving `lastModified` out of its sitemap.
+     * `GameApplication` is the schema.org category; `Game` is not one of the values Google accepts.
+     * The author is the main site's person, by `@id`, as in the layout.
+     */
     {
       '@type': 'SoftwareApplication',
       name: 'Tenet',
       url: 'https://ellipog.dev/docs/tenet/',
-      applicationCategory: 'Game',
+      applicationCategory: 'GameApplication',
       operatingSystem: 'Windows, macOS, Linux',
-      softwareVersion: '0.2.0',
+      isAccessibleForFree: true,
       offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
-      author: { '@type': 'Person', name: 'Ellipog' },
+      author: { '@id': 'https://ellipog.dev/#author' },
     },
   ],
 };
@@ -106,7 +113,7 @@ export default function AlternativePage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">Why switch</span>
+          <h2 className="label">Why switch</h2>
           <span className="faint mono">what changes on day one</span>
         </div>
         <div className="refwrap">
@@ -132,7 +139,7 @@ export default function AlternativePage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">FTB Quests vs Tenet</span>
+          <h2 className="label">FTB Quests vs Tenet</h2>
           <span className="faint mono">the honest version</span>
         </div>
         <div>
@@ -173,7 +180,7 @@ export default function AlternativePage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">Switching takes minutes</span>
+          <h2 className="label">Switching takes minutes</h2>
           <span className="faint mono">the migrator does the dull half</span>
         </div>
         <div className="refwrap">
@@ -192,7 +199,7 @@ export default function AlternativePage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">Questions</span>
+          <h2 className="label">Questions</h2>
           <span className="faint mono">short answers</span>
         </div>
         <div className="refwrap">

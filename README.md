@@ -232,13 +232,16 @@ bun run brand     :: regenerate the host's mark from design/brand-source/
 
 ## The tab title
 
-`ellipog.dev` on the home page, and `ellipog.dev | Tenet documentation` on a docs page — the site first,
-then the page. A sub-page whose own title names no mod gets qualified with one: `ellipog.dev | Tenet —
-Design preview`.
+`ellipog.dev | Minecraft mods for Fabric and NeoForge` on the home page, and `ellipog.dev | Tenet
+documentation for Minecraft` on a mod's front page — the site first, then the page. A sub-page whose own title names no mod
+gets qualified with one: `ellipog.dev | Tenet — Design preview`. A page in an older game version's manual
+is qualified with its version, `ellipog.dev | Tenet — Quests (1.21.1)`, so the two manuals never share a
+title.
 
 The template in `app/layout.tsx` was **dead code** until this was wired up: no page set a title, so every
-page on the site rendered the bare default. `app/docs/[[...slug]]/page.tsx` is now the only place that
-does, and `check.mjs` asserts a docs page differs from the home page.
+page on the site rendered the bare default. `app/docs/[[...slug]]/page.tsx` fills it for the docs pages;
+the home page writes its title out whole, because a layout's template does not reach a page in the
+layout's own segment. `check.mjs` asserts both, and that no two pages share a title.
 
 ---
 

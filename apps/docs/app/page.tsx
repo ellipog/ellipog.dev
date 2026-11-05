@@ -68,26 +68,53 @@ const s = stats as Stats;
 const GITHUB = 'https://github.com/ellipog';
 
 /**
- * The home page's canonical URL and its share card. The tab title is left to the layout's default: this
- * page is the site, so it needs no `%s`.
+ * The home page's title, canonical URL and share card.
+ *
+ * The tab reads `ellipog.dev | Minecraft mods for Fabric and NeoForge`: the site first, as on every other
+ * page, then what the site is. It used to be the bare `ellipog.dev`, which left the page with the most
+ * links pointing at it one brand word for a search engine to match.
+ *
+ * **Written out whole, as `absolute`, because the layout's template cannot reach this page.** A
+ * `title.template` applies to the segments *below* the layout that defines it, and this page is in the
+ * layout's own segment, so a plain `title` here ships bare, without the `ellipog.dev | ` in front.
+ * The card carries the same string, since `openGraph` gets no template either.
  */
-export const metadata: Metadata = social({
-  title: SITE.title,
-  description: SITE.description,
-  path: '/',
-});
+const HOME_TITLE = `${SITE.title} | ${SITE.tagline}`;
+
+export const metadata: Metadata = {
+  title: { absolute: HOME_TITLE },
+  ...social({
+    title: HOME_TITLE,
+    description: SITE.description,
+    path: '/',
+  }),
+};
 
 /**
  * Who and what this site is, for a crawler that reads schema.org. Two nodes and no more -- deliberately not
  * a `SoftwareApplication` per mod, whose rich result is built from ratings or an offer nobody made.
  * `sameAs` is the manifest's author links plus the GitHub profile the Elsewhere band links.
+ *
+ * **The two nodes name each other by `@id`.** Unlinked, a graph of a `WebSite` and a `Person` says that
+ * both exist and nothing about how they relate; `publisher` pointing at the person's `@id` is the sentence
+ * "this person runs this site", which is the one fact the page actually states. The ids are fragment URLs
+ * on the site's own address, the convention schema.org consumers expect, and are never served as anchors.
  */
 const STRUCTURED_DATA = {
   '@context': 'https://schema.org',
   '@graph': [
-    { '@type': 'WebSite', name: SITE.title, url: SITE.url },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE.url}/#website`,
+      name: SITE.title,
+      url: `${SITE.url}/`,
+      description: SITE.description,
+      inLanguage: 'en',
+      publisher: { '@id': `${SITE.url}/#author` },
+    },
     {
       '@type': 'Person',
+      '@id': `${SITE.url}/#author`,
       name: manifest.author.handle,
       url: SITE.url,
       sameAs: [...manifest.author.links.map((link) => link.url), GITHUB],

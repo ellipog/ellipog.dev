@@ -7,11 +7,70 @@ import { DocsFooter } from '@/components/docs-footer';
 import { TableOfContents } from '@/components/toc';
 import { VersionSelector } from '@/components/version-selector';
 import { mdxComponents } from '@/components/mdx';
-import { descriptionOf, maturityOf, neighboursOf, prerequisiteFacts, sectionLabelOf, sectionOf, tocOf, versionOf } from '@/lib/docs';
-import { SITE, absoluteUrl, social } from '@/lib/metadata';
+import {
+  canonicalSlugsOf,
+  descriptionOf,
+  maturityOf,
+  neighboursOf,
+  prerequisiteFacts,
+  sectionLabelOf,
+  sectionOf,
+  tocOf,
+  versionLabelOf,
+  versionOf,
+} from '@/lib/docs';
+import { SITE, absoluteUrl, plainTitle, social } from '@/lib/metadata';
 import { source } from '@/lib/source';
 
 type Props = { params: Promise<{ slug?: string[] }> };
+
+/**
+ * A page's name, plain text, qualified with its game version on an older manual's pages.
+ *
+ * **The version is what stops two manuals sharing every title.** `/docs/tenet/authoring/quests/` and
+ * `/docs/tenet/1.21.1/authoring/quests/` are both `Quests`, and two dozen pairs of identical titles is
+ * what a crawler reads as duplicate pages and what a reader cannot tell apart in a result list. The
+ * default version's pages stay unqualified: they are the manual a search should land on. The
+ * description carries the same version (`descriptionOf`), from the same helper. The breadcrumb uses
+ * this form; the `<title>` uses `headTitleOf`, which builds on it.
+ */
+function versionedTitleOf(slugs: string[], title: string): string {
+  const version = versionLabelOf(slugs);
+  const plain = plainTitle(title);
+  return version ? `${plain} (${version})` : plain;
+}
+
+/**
+ * The `<title>`'s page half.
+ *
+ * **A front page says what game it is for.** `Tenet` is also a film, and `Tenet documentation` alone
+ * gives a search engine nothing that ties it to Minecraft -- and the front pages are the ones a search
+ * for a mod's name lands on. So the docs index reads `Documentation for Minecraft mods`, a section's front
+ * page `Tenet documentation for Minecraft`, and an older manual's `Tenet documentation for Minecraft
+ * 1.21.1`. Only the head changes; the page's own heading is still `Tenet documentation`. Every other page
+ * is already qualified with its mod, and the masthead above it says the rest.
+ */
+function headTitleOf(slugs: string[], title: string): string {
+  const plain = plainTitle(title);
+  if (slugs.length === 0) return `${plain} for Minecraft mods`;
+  const version = versionLabelOf(slugs);
+  const front = sectionOf(slugs) !== undefined && slugs.length === (version ? 2 : 1);
+  if (front) return version ? `${plain} for Minecraft ${version}` : `${plain} for Minecraft`;
+  return versionedTitleOf(slugs, title);
+}
+
+/**
+ * A title as the page's heading shows it: inline code rendered as code.
+ *
+ * A source document may title itself ``JSON `clickEvent` research``. The head drops the backticks
+ * (`plainTitle`), and the heading should not show them either -- they are markdown, and the body's own
+ * inline code is already set as `<code>` by the MDX compiler. The title arrives as a plain string from
+ * frontmatter, so nothing else would render them.
+ */
+function TitleText({ title }: { title: string }) {
+  const parts = title.split(/`([^`]+)`/);
+  return <>{parts.map((part, i) => (i % 2 === 1 ? <code key={i}>{part}</code> : part))}</>;
+}
 
 /**
  * One documentation page.
@@ -82,17 +141,31 @@ export default async function DocsPage({ params }: Props) {
    * `SoftwareApplication` or `TechArticle` node without ratings, offers or dates would be marking
    * up claims nobody made — the same judgement that keeps the sponsor's badge from saying
    * "verified".
+   *
+   * **A prefix with no page of its own is left out of the trail.** Tenet's `authoring/` folder has
+   * no front page, so `/docs/tenet/authoring/` is a 404; a crumb pointing there is a step a crawler
+   * follows to nothing, and its name was the bare slug `authoring`. Skipping it leaves a shorter
+   * trail of real pages, which is what a breadcrumb is.
+   *
+   * An older manual's front page is named with its version (`Tenet documentation (1.21.1)`), which
+   * is what stops it repeating the crumb before it. The steps after it are not: the trail has
+   * already said which manual they are in, so `Conditions (1.21.1)` would say it twice.
    */
   const crumbs = [
     { name: 'Home', url: absoluteUrl('/') },
     { name: 'Documentation', url: absoluteUrl('/docs') },
-    ...resolved.map((_, i) => {
+    ...resolved.flatMap((_, i) => {
       const prefix = resolved.slice(0, i + 1);
       const target = source.getPage(prefix);
-      return {
-        name: target?.data.title ?? prefix[i],
-        url: absoluteUrl(`/docs/${prefix.join('/')}`),
-      };
+      if (!target) return [];
+      const title = target.data.title ?? prefix[i];
+      const isVersionRoot = prefix.length === 2 && versionOf(prefix) !== undefined;
+      return [
+        {
+          name: isVersionRoot ? versionedTitleOf(prefix, title) : plainTitle(title),
+          url: absoluteUrl(`/docs/${prefix.join('/')}`),
+        },
+      ];
     }),
   ];
   const BREADCRUMBS = {
@@ -130,7 +203,9 @@ export default async function DocsPage({ params }: Props) {
       ) : null}
       <article className="prose" {...searchMeta}>
         <div className="page-head">
-          <h1>{page.data.title}</h1>
+          <h1>
+            <TitleText title={page.data.title} />
+          </h1>
           {maturity ? <span className={`maturity maturity-${maturity}`}>{maturity}</span> : null}
         </div>
         {/* The facts, before the prose. From the manifest, so they cannot drift. One chip each,
@@ -196,7 +271,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // No page means `notFound()` is about to run; the 404 carries the site's own title, not this one.
   if (!page) return {};
 
-  const title = page.data.title ?? resolved.at(-1) ?? 'Documentation';
+  const title = headTitleOf(resolved, page.data.title ?? resolved.at(-1) ?? 'Documentation');
   const mod = sectionOf(resolved);
   const qualified = !mod || title.toLowerCase().includes(mod.name.toLowerCase()) ? title : `${mod.name} — ${title}`;
 
@@ -210,12 +285,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
    * points at say the same thing. Only a page with no readable prose at all falls back to the
    * site's description, rather than every undescribed page sharing it.
    */
+  /*
+   * The canonical: the page's own address, unless it is an older manual's word-for-word copy of the
+   * latest page, in which case the latest (`canonicalSlugsOf` has the rule, and why it is "identical"
+   * rather than "similar"). The copy keeps its own title and description -- it is still a page a reader
+   * can be on -- and leaves the sitemap, which lists canonical pages only.
+   */
+  const canonical = source.getPage(canonicalSlugsOf(resolved)) ?? page;
+
   return {
     title: qualified,
     ...social({
       title: qualified,
       description: descriptionOf(resolved) ?? SITE.description,
-      path: page.url,
+      path: canonical.url,
     }),
   };
 }

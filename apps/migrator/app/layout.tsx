@@ -7,7 +7,17 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Colophon } from '@/components/colophon';
 import { SITE, social } from '@/lib/metadata';
 
-const HOME_TITLE = 'FTB Quests → Tenet migrator';
+/** The tool's own name, as its heading and its structured data give it. */
+const APP_NAME = 'FTB Quests → Tenet migrator';
+
+/*
+ * The home page's title: the site's name first, then what it does, in the words a search for it uses.
+ *
+ * It was `FTB Quests → Tenet migrator`, which is the tool's name and leaves out the two things a searcher
+ * types: "to" (an arrow is a symbol a search engine drops) and "converter". It also broke the pattern
+ * every sub-page follows, `tenet migrator | <page>`. The tool's name is unchanged everywhere else.
+ */
+const HOME_TITLE = `${SITE.title} | FTB Quests to Tenet converter`;
 
 export const metadata: Metadata = {
   /*
@@ -18,8 +28,18 @@ export const metadata: Metadata = {
    */
   metadataBase: new URL(SITE.url),
 
-  title: { default: HOME_TITLE, template: 'tenet migrator | %s' },
+  /*
+   * The home page is `'use client'` and cannot export metadata, so its title, canonical and card are
+   * the layout's. Every other page replaces `alternates` and `openGraph` with its own (`social()`), and
+   * the 404 replaces them with nothing — Next merges these keys shallowly, so a page that does not set
+   * one inherits the home page's canonical, which a 404 must not.
+   */
+  title: { default: HOME_TITLE, template: `${SITE.title} | %s` },
   ...social({ title: HOME_TITLE, description: SITE.description, path: '/' }),
+
+  // Indexable, and allowed the large preview: the share card says nothing as a thumbnail. The 404's
+  // own `robots` replaces this object, so it stays `noindex`. Same as apps/docs.
+  robots: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
   /*
    * The tab icon: ellipog.dev's own mark pair, copied by hand like everything
    * under public/site/. A favicon cannot read [data-theme], so the pair switches
@@ -49,27 +69,57 @@ const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t!=
 /*
  * What this site is, for a crawler that reads schema.org.
  *
- * One `WebApplication` node: the tool is free, runs in the browser, and makes
- * no claims worth a rich result — so no ratings, no offers beyond free, and
- * no SoftwareApplication-per-mod markup. Lives in the layout (a server
+ * The tool is free, runs in the browser, and makes no claims worth a rich
+ * result — so no ratings, no offers beyond free, and no
+ * SoftwareApplication-per-mod markup. Lives in the layout (a server
  * component) so it is in the static HTML, not injected by script. The home
  * page is 'use client' and cannot carry this itself.
+ *
+ * Three nodes that name each other by `@id`: the site, the tool, and its
+ * author. **The author's profile links belong to the person.** They used to
+ * be the `WebApplication`'s `sameAs`, which says the converter *is* a
+ * Modrinth user page. **The person's `@id` is the main site's**
+ * (`https://ellipog.dev/#author`, from `apps/docs/app/page.tsx`), so both
+ * sites describe one author rather than two people who share a name.
  */
+const AUTHOR_ID = 'https://ellipog.dev/#author';
+
 const STRUCTURED_DATA = {
   '@context': 'https://schema.org',
-  '@type': 'WebApplication',
-  name: HOME_TITLE,
-  url: SITE.url,
-  description: SITE.description,
-  applicationCategory: 'DeveloperApplication',
-  operatingSystem: 'Web',
-  browserRequirements: 'Requires JavaScript. Requires HTML5.',
-  offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
-  author: { '@type': 'Person', name: 'Ellipog' },
-  sameAs: [
-    'https://modrinth.com/user/Ellipog',
-    'https://www.curseforge.com/members/ellipog/projects',
-    'https://github.com/ellipog',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE.url}/#website`,
+      name: SITE.title,
+      url: `${SITE.url}/`,
+      inLanguage: 'en',
+      publisher: { '@id': AUTHOR_ID },
+    },
+    {
+      '@type': 'WebApplication',
+      '@id': `${SITE.url}/#app`,
+      name: APP_NAME,
+      url: `${SITE.url}/`,
+      description: SITE.description,
+      applicationCategory: 'DeveloperApplication',
+      operatingSystem: 'Web',
+      browserRequirements: 'Requires JavaScript. Requires HTML5.',
+      isAccessibleForFree: true,
+      offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
+      author: { '@id': AUTHOR_ID },
+      isPartOf: { '@id': `${SITE.url}/#website` },
+    },
+    {
+      '@type': 'Person',
+      '@id': AUTHOR_ID,
+      name: 'Ellipog',
+      url: 'https://ellipog.dev/',
+      sameAs: [
+        'https://modrinth.com/user/Ellipog',
+        'https://www.curseforge.com/members/ellipog/projects',
+        'https://github.com/ellipog',
+      ],
+    },
   ],
 };
 
@@ -89,6 +139,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </a>
             <nav aria-label="Primary">
               <a href="/ftb-quests-alternative/">Alternative</a>
+              {/* The comparison page was reachable from one paragraph on the alternative page and
+                  nowhere else, so a crawler found it only through the sitemap. It is one of the site's
+                  three pages (the 404's map lists it beside the other two), so it is in the masthead. */}
+              <a href="/minecraft-questing-mods/">Compare</a>
               <a href="/reference/">Reference</a>
               <a
                 href="https://ellipog.dev/docs/tenet/"

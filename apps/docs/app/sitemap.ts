@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 
+import { canonicalSlugsOf } from '@/lib/docs';
 import { absoluteUrl } from '@/lib/metadata';
 import { source } from '@/lib/source';
 
@@ -23,7 +24,14 @@ import { source } from '@/lib/source';
 export const dynamic = 'force-static';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const paths = ['/', ...source.getPages().map((page) => page.url)];
+  /*
+   * Canonical pages only. An older manual's page that is a word-for-word copy of the latest one names
+   * the latest as its canonical (`canonicalSlugsOf`), and a sitemap listing it anyway would be
+   * submitting a URL the page itself says is not the page. `check.mjs` compares this list with the
+   * built pages that are their own canonical, which is the same property stated from the other side.
+   */
+  const own = source.getPages().filter((page) => canonicalSlugsOf(page.slugs).join('/') === page.slugs.join('/'));
+  const paths = ['/', ...own.map((page) => page.url)];
 
   // A Set because `/docs` arrives from the page list and `/` is added here; neither is a duplicate
   // today, and a duplicate `<loc>` is the kind of thing a crawler reports rather than forgives.

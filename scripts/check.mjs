@@ -102,6 +102,19 @@ function escapeHtml(text) {
 }
 
 /**
+ * The reverse, for measuring what a reader sees: a description's `&#x27;` is one character in a search
+ * result, not six. Ampersands last, so `&amp;lt;` comes back as `&lt;` rather than as `<`.
+ */
+function unescapeHtml(text) {
+  return text
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+/**
  * The page with its `<script>` payloads stripped.
  *
  * **Next serialises its entire render tree into a `<script>` tag**, so every class name and every string
@@ -964,14 +977,22 @@ const subPageTitle = titleOf(read(`${OUT}/docs/tenet/authoring/kubejs/index.html
 const docsIndexTitle = titleOf(read(`${OUT}/docs/index.html`));
 const glossaryTitle = titleOf(read(`${OUT}/docs/glossary/index.html`));
 
-check('the home page carries the site name', homeTitle === 'ellipog.dev', homeTitle ?? 'no <title>');
+// The site first, then what the site is: a home page titled with the bare domain gives a search engine
+// one brand word to match on the page with the most links pointing at it.
+check(
+  'the home page carries the site name, then what it is',
+  homeTitle === 'ellipog.dev | Minecraft mods for Fabric and NeoForge',
+  homeTitle ?? 'no <title>',
+);
 check(
   'a docs page is not just the site name',
   Boolean(docsTitle) && docsTitle !== homeTitle,
   docsTitle ?? 'no <title>',
 );
-check('the site comes first, then the page', docsTitle === 'ellipog.dev | Tenet documentation', docsTitle ?? '');
-check('the docs index names itself', docsIndexTitle === 'ellipog.dev | Documentation', docsIndexTitle ?? '');
+// A front page says which game it is for: `Tenet` alone is also a film, and the front pages are where a
+// search for a mod's name lands. The page's own heading is unchanged; only the head carries the phrase.
+check('the site comes first, then the page', docsTitle === 'ellipog.dev | Tenet documentation for Minecraft', docsTitle ?? '');
+check('the docs index names itself', docsIndexTitle === 'ellipog.dev | Documentation for Minecraft mods', docsIndexTitle ?? '');
 // A page belonging to no mod still gets the pipe -- it is on /docs/, so it is still a docs page.
 check('a reference page still gets the pipe', glossaryTitle === 'ellipog.dev | Glossary', glossaryTitle ?? '');
 
@@ -2358,10 +2379,50 @@ function pagesIn(dir, prefix = '') {
 const builtPaths = pagesIn(OUT).sort();
 const declaredPaths = locs.map((url) => url.replace(siteUrl, '') || '/').sort();
 
+/**
+ * The page a built path should name as its canonical, worked out here from the content rather than read
+ * from what the route decided.
+ *
+ * An older game version's page that is a **word-for-word copy** of the latest manual's (frontmatter
+ * included, with each link's version segment set aside) points at the latest; every other page points
+ * at itself. Restated rather than imported from `lib/docs.ts`, so the assertion is a second statement of
+ * the rule and not the rule agreeing with itself. "Identical" is the point: twelve of the 1.21.1 pages
+ * differ by a sentence or a section, and a threshold would send those readers to the wrong game's manual.
+ */
+function canonicalPathOf(path) {
+  const parts = path.split('/').filter(Boolean);
+  if (parts[0] !== 'docs' || parts.length < 3) return path;
+  const [, modId, versionId, ...tail] = parts;
+  const mod = manifest.suite.find((entry) => entry.id === modId);
+  if (!(mod?.versions ?? []).some((v) => v.id === versionId)) return path;
+  const fileFor = (slugs) => {
+    const base = `apps/docs/content/docs/${slugs.join('/')}`;
+    if (existsSync(`${base}.mdx`)) return `${base}.mdx`;
+    return existsSync(`${base}/index.mdx`) ? `${base}/index.mdx` : null;
+  };
+  const own = fileFor([modId, versionId, ...tail]);
+  const twin = fileFor([modId, ...tail]);
+  if (!own || !twin) return path;
+  const links = new RegExp(`(/docs/[a-z0-9-]+)/${versionId.replace(/\./g, '\\.')}/`, 'g');
+  const strip = (raw) => raw.replace(/\r\n/g, '\n').replace(links, '$1/');
+  return strip(readFileSync(own, 'utf8')) === strip(readFileSync(twin, 'utf8')) ? `/${['docs', modId, ...tail].join('/')}/` : path;
+}
+
+const canonicalPaths = builtPaths.filter((path) => canonicalPathOf(path) === path);
+const copies = builtPaths.filter((path) => canonicalPathOf(path) !== path);
+notes.push(`${copies.length} older-version page(s) are copies of the latest and name it as canonical`);
+
 check(
-  'the sitemap is exactly the pages the build emitted',
-  declaredPaths.join(' ') === builtPaths.join(' '),
-  `sitemap: ${declaredPaths.join(' ')} | built: ${builtPaths.join(' ')}`,
+  'the sitemap is exactly the built pages that are their own canonical',
+  declaredPaths.join(' ') === canonicalPaths.join(' '),
+  `sitemap: ${declaredPaths.join(' ')} | canonical: ${canonicalPaths.join(' ')}`,
+);
+// The consolidation must not swallow the versions that differ: if every older page became a copy, the
+// comparison would be broken rather than the manuals identical.
+check(
+  'an older manual keeps the pages where it differs',
+  builtPaths.some((path) => /^\/docs\/[^/]+\/\d+\.\d+(\.\d+)?\//.test(path) && canonicalPathOf(path) === path),
+  `${copies.length} copies`,
 );
 check("every sitemap entry is on the site's own domain", locs.every((url) => url.startsWith(`${siteUrl}/`)));
 check('every sitemap entry carries the trailing slash the export serves', locs.every((url) => url.endsWith('/')));
@@ -2390,6 +2451,7 @@ function metaTag(html, key) {
  * every page asks.
  */
 const descriptions = [];
+const titles = [];
 for (const path of builtPaths) {
   const html = read(`${OUT}${path}index.html`);
   if (!html) continue;
@@ -2399,12 +2461,18 @@ for (const path of builtPaths) {
   const image = metaTag(html, 'og:image');
   const imagePath = (image ?? '').split('?')[0].replace(siteUrl, '');
 
-  check(`${path} names its own canonical`, canonical === url, canonical ?? 'no <link rel="canonical">');
+  // Its own address, or -- for an older manual's word-for-word copy -- the latest page's. `og:url` follows.
+  const expected = `${siteUrl}${canonicalPathOf(path)}`;
+  check(
+    `${path} names ${expected === url ? 'its own' : 'its latest twin as'} canonical`,
+    canonical === expected,
+    canonical ?? 'no <link rel="canonical">',
+  );
   check(
     `${path} has a card with a title and a description`,
     Boolean(metaTag(html, 'og:title')) && Boolean(metaTag(html, 'og:description')),
   );
-  check(`${path} locates itself on the web`, metaTag(html, 'og:url') === url, metaTag(html, 'og:url') ?? 'no og:url');
+  check(`${path} locates itself on the web`, metaTag(html, 'og:url') === expected, metaTag(html, 'og:url') ?? 'no og:url');
   check(
     `${path} names the site on its card`,
     metaTag(html, 'og:site_name') === 'ellipog.dev' && metaTag(html, 'og:type') === 'website',
@@ -2434,10 +2502,34 @@ for (const path of builtPaths) {
     /<link rel="apple-touch-icon"/.test(html),
     'no apple-touch-icon in the head',
   );
+  // Indexable, and allowed the large preview: the card is a drawing that says nothing as a thumbnail.
+  check(
+    `${path} invites indexing with a large preview`,
+    /index, follow/.test(metaTag(html, 'robots') ?? '') && /max-image-preview:large/.test(metaTag(html, 'robots') ?? ''),
+    metaTag(html, 'robots') ?? 'no robots meta',
+  );
   // Collected for the uniqueness assertion below: the failure this catches is never "nobody set a
   // description", it is "twenty-three pages share the site's" — which is what a fallback to
   // SITE.description on every undescribed page ships as.
   descriptions.push([path, metaTag(html, 'description')]);
+  titles.push([path, titleOf(html)]);
+
+  /*
+   * Every link to a docs page uses the spelling the canonical names. Vercel answers `/docs/tenet` and
+   * `/docs/tenet/` with the same file and a 200 each, so a slashless link is a link to a second URL for
+   * the page; the rail alone used to put forty of those on every page, about 2,500 across the site,
+   * all disagreeing with the canonical tag. Fragments and queries are ignored; only the path is read.
+   */
+  const slashless = [...new Set(
+    [...withoutScripts(html).matchAll(/<a\s[^>]*href="(\/docs[^"#?]*)/g)]
+      .map((m) => m[1])
+      .filter((href) => !href.endsWith('/')),
+  )];
+  check(
+    `${path} links to docs pages by their canonical spelling`,
+    slashless.length === 0,
+    slashless.slice(0, 5).join(' ') || 'every docs link ends in a slash',
+  );
 }
 
 /*
@@ -2461,6 +2553,42 @@ for (const path of builtPaths) {
     'no two pages share a meta description',
     dupes.length === 0,
     dupes.map(([d, ps]) => `${ps.join(' + ')}: ${JSON.stringify(d.slice(0, 60))}`).join('; ') || 'all unique',
+  );
+
+  // Where a search result truncates a description. An older manual's version qualifier sits at the
+  // end of the sentence, so a description past this is one whose distinguishing words are cut off.
+  const long = descriptions.filter(([, d]) => d && unescapeHtml(d).length > 160);
+  check(
+    'every meta description fits a search result',
+    long.length === 0,
+    long.map(([p, d]) => `${p} (${unescapeHtml(d).length})`).join(', ') || 'all within 160 characters',
+  );
+}
+
+/*
+ * Every page has a title of its own.
+ *
+ * The same failure as the descriptions, one tag up, and it was live: an older game version's manual
+ * shared every title with the latest one (`ellipog.dev | Tenet — Quests` twice), twenty-five pairs of
+ * them, which reads to a crawler as duplicate pages and to a reader as two identical results. The
+ * version qualifier in the docs route's `headTitleOf` is what tells them apart.
+ */
+{
+  const seen = new Map();
+  for (const [p, t] of titles) {
+    if (t) seen.set(t, [...(seen.get(t) ?? []), p]);
+  }
+  const dupes = [...seen.entries()].filter(([, ps]) => ps.length > 1);
+  check(
+    'no two pages share a title',
+    dupes.length === 0,
+    dupes.map(([t, ps]) => `${ps.join(' + ')}: ${JSON.stringify(t)}`).join('; ') || 'all unique',
+  );
+  const marked = titles.filter(([, t]) => t && t.includes('`'));
+  check(
+    'no title carries markdown backticks',
+    marked.length === 0,
+    marked.map(([p]) => p).join(', ') || 'plain text throughout',
   );
 }
 
@@ -2526,6 +2654,18 @@ for (const path of builtPaths.filter((p) => p.startsWith('/docs/'))) {
     `${path} trails home through the docs index to itself`,
     items.length >= 2 && items[0].item === `${siteUrl}/` && items[1].item === `${siteUrl}/docs/` && items.at(-1).item === `${siteUrl}${path}`,
     items.map((i) => i.item).join(' > ') || 'no items',
+  );
+  // A step is a page a crawler can follow. Tenet's `authoring/` folder has no front page, and its
+  // crumb used to point at that 404 under the bare name `authoring`.
+  const dead = items
+    .map((i) => (typeof i.item === 'string' ? i.item.replace(siteUrl, '') : ''))
+    .filter((p) => !builtPaths.includes(p));
+  check(`${path} trails only through pages that exist`, dead.length === 0, dead.join(' ') || 'every step is a built page');
+  const names = items.map((i) => i.name);
+  check(
+    `${path} names no two steps alike`,
+    new Set(names).size === names.length,
+    names.join(' > '),
   );
 }
 

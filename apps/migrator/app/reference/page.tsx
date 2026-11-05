@@ -3,7 +3,9 @@ import type { Metadata } from 'next';
 import { SCHEMA_STAMP } from '@/lib/core';
 import { absoluteUrl, SITE, social } from '@/lib/metadata';
 
-const TITLE = 'Reference';
+// The head's name for the page, not its heading (which stays `Reference.`). `tenet migrator | Reference`
+// gave a search nothing to match; this is what the page is, in the words a pack author would search.
+const TITLE = 'FTB Quests to Tenet field reference';
 const DESCRIPTION =
   'Every FTB Quests 1.21.1 field and its Tenet home: tasks, rewards, chapters, dependencies and rewritten commands. The migrator contract.';
 
@@ -24,7 +26,7 @@ const STRUCTURED_DATA = {
       name: `tenet migrator | ${TITLE}`,
       url: absoluteUrl('/reference/'),
       description: DESCRIPTION,
-      isPartOf: { '@type': 'WebSite', name: SITE.title, url: SITE.url },
+      isPartOf: { '@type': 'WebSite', '@id': `${SITE.url}/#website`, name: SITE.title, url: `${SITE.url}/` },
     },
     {
       '@type': 'BreadcrumbList',
@@ -77,7 +79,7 @@ export default function ReferencePage() {
       </section>
 
       <section className="band">
-        <div className="band-head"><span className="label">Tasks that map 1:1</span></div>
+        <div className="band-head"><h2 className="label">Tasks that map 1:1</h2></div>
         <div>
           <Table
             head={['FTB task', 'Tenet type', 'Notes for the tool']}
@@ -102,7 +104,7 @@ export default function ReferencePage() {
       </section>
 
       <section className="band">
-        <div className="band-head"><span className="label">Rewards that map 1:1</span></div>
+        <div className="band-head"><h2 className="label">Rewards that map 1:1</h2></div>
         <div>
           <Table
             head={['FTB reward', 'Tenet field', 'Notes for the tool']}
@@ -126,7 +128,7 @@ export default function ReferencePage() {
       </section>
 
       <section className="band">
-        <div className="band-head"><span className="label">Quest · chapter · file</span></div>
+        <div className="band-head"><h2 className="label">Quest · chapter · file</h2></div>
         <div>
           <Table
             head={['FTB field', 'Tenet field', 'Notes for the tool']}
@@ -153,7 +155,7 @@ export default function ReferencePage() {
       </section>
 
       <section className="band">
-        <div className="band-head"><span className="label">Dependencies</span></div>
+        <div className="band-head"><h2 className="label">Dependencies</h2></div>
         <div>
           <Table
             head={['FTB field', 'Tenet field', 'Notes for the tool']}
@@ -173,7 +175,7 @@ export default function ReferencePage() {
       </section>
 
       <section className="band">
-        <div className="band-head"><span className="label">Add-on mods</span></div>
+        <div className="band-head"><h2 className="label">Add-on mods</h2></div>
         <div>
           <Table
             head={['Add-on field', 'Tenet home', 'Notes for the tool']}
@@ -193,7 +195,7 @@ export default function ReferencePage() {
       </section>
 
       <section className="band">
-        <div className="band-head"><span className="label">Commands rewritten</span></div>
+        <div className="band-head"><h2 className="label">Commands rewritten</h2></div>
         <div>
           <Table
             head={['FTB Quests command', 'Tenet command', '']}
@@ -215,7 +217,7 @@ export default function ReferencePage() {
       </section>
 
       <section className="band">
-        <div className="band-head"><span className="label">Inlined at import</span></div>
+        <div className="band-head"><h2 className="label">Inlined at import</h2></div>
         <div className="refwrap">
           <div className="prose">
           <p>

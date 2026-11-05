@@ -1138,9 +1138,26 @@ never "the glyph is these bytes".
 
 ## The tab title
 
-`ellipog.dev` on the home page, and `ellipog.dev | <page>` everywhere else — the site first, because a
-reader with a dozen tabs open is looking for the *site* before the page, and a tab truncated at twenty
-characters still says which site it is.
+`ellipog.dev | <page>` everywhere — the site first, because a reader with a dozen tabs open is looking
+for the *site* before the page, and a tab truncated at twenty characters still says which site it is.
+
+**The home page is `ellipog.dev | Minecraft mods for Fabric and NeoForge`, not the bare domain.** It was
+`ellipog.dev` alone, which gave the page with the most links pointing at it one brand word for a search
+engine to match. The tagline is `SITE.tagline` in `lib/metadata.ts`, and the home page writes the title
+out as `title.absolute`: a layout's `title.template` applies to the segments *below* it, and `app/page.tsx`
+is in the root layout's own segment, so a plain `title` there ships without the `ellipog.dev | ` prefix.
+That is not a guess — it is what the first build of this change produced.
+
+**An older game version's pages carry their version**: `Tenet — Quests (1.21.1)`. Two manuals share most
+of their page names by design, and before this every page of the 1.21.1 manual had exactly the title of its
+latest-version twin — twenty-five pairs. `headTitleOf` in the docs route adds it, from `versionLabelOf` in
+`lib/docs.ts`, the same helper that qualifies the description. Inline-code backticks in a source document's
+title are dropped from the head (`plainTitle`), and the page's own heading renders them as `<code>`.
+
+**A front page's title says what game it is for**: `Documentation for Minecraft mods` on `/docs/`,
+`Tenet documentation for Minecraft` on a section's front page, `Tenet documentation for Minecraft 1.21.1`
+on an older manual's. `Tenet` is also a film, and the front pages are where a search for a mod's name
+lands. Only the head carries the phrase; the heading on the page is still `Tenet documentation`.
 
 **The template was dead code until this was wired up, and that is the part worth remembering.** The root
 layout has carried a `title.template` from the start — `ellipog.dev | %s`, built from `SITE.title` since
@@ -1193,6 +1210,36 @@ Every page emits `<link rel="canonical">` for its own URL, built by `absoluteUrl
 trailing slash that `trailingSlash: true` gives the export. `/docs/tenet` and `/docs/tenet/` are two
 URLs to a static host, and the canonical is what says which one is the page.
 
+**Every internal link has to agree with it, and for a while almost none did.** Vercel answers both
+spellings with the same file and a `200` (checked with `curl` against the live site), so a slashless link
+is a link to a second URL rather than a redirect. `page.url` from Fumadocs has no trailing slash, and the
+rail, the contents list and the previous/next row all rendered it as it came — about 2,500 links across the
+site, forty on every page, pointing at the spelling the canonical says is *not* the page. They all go
+through `canonicalPath()` now (in `lib/metadata.ts`, the function `absoluteUrl` uses too), and `check.mjs`
+fails on any `/docs` link without its slash. `page.url` itself is untouched, because a dozen comparisons
+across `lib/docs.ts` and the components are written against its slashless form.
+
+The host could also redirect the slashless form (`"trailingSlash": true` in `vercel.json`). That is not
+done here, because it applies to `/api/stats` as well and nobody has yet watched a preview deploy prove
+the function still answers at `/api/stats/`. With every link, the sitemap and the canonical agreeing, the
+redirect would only tidy up after links from other sites.
+
+### Two manuals, and which page is canonical
+
+An older game version's manual (`/docs/tenet/1.21.1/…`) is mostly the latest manual again. **A page that is
+a word-for-word copy of its latest twin names the twin as its canonical and leaves the sitemap**;
+`canonicalSlugsOf` in `lib/docs.ts` decides, by comparing the two generated files, frontmatter included,
+with each link's version segment set aside. Fourteen pages are copies today. Each still has its own title
+and description, because a reader can be on it.
+
+**Identical, not similar, and that is deliberate.** By a word-run similarity score almost every pair looks
+like a copy (0.97 and up), but the pairs that are not identical differ in what a player needs: 1.21.1
+documents EMI support and an FTB Teams source that the latest build does not have. A threshold would point
+those pages at a manual that is wrong for the game the reader is running. So the rule is equality, and
+`check.mjs` restates it independently. It also asserts that the sitemap is exactly the built pages that are
+their own canonical, and that an older manual still keeps some pages of its own, so a broken comparison
+cannot quietly consolidate everything.
+
 ### `robots.txt` and `sitemap.xml`
 
 Both are generated at build time, both carry `dynamic = 'force-static'` because the export has no server
@@ -1200,8 +1247,10 @@ to run them. `robots.txt` allows everything and names the sitemap: there is noth
 meant to be found, and the one page a crawler should skip — the 404 — already says `noindex` of its own.
 
 The sitemap is derived from `source.getPages()`, the same loader the docs route builds from, so it
-cannot list a page that was not built or miss one that was. `check.mjs` walks `out/` and asserts the two
-sets are equal, which is what makes that a property rather than an intention.
+cannot list a page that was not built or miss one that was. It lists **canonical pages only**: an older
+manual's page that is a copy of the latest names the latest as its canonical (below), and is left out.
+`check.mjs` walks `out/` and asserts the sitemap equals the built pages that are their own canonical,
+which is what makes that a property rather than an intention.
 
 **No `lastModified`, no `priority`, no `changeFrequency`.** The build knows the day it ran and nothing
 finer, and stamping every page with it would tell a crawler that all six pages changed this morning,
@@ -1238,6 +1287,39 @@ One `application/ld+json` block, two nodes: `WebSite`, and `Person` whose `sameA
 author links plus the GitHub profile the page already shows. Deliberately **not** a `SoftwareApplication`
 per mod — a rich result for software is built from ratings or an offer, and inventing either would be
 marking up claims nobody made, the same judgement the sponsor's badge makes about not saying "verified".
+
+The two nodes carry `@id`s (`https://ellipog.dev/#website`, `/#author`) and the site names the person as
+its `publisher`. Without the link the graph says two things exist and nothing about how they relate.
+
+### Each docs page's trail
+
+A `BreadcrumbList` per docs page, Home → Documentation → … → the page. **A path prefix with no page of its
+own is skipped**: Tenet's `authoring/` folder has no front page, and its crumb used to point at the 404
+`/docs/tenet/authoring/` under the bare slug `authoring`. An older manual's front page is named with its
+version (`Tenet documentation (1.21.1)`) so it does not repeat the crumb before it. `check.mjs` asserts
+every step is a built page and no two steps share a name.
+
+### Descriptions
+
+Frontmatter first; otherwise an excerpt of the opening prose (`excerptFromMarkdown`), which takes the
+longest run of **whole sentences** that fits in 155 characters, provided that is at least 70. Failing that it
+cuts at a word and **ends in an ellipsis**. That reverses an earlier choice to end bare: half the site's
+descriptions stopped mid-clause ("…wait for the player to claim them: the"), which reads as an error, and a
+search result already truncates with an ellipsis, so one here reads as what it is. A self-closing
+`<GlossaryTerm term="quest" />` contributes its word. Stripped as a tag, it left "A is one file". A code
+block introduced by a colon ends that sentence, so "…where it ends:" does not run on into the prose after the
+block. An older manual's description **starts** `Minecraft 1.21.1: `, unless the sentence already names that
+version, and the excerpt is cut short enough to leave room for the prefix. As a suffix it pushed those
+descriptions to 165–175 characters, past where a result truncates, and when it did fit it sat after the
+excerpt's ellipsis.
+
+`og:locale` is `en_GB`. Open Graph spells a locale as language_territory, and the prose is British English.
+
+### Robots
+
+`index, follow, max-image-preview:large, max-snippet:-1` from the root layout, so a result may show the
+1200×630 card large rather than as a thumbnail it cannot be read at. The 404's own `robots` replaces the
+object rather than merging with it, so it stays `noindex`.
 
 ### Accessibility, the invisible half
 
@@ -1558,6 +1640,28 @@ blinks the one running, and the log has a block cursor while it is written. The 
 ASCII figure of what goes in and what comes out (`components/diagram.tsx`), and its 404 page carries
 the site's own map. Locally it serves on **localhost:3265**, beside the main site's 3264.
 
+**Its head follows the main site's rules, with three differences that come from the home page being
+`'use client'`.** That page cannot export metadata, so its title, canonical and card are the root
+layout's. Next merges metadata keys shallowly, so the sub-pages replace `alternates` and `openGraph`
+through `social()`. **The 404 sets all three to `null`**: before that it inherited `canonical: /`, a
+`noindex` page claiming to be the home page. The titles are `tenet migrator | <page>` everywhere,
+the home page included: `FTB Quests to Tenet converter`, with "to" because a search engine drops the
+arrow. The structured data is a `WebSite`, a `WebApplication` and a `Person`. The person's `@id` is the
+main site's `https://ellipog.dev/#author`, so both sites describe one author, and the profile links sit
+on the person rather than on the app. The alternative page's `Tenet` node has no `softwareVersion`: it
+said `0.2.0` while Tenet shipped 1.2.1, and this app cannot read the manifest.
+
+The section names on the three content pages are `<h2 class="label">`, not spans, so the pages have a
+heading outline. The universal margin reset and `.label` make that change invisible. The comparison page
+is in the masthead (`Compare`); before that only one paragraph linked to it. Unlike the main site,
+`vercel.json` here sets `"trailingSlash": true`, because there is no `/api` function for the redirect to
+break.
+
+**One thing still to decide:** the migrator's copy says Tenet targets Minecraft 1.21.1 (the hero eyebrow,
+the alternative page's description and its "Which Minecraft versions?" answer). The manifest now
+lists 26.3 as Tenet's default version with 1.21.1 alongside. Whether that copy should change depends on
+which Tenet versions the migrator's output targets, so it was left alone.
+
 ---
 
 ## Running it
@@ -1587,9 +1691,14 @@ content by forgetting a step, and no way to ship one that is structurally wrong 
 - every `selected` project in the manifest resolves to a real platform entry, and the totals add up
 - **nothing that is not certain to exist is published**: no manifest entry is anything but `active`, the
   catalog says `planned` nowhere, and a brand band is drawn exactly when it has an active mod
-- the crawler files ship, the sitemap is **exactly** the pages the build emitted, and every page names
-  its own canonical
+- the crawler files ship, the sitemap is **exactly** the built pages that are their own canonical, and
+  every page names its own canonical — or, for an older manual's word-for-word copy, its latest twin's
 - every page carries a card — `og:image` on every emitted page, not only on the home page
+- no two pages share a title or a description, no description runs past 160 characters, and no title
+  carries markdown backticks
+- every link to a docs page uses the canonical, slashed spelling
+- each docs page's breadcrumb trail steps only through pages that exist, and names no two steps alike
+- every indexable page asks for the large image preview
 - the home page's structured data parses, and declares `WebSite` and `Person`
 - the landmark and the accessible labels are in the markup, and `prefers-reduced-motion` is in the CSS
 

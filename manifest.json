@@ -2,7 +2,7 @@
   "site": {
     "title": "ellipog",
     "domain": "ellipog.dev",
-    "description": "Manuals for the mods: how they work, how to configure them, and what the formats are."
+    "description": "Manuals for Tenet, Armature and Stature, Minecraft mods for Fabric and NeoForge: how they work, how to configure them, and what the file formats are."
   },
   "/*sponsor": "One affiliate arrangement, in the manifest because that is where the site's facts live — a link and a discount code written into a component would be a second place to keep in step. `code` is quoted verbatim on the page, and `url` carries the referral path.",
   "sponsor": {

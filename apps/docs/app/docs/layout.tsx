@@ -4,6 +4,7 @@ import '../docs.css';
 import { ModIcon } from '@/components/mod-icon';
 import { SidebarLinks, type RailSection, type RailVersion } from '@/components/sidebar-links';
 import { sectionTrees, standalonePages, versionsOf, sectionTreeOf, type DocPage } from '@/lib/docs';
+import { canonicalPath } from '@/lib/metadata';
 
 /**
  * The documentation shell: a fixed navigation rail on the left, everything else inside it.
@@ -28,8 +29,11 @@ import { sectionTrees, standalonePages, versionsOf, sectionTreeOf, type DocPage 
  * links back to places the reader had just come from.
  */
 export default function DocsLayout({ children }: { children: ReactNode }) {
+  // The canonical spelling, with its trailing slash: the rail is forty links on every page, and it is
+  // the bulk of the site's internal linking. `sidebar-links.tsx` normalises both sides before it
+  // compares a link with the reader's path, so the slash changes no highlighting.
   const linkOf = (page: DocPage, label?: string) => ({
-    url: page.url,
+    url: canonicalPath(page.url),
     title: label ?? page.data.title ?? page.slugs.at(-1) ?? page.url,
   });
 
@@ -40,7 +44,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
       // The section's own front page, so its name can be the way back to it. The contents list on
       // `/docs/` already works this way -- a folder's name reaches the folder's page -- and the rail
       // was the one place a section could be entered by URL only.
-      href: tree.overview?.url ?? null,
+      href: tree.overview ? canonicalPath(tree.overview.url) : null,
       section: {
         // The section's own front page is called "Overview" in the rail rather than by its page title.
         // It sits under a label that already names the mod, so "Tenet" above "Tenet documentation"

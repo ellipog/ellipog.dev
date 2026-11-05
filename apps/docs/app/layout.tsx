@@ -43,6 +43,15 @@ export const metadata: Metadata = {
   description: SITE.description,
 
   /*
+   * Indexable, and allowed the large image preview. Without `max-image-preview:large` Google may
+   * show a result's image only as a thumbnail, and the share card is a 1200×630 drawing that says
+   * nothing at thumbnail size. `max-snippet: -1` says the same of the text: no cap on how much of
+   * a page's own words a result may quote. The 404 sets its own `robots`, which replaces this whole
+   * object rather than merging with it, so it stays `noindex`; `check.mjs` asserts both halves.
+   */
+  robots: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
+
+  /*
    * The tab icon — the site's own identity, and deliberately **not** one of the mod marks.
    *
    * The marks in `components/mod-icon.tsx` belong to the mods and appear beside their names, where a

@@ -18,6 +18,15 @@ import { Diagram } from '@/components/diagram';
 export const metadata: Metadata = {
   title: 'Not found',
   robots: { index: false, follow: false },
+  /*
+   * Nothing to inherit. The layout carries the home page's canonical and card (the home page is
+   * `'use client'` and cannot carry its own), and Next merges these keys shallowly — so without the
+   * three nulls the 404 shipped `canonical: /` and `og:url: /`, a `noindex` page claiming to be the
+   * home page. A 404 is not a copy of anything.
+   */
+  alternates: null,
+  openGraph: null,
+  twitter: null,
 };
 
 const MAP = [

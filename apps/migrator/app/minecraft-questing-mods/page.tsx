@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 
 import { absoluteUrl, SITE, social } from '@/lib/metadata';
 
-const TITLE = 'Minecraft questing mods';
+// "compared" because that is what the page is, and what a search for one says; the heading keeps its own.
+const TITLE = 'Minecraft questing mods compared';
 const DESCRIPTION =
   'Questing mods for Minecraft compared: FTB Quests, Tenet, and the legacy options. Which quest mod fits your pack, and how to switch.';
 
@@ -24,7 +25,7 @@ const STRUCTURED_DATA = {
       name: `tenet migrator | ${TITLE}`,
       url: absoluteUrl('/minecraft-questing-mods/'),
       description: DESCRIPTION,
-      isPartOf: { '@type': 'WebSite', name: SITE.title, url: SITE.url },
+      isPartOf: { '@type': 'WebSite', '@id': `${SITE.url}/#website`, name: SITE.title, url: `${SITE.url}/` },
     },
     {
       '@type': 'BreadcrumbList',
@@ -52,7 +53,7 @@ export default function QuestingModsPage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">How to pick</span>
+          <h2 className="label">How to pick</h2>
           <span className="faint mono">choosing, not ranking</span>
         </div>
         <div className="refwrap">
@@ -68,7 +69,7 @@ export default function QuestingModsPage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">FTB Quests</span>
+          <h2 className="label">FTB Quests</h2>
           <span className="faint mono">the incumbent</span>
         </div>
         <div className="refwrap">
@@ -89,7 +90,7 @@ export default function QuestingModsPage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">Tenet</span>
+          <h2 className="label">Tenet</h2>
           <span className="faint mono">ours — for new 1.21.1 packs</span>
         </div>
         <div className="refwrap">
@@ -112,7 +113,7 @@ export default function QuestingModsPage() {
 
       <section className="band">
         <div className="band-head">
-          <span className="label">The legacy options</span>
+          <h2 className="label">The legacy options</h2>
           <span className="faint mono">for old packs only</span>
         </div>
         <div className="refwrap">

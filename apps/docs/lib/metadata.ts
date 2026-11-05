@@ -20,10 +20,19 @@ import manifest from '@/manifest.json';
  * page. If the two ever read the same, every docs page without its own description falls back to
  * the home sentence and the sitemap ships two dozen duplicate descriptions.
  */
+const TAGLINE = 'Minecraft mods for Fabric and NeoForge';
+
 export const SITE = {
   domain: manifest.site.domain,
   url: `https://${manifest.site.domain}`,
   title: 'ellipog.dev',
+  /**
+   * What the home page is about, in the words somebody would search for. It follows the site's name
+   * in the home page's title (`ellipog.dev | Minecraft mods for Fabric and NeoForge`): a home page
+   * titled only with the domain gives a search engine one brand word and nothing else to match, on
+   * the page with the most links pointing at it. The share card's alt text says the same thing.
+   */
+  tagline: TAGLINE,
   description:
     'Tenet, Armature and Stature: Minecraft mods for Fabric and NeoForge. A questing engine, a UI library, and a scale and anatomy API, plus earlier work.',
 } as const;
@@ -40,7 +49,7 @@ export const CARD = {
   path: '/og.png',
   width: 1200,
   height: 630,
-  alt: 'ellipog — Minecraft mods for Fabric and NeoForge',
+  alt: `ellipog — ${TAGLINE}`,
 } as const;
 
 /**
@@ -58,10 +67,16 @@ export const CARD = {
  */
 export function excerptFromMarkdown(markdown: string, maxLength = 155): string | undefined {
   const text = markdown
-    // Fenced code blocks are examples, not summaries.
-    .replace(/```[\s\S]*?```/g, ' ')
+    // Fenced code blocks are examples, not summaries. Each leaves a marker behind, because a sentence
+    // that introduced one ends on a colon ("where it starts and where it ends:"), and without the block
+    // the next sentence runs on from it mid-line.
+    .replace(/```[\s\S]*?```/g, ' \u0001 ')
     // `import`/`export` lines are scaffolding, never prose.
     .replace(/^(?:import|export)\s.*$/gm, ' ')
+    // A self-closing glossary term *is* a word of the sentence: `<GlossaryTerm term="quest" />` renders
+    // as "quest" (`inlineForm` in `components/mdx/glossary-term.tsx`). Stripped as a tag, it left
+    // descriptions reading "A is one file" and "separate from s".
+    .replace(/<GlossaryTerm\s[^<>]*?term="([^"]+)"[^<>]*?\/>/g, (_m, term: string) => term.replace(/-/g, ' '))
     // Component tags keep their inner text: `<Callout>` wrappers go, the sentence stays.
     .replace(/<\/?[A-Za-z][\w.:-]*(?:\s[^<>]*)?\/?>/g, ' ')
     // `{expression}` fragments are code, not words.
@@ -76,26 +91,87 @@ export function excerptFromMarkdown(markdown: string, maxLength = 155): string |
     // Line-level markers (headings, quotes, list bullets, ordered numbers) are not content.
     .replace(/^[ \t]*(?:#{1,6}\s+|>{1,3}\s*|[-*+]\s+|\d+[.)]\s+)/gm, ' ')
     .replace(/\s+/g, ' ')
+    // A colon that introduced a removed code block ends its sentence; any other marker is just a gap.
+    .replace(/:\s*\u0001/g, '.')
+    .replace(/\s*\u0001\s*/g, ' ')
+    // Tags were replaced with a space so block elements cannot run two words together; an inline one
+    // just before punctuation leaves "the envelope ." instead, so the space is taken back.
+    .replace(/\s+([.,;:!?)])/g, '$1')
+    .replace(/\(\s+/g, '(')
     .trim();
 
   if (!text) return undefined;
   if (text.length <= maxLength) return text;
-  // Cut on a word boundary so the snippet never ends mid-word; no ellipsis, which reads as
-  // trailing content in a meta tag rather than as an abbreviation.
-  const cut = text.lastIndexOf(' ', maxLength);
-  return (cut > maxLength * 0.5 ? text.slice(0, cut) : text.slice(0, maxLength)).trim() || undefined;
+
+  /*
+   * Whole sentences first. A snippet cut at a word boundary ends mid-clause ("…wait for the player
+   * to claim them: the"), and a search result that stops mid-thought reads as broken rather than as
+   * a summary. In order of preference:
+   *
+   * 1. the longest run of whole sentences that fits, when it is at least 70 characters;
+   * 2. otherwise a word-boundary cut, **ending in an ellipsis**. This used to end bare, on the theory
+   *    that an ellipsis reads as trailing content; but a search result already truncates with one, so
+   *    it reads as exactly what it is, a sentence that continues on the page, where a bare cut reads
+   *    as an error. The ellipsis is counted inside `maxLength`.
+   *
+   * The opening sentence alone is deliberately not an option when it is short. "A rig gives anatomy
+   * names to model paths." is 41 characters, and a search engine shown that little tends to write
+   * its own snippet from the page instead; the same sentence carried on into the next one says more.
+   */
+  const ends = [...text.slice(0, maxLength + 1).matchAll(/[.!?](?=\s)/g)].map((m) => (m.index ?? 0) + 1);
+  const longest = ends.filter((end) => end <= maxLength && end >= 70).at(-1);
+  if (longest) return text.slice(0, longest).trim();
+
+  const budget = maxLength - 1;
+  const cut = text.lastIndexOf(' ', budget);
+  const head = (cut > budget * 0.5 ? text.slice(0, cut) : text.slice(0, budget)).replace(/[\s,;:—–-]+$/, '').trim();
+  return head ? `${head}…` : undefined;
 }
+
+/**
+ * A title as plain text: markdown's inline-code backticks removed.
+ *
+ * A source document may title itself ``JSON `clickEvent` research``, which the page's own heading
+ * shows as written. In a `<title>`, an `og:title` or a breadcrumb the backticks are not markup any
+ * more, just two stray characters in a search result.
+ */
+export function plainTitle(title: string): string {
+  return title.replace(/`([^`]*)`/g, '$1');
+}
+
+/**
+ * A site path in the form the export serves: with its trailing slash, query and fragment kept.
+ *
+ * `trailingSlash: true` in `next.config.mjs` means `/docs/tenet/` is the address the export writes.
+ * Vercel also answers `/docs/tenet` with the same file and a 200, so the slashless spelling is a
+ * second URL for the same page rather than a redirect. The canonical tag says which one is the
+ * page, and **every internal link has to agree with it**: a rail of forty links per page pointing at
+ * the other spelling tells a crawler the opposite of what the canonical does.
+ *
+ * Only site paths are touched. External URLs, bare fragments and anything with a file extension
+ * (`/og.png`, `/llms.txt`) are returned as they are; a docs path's version segment (`1.21.1`) is not
+ * mistaken for an extension because docs paths are matched by prefix first.
+ */
+export function canonicalPath(href: string): string {
+  if (!href.startsWith('/')) return href;
+  const split = /^([^?#]*)(.*)$/.exec(href);
+  const path = split?.[1] ?? href;
+  const rest = split?.[2] ?? '';
+  if (path.endsWith('/')) return href;
+  const isDocs = path === '/docs' || path.startsWith('/docs/');
+  if (!isDocs && /\.[a-z0-9]+$/i.test(path)) return href;
+  return `${path}/${rest}`;
+}
+
 /**
  * A route's absolute URL, with the trailing slash the export actually serves.
  *
- * `trailingSlash: true` in `next.config.mjs` means `/docs/tenet/` is the address and `/docs/tenet`
- * is a redirect — which a static host cannot perform, so the slashless form is simply a different
- * URL. The canonical link, the sitemap entry and the share card each need the same answer to "what
- * is this page's URL", so they all ask this function rather than each appending their own slash.
+ * The canonical link, the sitemap entry and the share card each need the same answer to "what is
+ * this page's URL", so they all ask this function rather than each appending their own slash, and
+ * this function asks `canonicalPath`, which is the same answer every internal link gets.
  */
 export function absoluteUrl(path: string): string {
-  const p = path.startsWith('/') ? path : `/${path}`;
-  return `${SITE.url}${p.endsWith('/') ? p : `${p}/`}`;
+  return `${SITE.url}${canonicalPath(path.startsWith('/') ? path : `/${path}`)}`;
 }
 
 /**
@@ -122,7 +198,9 @@ export function social({ title, description, path }: { title: string; descriptio
   return {
     description,
     alternates: { canonical: url },
-    openGraph: { type: 'website', siteName: SITE.title, locale: 'en', title, description, url, images },
+    // `en_GB` rather than `en`: Open Graph spells a locale language_TERRITORY, and a bare language code
+    // is not one of its values. British, because the prose is ("colour", "normalise").
+    openGraph: { type: 'website', siteName: SITE.title, locale: 'en_GB', title, description, url, images },
     twitter: { card: 'summary_large_image', title, description, images: [CARD.path] },
   };
 }

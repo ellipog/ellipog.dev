@@ -539,10 +539,21 @@ function writeDocsIndex(mods) {
  * be generated rather than authored because a route has to exist, and routes under `content/` are all
  * generated.
  */
-function writeGlossaryPage() {
+function writeGlossaryPage(mods) {
+  /*
+   * The description names the manuals the terms come from, from the mods that actually synced. "Terms
+   * used across the mods" was the whole sentence before, which told a search result neither which
+   * mods nor that they are Minecraft mods; the names are derived so a mod added to the suite is named
+   * here without anybody remembering to.
+   */
+  const names = mods.map((mod) => mod.name);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : (names[0] ?? 'the mods');
   write(
     join(CONTENT, 'glossary.mdx'),
-    frontmatter('Glossary', 'Terms used across the mods, each defined in the file that owns it.') +
+    frontmatter(
+      'Glossary',
+      `Terms used across the ${list} manuals for Minecraft, each defined once in the file that owns it.`,
+    ) +
       'Every term here is also available in any page as a hover definition: write `[[quest]]`.\n\n' +
       '<Glossary />\n',
   );
@@ -661,7 +672,7 @@ function main() {
   for (const section of sections) copySchemas(section.mod);
 
   writeDocsIndex(sections.map((s) => s.mod));
-  writeGlossaryPage();
+  writeGlossaryPage(sections.map((s) => s.mod));
 
   // Where the vocabulary came from, in one line: the shared file and then each mod that defines terms.
   if (glossary.terms.length > 0) {

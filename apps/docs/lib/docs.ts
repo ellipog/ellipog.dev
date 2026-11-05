@@ -220,18 +220,77 @@ export function descriptionOf(slugs: string[]): string | undefined {
   // prose by design, and an unqualified duplicate is both a search result that cannot say which
   // game it describes and a failure in `check.mjs`'s uniqueness assertion. The page's own lede is
   // untouched -- the version is already named twice above it, as a fact chip and as the switcher.
+  // **First, not last.** As a suffix it sat after an excerpt's ellipsis ("…for the platform and the…
+  // (Minecraft 1.21.1)"), and it is the one part of the sentence a search result must not cut, so it
+  // leads. A sentence that already names its version gets no prefix repeating it.
+  const label = versionLabelOf(slugs);
+  const qualifier = label ? `Minecraft ${label}: ` : '';
+  const qualify = (sentence: string) => (label && sentence.includes(`Minecraft ${label}`) ? sentence : `${qualifier}${sentence}`);
+
+  if (declared) return qualify(declared);
+
+  // The excerpt is cut short enough to leave room for the qualifier. Added to a full-length cut, it
+  // pushed every older-version description to 165–175 characters, past where a search result
+  // truncates it.
+  const excerpt = excerptFromMarkdown(
+    raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ''),
+    DESCRIPTION_LENGTH - qualifier.length,
+  );
+  return excerpt ? qualify(excerpt) : undefined;
+}
+
+/** The generated file a page was built from, or undefined. The same resolution `tocOf` documents. */
+function fileOf(slugs: string[]): string | undefined {
+  const base = join(process.cwd(), 'content', 'docs', ...slugs);
+  const file = existsSync(`${base}.mdx`) ? `${base}.mdx` : join(base, 'index.mdx');
+  return existsSync(file) ? file : undefined;
+}
+
+/**
+ * The page a search engine should treat as this one: its own slugs, or -- for an older game version's
+ * page that is a word-for-word copy of the latest manual's -- that latest twin.
+ *
+ * **Identical, not similar, and that line is the whole design.** Thirteen of the 1.21.1 pages are the
+ * latest page exactly, once a link's version segment is set aside (`/docs/armature/1.21.1/api/teams/` and
+ * `/docs/armature/api/teams/` are the same link in each manual). Two URLs with one text are a duplicate
+ * whichever way they are marked, and a search engine picks a canonical for them itself, possibly the old
+ * one; naming the latest says which. The other twelve *differ*, by a sentence or by a section -- EMI
+ * support on 1.21.1, a team source the latest build dropped -- and a similarity threshold would send a
+ * 1.21.1 player to a page that is wrong for their game. Those keep their own canonical and their place in
+ * the sitemap.
+ *
+ * Compared as files, frontmatter included, so a page whose title or description differs is not a copy.
+ */
+export function canonicalSlugsOf(slugs: string[]): string[] {
   const versionId = versionOf(slugs);
-  const qualifier = (() => {
-    if (!versionId) return '';
-    const mod = mods.find((entry) => entry.id === slugs[0]);
-    const minecraft = versionEntryOf(mod ?? { id: '', name: '', summary: '' }, versionId).minecraft;
-    return minecraft ? ` (Minecraft ${minecraft})` : ` (${versionId})`;
-  })();
+  if (!versionId) return slugs;
+  const [modId, , ...tail] = slugs;
+  const twin = [modId, ...tail];
+  if (!source.getPage(twin)) return slugs;
+  const own = fileOf(slugs);
+  const other = fileOf(twin);
+  if (!own || !other) return slugs;
+  const versionLinks = new RegExp(`/docs/([a-z0-9-]+)/${versionId.replace(/\./g, '\\.')}/`, 'g');
+  const normal = (raw: string) => raw.replace(/\r\n/g, '\n').replace(versionLinks, '/docs/$1/');
+  return normal(readFileSync(own, 'utf8')) === normal(readFileSync(other, 'utf8')) ? twin : slugs;
+}
 
-  if (declared) return `${declared}${qualifier}`;
+/** Where a search result stops showing a description, near enough: Google cuts at about 155–160. */
+const DESCRIPTION_LENGTH = 155;
 
-  const excerpt = excerptFromMarkdown(raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ''));
-  return excerpt ? `${excerpt}${qualifier}` : undefined;
+/**
+ * The game version an older manual's page is for, as a reader would name it (`1.21.1`), or undefined
+ * on the default version's pages.
+ *
+ * One answer for the description's qualifier and the title's, so a search result names the same
+ * version twice rather than two spellings of it. The Minecraft version when the manifest has one,
+ * else the version's own id.
+ */
+export function versionLabelOf(slugs: string[]): string | undefined {
+  const versionId = versionOf(slugs);
+  if (!versionId) return undefined;
+  const mod = mods.find((entry) => entry.id === slugs[0]);
+  return (mod ? versionEntryOf(mod, versionId).minecraft : undefined) ?? versionId;
 }
 
 export type Neighbour = { url: string; title: string };

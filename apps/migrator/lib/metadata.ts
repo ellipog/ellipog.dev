@@ -70,7 +70,8 @@ export function social({
   return {
     description,
     alternates: { canonical: url },
-    openGraph: { type: 'website', siteName: SITE.title, locale: 'en', title, description, url, images },
+    // `en_GB`: Open Graph spells a locale language_TERRITORY, and the prose is British ("colour").
+    openGraph: { type: 'website', siteName: SITE.title, locale: 'en_GB', title, description, url, images },
     twitter: { card: 'summary_large_image', title, description, images: [CARD.path] },
   };
 }
