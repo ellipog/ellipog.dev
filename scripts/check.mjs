@@ -2395,7 +2395,11 @@ const destinationExists = (destination) => {
   const prefix = destination.replace(/\/:path\*$/, '/');
   return existsSync(`${OUT}${prefix}index.html`) || existsSync(`${OUT}${prefix}`);
 };
+// The trailing-slash rule's destination is the request itself plus a slash, not a page; it is asserted on
+// its own below, against every page and file the build emitted.
+const SLASH_SOURCE = /^\/docs\/:page\((.+)\)$/;
 const missingDestinations = redirects
+  .filter((rule) => !SLASH_SOURCE.test(rule.source))
   .map((rule) => rule.destination)
   .filter((destination) => !destinationExists(destination));
 check(
@@ -2458,6 +2462,63 @@ function pagesIn(dir, prefix = '') {
 
 const builtPaths = pagesIn(OUT).sort();
 const declaredPaths = locs.map((url) => url.replace(siteUrl, '') || '/').sort();
+
+/*
+ * ONE ADDRESS PER PAGE: THE SLASHLESS FORM REDIRECTS.
+ *
+ * Every page is built as `<path>/index.html`, and Vercel serves that directory at `/docs/tenet` and at
+ * `/docs/tenet/` alike: two 200s for one page. The canonical tag already names the slash form; the last two
+ * redirects make the slashless one a 308 to it. Vercel's own `trailingSlash: true` would do the same
+ * site-wide, and is not used because it would redirect `/api/stats` as well, a function the live counter
+ * polls. These two rules only reach `/docs`.
+ *
+ * The rule's pattern is a regex in the rule's own source, so it is rebuilt here exactly as Vercel compiles
+ * it (`^/docs/(<pattern>)$`, checked against `@vercel/routing-utils`) and run over the build: every page's
+ * slashless address must come back to that page, and no file the build emitted may be caught -- that is
+ * what keeps a `.txt` payload or an image from being redirected to a directory that does not exist.
+ * Version folders (`/docs/tenet/1.21.1`) have dots and are pages, which is why the last segment is "no dot,
+ * or a version number" rather than Vercel's plain "no dot".
+ */
+const slashRule = redirects.find((rule) => SLASH_SOURCE.test(rule.source));
+const slashPattern = slashRule ? new RegExp(`^/docs/(${SLASH_SOURCE.exec(slashRule.source)[1]})$`) : null;
+const docsRootRule = redirects.find((rule) => rule.source === '/docs');
+check(
+  'the slashless /docs redirects to /docs/',
+  Boolean(docsRootRule && docsRootRule.destination === '/docs/' && docsRootRule.permanent),
+  docsRootRule ? `${docsRootRule.source} → ${docsRootRule.destination}` : 'no rule',
+);
+check(
+  'the trailing-slash rule is the last redirect, so a moved page goes straight to its new home',
+  Boolean(slashRule) && redirects[redirects.length - 1] === slashRule && slashRule.destination === '/docs/:page/',
+  slashRule ? `${slashRule.source} → ${slashRule.destination}` : 'no rule',
+);
+if (slashPattern) {
+  const docsPages = builtPaths.filter((path) => path.startsWith('/docs/') && path !== '/docs/');
+  const unredirected = docsPages.filter((path) => {
+    const match = slashPattern.exec(path.slice(0, -1));
+    return !match || `/docs/${match[1]}/` !== path;
+  });
+  check(
+    'every page under /docs/ answers its slashless address with a redirect to itself',
+    unredirected.length === 0,
+    `${docsPages.length} pages` + (unredirected.length ? `, not redirected: ${unredirected.slice(0, 5).join(', ')}` : ''),
+  );
+  const filesUnder = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+      entry.isDirectory()
+        ? filesUnder(`${dir}/${entry.name}`, `${prefix}${entry.name}/`)
+        : entry.name === 'index.html'
+          ? []
+          : [`${prefix}${entry.name}`],
+    );
+  const caughtFiles = filesUnder(`${OUT}/docs`, '/docs/').filter((path) => slashPattern.test(path));
+  check(
+    'no file the build emitted is caught by the trailing-slash rule',
+    caughtFiles.length === 0,
+    caughtFiles.slice(0, 5).join(', ') || 'payloads, images and feeds pass through',
+  );
+  check('the trailing-slash rule leaves /api/stats alone', !slashPattern.test('/api/stats') && !slashPattern.test('/api/stats/'));
+}
 
 /**
  * The page a built path should name as its canonical, worked out here from the content rather than read

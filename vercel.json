@@ -33,6 +33,9 @@
     { "source": "/docs/tasked/", "destination": "/docs/tenet/", "permanent": true },
     { "source": "/tasked", "destination": "/docs/tenet/", "permanent": true },
     { "source": "/tasked/", "destination": "/docs/tenet/", "permanent": true },
-    { "source": "/tasked/:path*", "destination": "/tenet/:path*", "permanent": true }
+    { "source": "/tasked/:path*", "destination": "/tenet/:path*", "permanent": true },
+
+    { "source": "/docs", "destination": "/docs/", "permanent": true },
+    { "source": "/docs/:page((?:[^/]+/)*(?:[^/.]+|[0-9]+(?:\\.[0-9]+)+))", "destination": "/docs/:page/", "permanent": true }
   ]
 }
