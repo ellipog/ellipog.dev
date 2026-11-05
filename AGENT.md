@@ -228,8 +228,17 @@ turns (printed, no pointer on it, no debris, nothing just placed) `world.tsx` dr
 `IDLE_FRAME_MS`; anything the hand does, and the print, still draws every frame. Which faces touch air
 depends only on the blocks, so once the print is done `exposedOf` runs once and the list is kept until a
 block is mined, placed or the structure changes; each frame only projects it (`projectFaces`, with the
-camera's sines and cosines worked out once per frame instead of per point). The output is bit-identical
-to the old per-frame pass, and the pass costs 0.35–0.75ms instead of 0.62–1.5ms on the five structures.
+camera's sines and cosines worked out once per frame instead of per point, and the four corners built
+by direct calls rather than `.map` callbacks). A face's fill string is cached per tone and rebuilt only
+when the theme changes. The output is bit-identical to the old per-frame pass, and the pass costs
+0.22–0.48ms instead of 0.60–1.23ms on the five structures (Bun).
+
+**What a frame costs in the browser**, measured in headless Chrome at a 2x device ratio: at full speed an
+idle frame is ~0.6ms and the idle orbit takes ~16ms of main thread a second; at 4x CPU throttling (a
+mid-range phone) it is ~4.7ms a frame and ~140ms a second, against ~5.6ms and ~166ms before the colour
+cache and the direct corner calls. Roughly three quarters of that is
+script and a quarter canvas calls (`fill`, `stroke`), so the next lever, if one is ever needed, is
+sorting less (faces barely change order between frames) rather than drawing less.
 
 Under
 `prefers-reduced-motion: reduce` every row in the table stops: the structure draws finished and still, the
@@ -1625,6 +1634,17 @@ The URL is the one thing about a page that a reader can hold on to — a bookmar
 search result — and a folder reorganisation that breaks all of them is a reorganisation that cost
 more than it bought.
 
+**The last two redirects give every page one address.** A page is built as `<path>/index.html`, and
+Vercel serves that directory at `/docs/tenet` and `/docs/tenet/` alike, two 200s for one page. `/docs`
+and `/docs/:page(<pattern>)` turn the slashless form into a 308 to the slash form, which is the one the
+canonical tag, the sitemap and every internal link already use. The pattern's last segment is "no dot,
+or a version number", so `/docs/tenet/1.21.1` is redirected but `index.txt`, the `__next.*.txt`
+payloads and anything else with an extension are not. Vercel's own `"trailingSlash": true` would do this
+site-wide, and is not used because it would redirect `/api/stats` too. **They stay last**, so a moved
+page's rule answers first and sends the reader to the new address in one hop. `check.mjs` rebuilds the
+pattern the way Vercel compiles it and runs it over the build: every page's slashless address must come
+back to that page, and no emitted file may be caught.
+
 ### Node is pinned, and deliberately not to a range
 
 `package.json` declares `"engines": { "node": "24.x" }`. **Not `>=22`.** An open range would move the
@@ -1688,9 +1708,9 @@ said `0.2.0` while Tenet shipped 1.2.1, and this app cannot read the manifest.
 
 The section names on the three content pages are `<h2 class="label">`, not spans, so the pages have a
 heading outline. The universal margin reset and `.label` make that change invisible. The comparison page
-is in the masthead (`Compare`); before that only one paragraph linked to it. Unlike the main site,
-`vercel.json` here sets `"trailingSlash": true`, because there is no `/api` function for the redirect to
-break.
+is in the masthead (`Compare`); before that only one paragraph linked to it. `vercel.json` here sets
+`"trailingSlash": true`, because there is no `/api` function for the redirect to break; the main site gets
+the same result from two redirect rules scoped to `/docs` (see *Deploying to Vercel*).
 
 **What the page loads, and when.** The converter runs in a Web Worker that Turbopack compiles from
 `new Worker(new URL('./worker.ts', import.meta.url))`; the raw `worker.*.ts` that also lands in
@@ -1708,10 +1728,26 @@ each of a converted book's thousands of small entries waited out a worker round 
 export 9.6s → 5.0s, intake 3.1s → 1.5s, same SHA-256. **Do not turn the workers off**: measured, that is
 slower in Chrome and freezes the page for seconds (Bun says otherwise; Bun is not the browser).
 
-**One thing still to decide:** the migrator's copy says Tenet targets Minecraft 1.21.1 (the hero eyebrow,
-the alternative page's description and its "Which Minecraft versions?" answer). The manifest now
-lists 26.3 as Tenet's default version with 1.21.1 alongside. Whether that copy should change depends on
-which Tenet versions the migrator's output targets, so it was left alone.
+**The converter's own hot spots, and how a change to it is proven.** Profiled on ATM10, the SNBT reader
+built every quoted string a character at a time (15% of a conversion) and indexed line starts a
+character at a time (5%); `proseBreaks` ran a regex over every string with nothing to replace (8%);
+`Report.errorCount`, read around every quest and task, counted the whole report each time; and the lang
+overlay renamed the same key once per locale. All five are fixed in `../migrator/packages/migrator-core`
+and vendored here: parsing ATM10 went from ~0.5–0.6s to ~0.26–0.35s, a conversion in Chrome from
+~2.3s to ~1.4s, and the 19 books on the development machine from ~21s to ~14.5s. The proof is that
+nothing else changed: every book, under default options and with loss allowed, produced byte-identical
+files and reports before and after (a SHA-256 over every placed file, both reports and the counts), and
+the core's 230 tests and both e2e scripts pass. A converter change that is meant to change no output
+should be held to the same comparison.
+
+**Two Minecraft versions, and which one each line means.** "1.21.1" in the migrator's copy means one of
+two things, and they are kept apart. **Where Tenet runs** is 26.3 and 1.21.1: the alternative page and
+the comparison page say so, because Tenet's quest schemas are byte-identical on both of its branches (at
+the pins `32c181d` and `670567e`), so one converted book validates and loads on either. **What the
+migrator reads** is a book written by FTB Quests for 1.21.1 — the home eyebrow, the field reference, the
+link card and the profile id say that, and stay. If Tenet's schemas ever differ between its versions,
+"loads on either" stops being true; the vendored stamp (`SCHEMA_STAMP`, shown on the reference page)
+names the Tenet commit the schemas were copied from, `11579ee`, which is where to start comparing.
 
 ---
 
