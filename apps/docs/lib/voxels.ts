@@ -142,17 +142,37 @@ export type Camera = {
 };
 
 /** World point to camera space: yaw about Y, then pitch about X, with the target at the origin. */
-export function toCamera([x, y, z]: Vec3, cam: Camera): Vec3 {
-  const px = x - cam.target[0];
-  const py = y - cam.target[1];
-  const pz = z - cam.target[2];
-  const cy = Math.cos(cam.yaw);
-  const sy = Math.sin(cam.yaw);
-  const x1 = px * cy + pz * sy;
-  const z1 = -px * sy + pz * cy;
-  const cp = Math.cos(cam.pitch);
-  const sp = Math.sin(cam.pitch);
-  return [x1, py * cp - z1 * sp, py * sp + z1 * cp];
+export function toCamera(point: Vec3, cam: Camera): Vec3 {
+  return transform(point[0], point[1], point[2], basisOf(cam));
+}
+
+/**
+ * The camera's rotation, worked out once. A frame transforms six points for each of a few thousand
+ * faces, and taking the four sines and cosines again for every point was most of what the face pass
+ * cost. `transform` does the arithmetic in the order `toCamera` always did, so the numbers are the
+ * same to the last bit.
+ */
+type Basis = { cy: number; sy: number; cp: number; sp: number; tx: number; ty: number; tz: number };
+
+function basisOf(cam: Camera): Basis {
+  return {
+    cy: Math.cos(cam.yaw),
+    sy: Math.sin(cam.yaw),
+    cp: Math.cos(cam.pitch),
+    sp: Math.sin(cam.pitch),
+    tx: cam.target[0],
+    ty: cam.target[1],
+    tz: cam.target[2],
+  };
+}
+
+function transform(x: number, y: number, z: number, b: Basis): Vec3 {
+  const px = x - b.tx;
+  const py = y - b.ty;
+  const pz = z - b.tz;
+  const x1 = px * b.cy + pz * b.sy;
+  const z1 = -px * b.sy + pz * b.cy;
+  return [x1, py * b.cp - z1 * b.sp, py * b.sp + z1 * b.cp];
 }
 
 /** Camera space to screen pixels. */
@@ -174,20 +194,23 @@ export type Face = {
   front: boolean;
 };
 
+/** A face that touches air: a candidate for drawing, before the camera has been applied. */
+export type Exposed = { block: Block; dir: Dir };
+
 /**
- * Which faces to draw this frame, far to near.
+ * Step 1 of a frame: the faces that touch air, in block order.
  *
  * `present` says which block counts as being at a place for the purpose of hiding its neighbour's face:
  * during the print, a block that has not been laid yet must not hide the face of the one beneath it.
+ *
+ * This depends on the blocks and on `present`, never on the camera, so once the print is done and nothing
+ * is being placed it is the same every frame and the hero keeps it (see `components/world.tsx`).
  */
-export function facesOf(
+export function exposedOf(
   blocks: Iterable<Block>,
   present: (x: number, y: number, z: number) => Block | undefined,
-  cam: Camera,
-): Face[] {
-  const faces: Face[] = [];
-  const eye: Vec3 = [0, 0, cam.distance];
-
+): Exposed[] {
+  const exposed: Exposed[] = [];
   for (const block of blocks) {
     for (let i = 0; i < 6; i += 1) {
       const d = i as Dir;
@@ -196,32 +219,54 @@ export function facesOf(
       // window, so glass does hide glass.
       const next = present(block.x + nx, block.y + ny, block.z + nz);
       if (next && (!MATERIALS[next.kind].clear || next.kind === block.kind)) continue;
-
-      const corners = CORNERS[d].map(([cx, cy, cz]) => toCamera([block.x + cx, block.y + cy, block.z + cz], cam));
-      const centre: Vec3 = [
-        (corners[0][0] + corners[2][0]) / 2,
-        (corners[0][1] + corners[2][1]) / 2,
-        (corners[0][2] + corners[2][2]) / 2,
-      ];
-      const n = toCamera([block.x + 0.5 + nx, block.y + 0.5 + ny, block.z + 0.5 + nz], cam);
-      const c0 = toCamera([block.x + 0.5, block.y + 0.5, block.z + 0.5], cam);
-      const normal: Vec3 = [n[0] - c0[0], n[1] - c0[1], n[2] - c0[2]];
-      const toEye: Vec3 = [eye[0] - centre[0], eye[1] - centre[1], eye[2] - centre[2]];
-      const front = normal[0] * toEye[0] + normal[1] * toEye[1] + normal[2] * toEye[2] > 0;
-
-      faces.push({
-        block,
-        dir: d,
-        points: corners.map((p) => toScreen(p, cam)),
-        depth: Math.hypot(toEye[0], toEye[1], toEye[2]),
-        tone: MATERIALS[block.kind].tone + DIRECTION_TONE[d],
-        front,
-      });
+      exposed.push({ block, dir: d });
     }
+  }
+  return exposed;
+}
+
+/** Steps 2 and 3: project the exposed faces through the camera and sort them far to near. */
+export function projectFaces(exposed: readonly Exposed[], cam: Camera): Face[] {
+  const faces: Face[] = new Array(exposed.length);
+  const eye: Vec3 = [0, 0, cam.distance];
+  const basis = basisOf(cam);
+
+  for (let i = 0; i < exposed.length; i += 1) {
+    const { block, dir: d } = exposed[i];
+    const [nx, ny, nz] = NORMALS[d];
+    const corners = CORNERS[d].map(([cx, cy, cz]) => transform(block.x + cx, block.y + cy, block.z + cz, basis));
+    const centre: Vec3 = [
+      (corners[0][0] + corners[2][0]) / 2,
+      (corners[0][1] + corners[2][1]) / 2,
+      (corners[0][2] + corners[2][2]) / 2,
+    ];
+    const n = transform(block.x + 0.5 + nx, block.y + 0.5 + ny, block.z + 0.5 + nz, basis);
+    const c0 = transform(block.x + 0.5, block.y + 0.5, block.z + 0.5, basis);
+    const normal: Vec3 = [n[0] - c0[0], n[1] - c0[1], n[2] - c0[2]];
+    const toEye: Vec3 = [eye[0] - centre[0], eye[1] - centre[1], eye[2] - centre[2]];
+    const front = normal[0] * toEye[0] + normal[1] * toEye[1] + normal[2] * toEye[2] > 0;
+
+    faces[i] = {
+      block,
+      dir: d,
+      points: corners.map((p) => toScreen(p, cam)),
+      depth: Math.hypot(toEye[0], toEye[1], toEye[2]),
+      tone: MATERIALS[block.kind].tone + DIRECTION_TONE[d],
+      front,
+    };
   }
 
   faces.sort((a, b) => b.depth - a.depth);
   return faces;
+}
+
+/** Which faces to draw this frame, far to near: `exposedOf` then `projectFaces`. */
+export function facesOf(
+  blocks: Iterable<Block>,
+  present: (x: number, y: number, z: number) => Block | undefined,
+  cam: Camera,
+): Face[] {
+  return projectFaces(exposedOf(blocks, present), cam);
 }
 
 /** Whether a screen point is inside a convex quad, either winding. */
@@ -256,21 +301,20 @@ export function pick(faces: Face[], x: number, y: number, solid: boolean): Face 
  */
 export function outlineOf(block: Block, cam: Camera, grow = 0.012): [number, number][][] {
   const eye: Vec3 = [0, 0, cam.distance];
+  const basis = basisOf(cam);
   const quads: [number, number][][] = [];
   for (let d = 0; d < 6; d += 1) {
     const [nx, ny, nz] = NORMALS[d];
     const corners = CORNERS[d].map(([cx, cy, cz]) =>
-      toCamera(
-        [
-          block.x + (cx === 0 ? -grow : 1 + grow),
-          block.y + (cy === 0 ? -grow : 1 + grow),
-          block.z + (cz === 0 ? -grow : 1 + grow),
-        ],
-        cam,
+      transform(
+        block.x + (cx === 0 ? -grow : 1 + grow),
+        block.y + (cy === 0 ? -grow : 1 + grow),
+        block.z + (cz === 0 ? -grow : 1 + grow),
+        basis,
       ),
     );
-    const c0 = toCamera([block.x + 0.5, block.y + 0.5, block.z + 0.5], cam);
-    const n = toCamera([block.x + 0.5 + nx, block.y + 0.5 + ny, block.z + 0.5 + nz], cam);
+    const c0 = transform(block.x + 0.5, block.y + 0.5, block.z + 0.5, basis);
+    const n = transform(block.x + 0.5 + nx, block.y + 0.5 + ny, block.z + 0.5 + nz, basis);
     const mid = corners.reduce((acc, p) => [acc[0] + p[0] / 4, acc[1] + p[1] / 4, acc[2] + p[2] / 4] as Vec3, [0, 0, 0] as Vec3);
     const dot = (n[0] - c0[0]) * (eye[0] - mid[0]) + (n[1] - c0[1]) * (eye[1] - mid[1]) + (n[2] - c0[2]) * (eye[2] - mid[2]);
     if (dot > 0) quads.push(corners.map((p) => toScreen(p, cam)));

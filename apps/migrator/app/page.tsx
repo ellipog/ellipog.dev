@@ -24,10 +24,16 @@ import {
 } from '@/lib/vfs-adapter';
 import type { SkippedFile } from '@/lib/vfs-adapter';
 import { runPipeline } from '@/lib/worker-client';
-import { DEFAULT_OPTIONS } from '@/lib/pipeline';
+import { DEFAULT_OPTIONS } from '@/lib/options';
 import type { PipelineOptions, PipelineResult, PlacedFile } from '@/lib/pipeline';
 import { canSaveToFolder, saveToFolder } from '@/lib/save-folder';
-import { filesFromZipBlob, placedToZipBlob } from '@/lib/zip';
+
+/**
+ * zip.js and the zip helpers load on first use, not with the page: a folder drop never needs them, and
+ * keeping them off the first load leaves the dropzone ready sooner. A finished run fetches them early
+ * (see `run`), so Download does not wait on the network.
+ */
+const loadZip = () => import('@/lib/zip');
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -176,6 +182,7 @@ export default function MigratorPage() {
 
   async function onZipFile(file: File): Promise<void> {
     try {
+      const { filesFromZipBlob } = await loadZip();
       const { files: unpacked, skipped: leftOut, oversize: big } = await filesFromZipBlob(
         file,
         (d, t) => reportScan(t === null ? 'Reading zip' : 'Extracting zip', d, t),
@@ -280,6 +287,7 @@ export default function MigratorPage() {
     cancelRef.current = () => handle.cancel();
     try {
       const res = await handle.done;
+      if (!res.failed) void loadZip().catch(() => {}); // warm the export before Download is pressed
       setResult(res);
       setLog((lines) => [
         ...lines,
@@ -297,6 +305,7 @@ export default function MigratorPage() {
 
   async function downloadZip(): Promise<void> {
     if (!result || result.failed) return;
+    const { placedToZipBlob } = await loadZip();
     const blob = await placedToZipBlob(result.placed);
     const safe = inputName.replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '') || 'quests';
     download(blob, `${safe}-migrated.zip`);
@@ -311,6 +320,7 @@ export default function MigratorPage() {
         setVerifyMsg('re-run failed — see the report');
         return;
       }
+      const { placedToZipBlob } = await loadZip();
       const [a, b] = await Promise.all([
         placedToZipBlob(result.placed),
         placedToZipBlob(second.placed),

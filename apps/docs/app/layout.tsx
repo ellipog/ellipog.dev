@@ -82,11 +82,16 @@ export const metadata: Metadata = {
    * for the tab with heavier strokes, while this one is the masthead's drawing used as-is — a mean ink
    * coverage of 9.0% of the box — so a 16px tab renders it lighter than a plated glyph would. AGENT.md
    * has the measurement, and the reason it was judged worth making.
+   *
+   * **The tab loads a 64px export of the pair, not the pair itself.** `bun run tab-icon` resizes the
+   * same two files to twice the 32px a high-density tab draws: ~2KB each instead of ~72KB, on every first
+   * visit. Same drawing, so still one mark to keep in step; the 879px files stay the source, and the iOS
+   * icon below and the link card still draw them.
    */
   icons: {
     icon: [
-      { url: '/site/mark-on-dark.png', type: 'image/png', media: '(prefers-color-scheme: dark)' },
-      { url: '/site/mark-on-light.png', type: 'image/png', media: '(prefers-color-scheme: light)' },
+      { url: '/site/tab-on-dark.png', type: 'image/png', media: '(prefers-color-scheme: dark)' },
+      { url: '/site/tab-on-light.png', type: 'image/png', media: '(prefers-color-scheme: light)' },
     ],
     /*
      * The iOS home-screen icon. The light-ground mark: iOS shows no dark-aware variant, and a

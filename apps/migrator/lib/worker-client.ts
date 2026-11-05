@@ -5,7 +5,6 @@
  */
 'use client';
 
-import { convertVfs } from './pipeline';
 import type { PipelineOptions, PipelineResult, ProgressFn } from './pipeline';
 import type { SkippedFile } from './vfs-adapter';
 import type { VfsFile } from './core';
@@ -49,8 +48,11 @@ export function runPipeline(
     });
     return { done, cancel: () => cancel() };
   } catch {
-    // No Worker available: chunk one yield per stage so the progress bar still moves.
+    // No Worker available: chunk one yield per stage so the progress bar still moves. The converter
+    // is imported here, not at the top: a static import would put it on the page's first load, and
+    // with a working Worker the page never runs it (the worker brings its own copy).
     const done = (async () => {
+      const { convertVfs } = await import('./pipeline');
       const tick = async (stage: string, s: number, t: number): Promise<void> => {
         onProgress(stage, s, t);
         await new Promise((r) => setTimeout(r, 0));

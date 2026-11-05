@@ -19,6 +19,7 @@
     "icons": "bun scripts/icons.mjs",
     "brand": "bun scripts/brand.mjs",
     "portrait": "bun scripts/portrait.mjs",
+    "tab-icon": "bun scripts/tab-icon.mjs",
     "reset": "bun scripts/reset.mjs",
     "search": "pagefind --site apps/docs/out --glob \"docs/**/*.html\" --output-subdir _pagefind",
     "dev": "bun run sync && bun run stats && bun run --filter @ellipog/docs dev",

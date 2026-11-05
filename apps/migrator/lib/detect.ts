@@ -3,7 +3,7 @@
  * profile-specific mapping. v1 ships one profile (FTB Quests 1.21.1 → Tenet);
  * the registry shape stays so future profiles plug in without touching the shell.
  */
-import { normalizePath } from './core';
+import { normalizePath } from './paths';
 import type { VfsFile } from './core';
 
 export const PROFILE_ID = 'ftbquests-1.21.1-to-tenet';

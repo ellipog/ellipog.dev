@@ -19,34 +19,12 @@ import {
 } from './core';
 import type { VfsFile } from './core';
 import { alreadyMigrated, detectBooks, outputRootFor, rebaseToRoot } from './detect';
+import type { PipelineOptions } from './options';
 import type { SkippedFile } from './vfs-adapter';
 
-export interface PipelineOptions {
-  readonly canonicalLocale: string;
-  readonly fallbackLocale: string;
-  readonly allowLoss: boolean;
-  readonly strict: boolean;
-  /** Re-run over an already-migrated tree: the FTB book inside converts anyway. */
-  readonly force: boolean;
-  readonly coordinateScale: number | null;
-  readonly sizeScale: number | null;
-  readonly imageScale: number | null;
-  readonly keepSource: boolean;
-  readonly includeMigrator: boolean;
-}
-
-export const DEFAULT_OPTIONS: PipelineOptions = {
-  canonicalLocale: 'en_us',
-  fallbackLocale: '',
-  allowLoss: false,
-  strict: false,
-  force: false,
-  coordinateScale: null,
-  sizeScale: null,
-  imageScale: null,
-  keepSource: true,
-  includeMigrator: true,
-};
+// The options live in lib/options.ts so the page can read the defaults without loading the converter.
+export { DEFAULT_OPTIONS } from './options';
+export type { PipelineOptions } from './options';
 
 export interface PlacedFile {
   readonly path: string;

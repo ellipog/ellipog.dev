@@ -34,9 +34,9 @@
  *
  * THE GEOMETRY, AND WHY EACH NUMBER IS WHAT IT IS
  *
- * - **168px canvas.** Six times the 28px box `.site-portrait` reserves. The pair this replaced was
- *   ~49KB per file and fetched one of the two; this is ~40KB and the only file fetched, so the masthead
- *   gets lighter while the drawing gets more pixels than the mark ever had.
+ * - **84px canvas.** Three times the 28px box `.site-portrait` reserves, which is the densest screen
+ *   there is (a 3x phone); past that, pixels are bytes no display shows. It was 168px -- six times --
+ *   and ~40KB on every first visit; at 84px it is ~12KB and looks the same on every screen.
  * - **95% footprint.** The mark's 78% was cut to the weight of the wordmark beside it, which is a
  *   different job: a mark is a glyph and wants air, a portrait fills its slot like an avatar. At 95% the
  *   artwork's own tips still clear the box edge — the ink box is measured below, not assumed — so
@@ -59,8 +59,8 @@ const SITE = resolve(HERE, '..');
 const SOURCE = join(SITE, 'design', 'portrait-source', 'rei-ayanami-cutout.png');
 const OUT = join(SITE, 'apps', 'docs', 'public', 'site', 'portrait.png');
 
-/** Six times the 28px box; see the header for the byte and footprint reasoning. */
-const CANVAS = 168;
+/** Three times the 28px box; see the header for the byte and footprint reasoning. */
+const CANVAS = 84;
 /** The share of the canvas the artwork's longest side fills. */
 const FOOTPRINT = 0.95;
 /** Alpha at or below this is the feathered rim, not content. */

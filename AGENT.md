@@ -221,7 +221,17 @@ component.
 
 **Three of those loop, and each is gated.** The structure turns slowly when idle and eases to a stop
 under the pointer. The inspector's block turns at 12fps. The creeper flashes. The two canvases stop
-drawing when they leave the viewport, and the structure also stops when the tab is hidden. Under
+drawing when they leave the viewport, and the structure also stops when the tab is hidden.
+
+**The idle orbit draws at 30fps, and the face pass keeps what does not move.** While the structure only
+turns (printed, no pointer on it, no debris, nothing just placed) `world.tsx` draws at most every
+`IDLE_FRAME_MS`; anything the hand does, and the print, still draws every frame. Which faces touch air
+depends only on the blocks, so once the print is done `exposedOf` runs once and the list is kept until a
+block is mined, placed or the structure changes; each frame only projects it (`projectFaces`, with the
+camera's sines and cosines worked out once per frame instead of per point). The output is bit-identical
+to the old per-frame pass, and the pass costs 0.35–0.75ms instead of 0.62–1.5ms on the five structures.
+
+Under
 `prefers-reduced-motion: reduce` every row in the table stops: the structure draws finished and still, the
 block shows one frame, the figures do not shuffle, and the view-transition pseudos are switched off.
 
@@ -983,8 +993,10 @@ empty slot is not filled with ink.
 
 The pair in `apps/docs/public/site/` — `mark-on-light.png` and `mark-on-dark.png` — is the studio's mark:
 two PNGs, one per ground, hand-supplied and copied here from the studio's own repository, which this build
-has no route into. **Two callers on the site draw it**: the tab icon, which names both files with a `media`
-query each, and the OG card, which is always drawn on a light ground and so reads the light one. The
+has no route into. **Two callers on the site draw it**: the tab icon, which names a 64px export of both
+files (`tab-on-*.png`, from `bun run tab-icon`) with a `media` query each, and the OG card, which is always
+drawn on a light ground and so reads the light one. **When the pair is re-copied, re-run
+`bun run tab-icon`**, which writes the export to both sites. The
 masthead used to draw the pair beside the wordmark; that slot carries the author's portrait now, and the
 colophon signs the studio with the studio's other pair. Both have their own sections below.
 
@@ -1063,7 +1075,8 @@ source. The matte was made once, by hand, with `rembg`'s `isnet-anime` model; th
 script's header, and the supplied JPEG stays wherever it came from. That is the same shape as every source
 chain here: one hand-supplied step at the top, everything below it reproducible.
 
-The export is a 168px square — six times the 28px box — with the drawing trimmed to its ink, fitted to
+The export is an 84px square — three times the 28px box, the densest screen there is; it was 168px and
+~40KB, and is ~12KB now — with the drawing trimmed to its ink, fitted to
 **95% of the canvas** and centred. The mark's 78% was cut to the weight of the wordmark; an avatar fills its
 slot, and this is one. `check.mjs` asserts the squareness, the transparent corners, the footprint, that the
 source is committed, and that the build copied the export through unchanged.
@@ -1083,6 +1096,12 @@ it is a small permanent inconsistency, stated here rather than left to be found 
 Safari 15, and some crawlers — takes the last icon it can use, so the dark-ink file becomes the accidental
 default. The failure mode is a mark on the wrong ground rather than no mark at all, which is the one to
 prefer.
+
+**The files the tab names are a 64px export of the pair**, `tab-on-light.png` and `tab-on-dark.png`, written
+by `scripts/tab-icon.mjs` to both sites' `public/site/`. The pair is 879px and ~72KB a file, and every first
+visit fetched one to draw 16 or 32 pixels; the export is ~2KB. It is a resize of the same drawing, not a
+second one, so there is still one mark to keep in step. The iOS home-screen icon and the OG card still draw
+the 879px files.
 
 **What that replaced, measured.** The file it replaced was `public/favicon.svg`: the *same drawing* — an eye
 over an A-frame — hand-built as an ellipse and two legs, with 2.4px strokes on a 64px viewBox and a
@@ -1111,9 +1130,11 @@ What `check.mjs` proves is everything short of that:
 
 - both files are committed, and the build copied each through **unchanged** — the only thing standing
   between "the two repositories agree" and "they agreed the day this was written"
-- the tab names both files with a `media` query each, in the order that leaves the visible one as the
-  fallback for a consumer that ignores `media` — and no CSS rule fetches the pair any more, which is the
-  assertion that keeps the masthead from drifting back into a rule for it
+- the tab names both files of the 64px export with a `media` query each, in the order that leaves the
+  visible one as the fallback for a consumer that ignores `media` — and no CSS rule fetches the pair any
+  more, which is the assertion that keeps the masthead from drifting back into a rule for it
+- the export itself: 64px square, no plate, the right ink per ground, the same box in both, shipped
+  unchanged, and the migrator's copy the same bytes
 - nothing is left at `/favicon.svg`, which a browser asks for by itself — a leftover there would win the
   tab in some browsers and lose it in others, depending on the reader
 - the geometry: both marks are one size, draw the same shape in the same place, and neither carries a plate
@@ -1542,7 +1563,7 @@ for a local annoyance, but worth knowing before it costs an hour.
 
 ## Deploying to Vercel
 
-`vercel.json` carries six keys and nothing else:
+`vercel.json` carries seven keys and nothing else:
 
 ```json
 {
@@ -1551,6 +1572,12 @@ for a local annoyance, but worth knowing before it costs an hour.
   "installCommand": "bun install --frozen-lockfile",
   "buildCommand": "bun run build",
   "outputDirectory": "apps/docs/out",
+  "headers": [
+    {
+      "source": "/_next/static/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    }
+  ],
   "redirects": [
     { "source": "/docs/tenet/quests", "destination": "/docs/tenet/authoring/quests/", "permanent": true }
   ]
@@ -1570,12 +1597,20 @@ directory, not the exported site — so without this the deploy would have nothi
 **`framework: null`** stops Vercel applying that preset at all. There is no server and no ISR here,
 just files, plus **one function**. `api/stats.mjs` sits at the repository root, outside the export,
 and Vercel deploys anything in a root `api/` folder as a function whatever the preset. That is why the
-live download counts did not need a seventh key. The function imports `apps/docs/lib/platforms.mjs` by
+live download counts did not need a key of their own. The function imports `apps/docs/lib/platforms.mjs` by
 relative path, and Vercel's file tracer bundles that file in with it. See *Freshness of the numbers*.
 
 **`installCommand`.** `bun install --frozen-lockfile`, so the deploy uses the committed `bun.lock` and
 fails loudly if it has drifted from `package.json`. An install that silently resolves different
 versions is a build that cannot be reproduced.
+
+**`headers`.** One rule: everything under `/_next/static/` is cached for a year, `immutable`. With
+`framework: null` Vercel serves every file with `max-age=0, must-revalidate`, so each page a reader
+opened asked again for every script and stylesheet and got a 304 back — a round trip per file for files
+whose names change whenever their bytes do. That folder holds only content-hashed files, so it is the one
+place a year-long cache is safe; pages, `public/` and `_pagefind/` keep the default, because a long cache
+on a file that changes in place is a stale site nobody can fix. The migrator's `vercel.json` carries the
+same rule, and `check.mjs` asserts both.
 
 **`redirects`.** Every page that has ever moved, kept alive at its old address — with **both slash
 forms**, because Vercel matches the path as written and `/docs/tenet/quests` and
@@ -1610,7 +1645,7 @@ about the deploy belong in this section, where prose is allowed and nobody's bui
 parser tolerating them.
 
 `check.mjs` asserts both halves of this — that `vercel.json` carries no comment key, and that the
-six keys above are the whole file — so the mistake fails locally rather than in Washington.
+seven keys above are the whole file — so the mistake fails locally rather than in Washington.
 
 ### The migrator is a second project, on a subdomain
 
@@ -1656,6 +1691,22 @@ heading outline. The universal margin reset and `.label` make that change invisi
 is in the masthead (`Compare`); before that only one paragraph linked to it. Unlike the main site,
 `vercel.json` here sets `"trailingSlash": true`, because there is no `/api` function for the redirect to
 break.
+
+**What the page loads, and when.** The converter runs in a Web Worker that Turbopack compiles from
+`new Worker(new URL('./worker.ts', import.meta.url))`; the raw `worker.*.ts` that also lands in
+`/_next/static/media/` is an orphan asset nothing loads, not a broken worker (checked end to end in
+Chrome). The page itself imports neither the converter nor zip.js: the options live in `lib/options.ts`,
+`lib/paths.ts` re-exports the core's `normalizePath` alone (importing `lib/core.ts` pulls the whole
+converter and its schemas), the main-thread fallback in `lib/worker-client.ts` imports the pipeline only
+when it runs, and the zip helpers are imported on first use and warmed when a run finishes. That took the
+home page's first-load JavaScript from ~316KB to ~180KB gzipped.
+
+**Zip work is concurrent, with zip.js's workers kept.** The export adds every entry at once (queued in
+slices of 256 so queueing never holds the page) and zip.js's `keepOrder` writes them in call order, so
+the bytes are the same as adding them one by one; intake inflates through a pool of 32. One at a time,
+each of a converted book's thousands of small entries waited out a worker round trip. On ATM10 in Chrome:
+export 9.6s → 5.0s, intake 3.1s → 1.5s, same SHA-256. **Do not turn the workers off**: measured, that is
+slower in Chrome and freezes the page for seconds (Bun says otherwise; Bun is not the browser).
 
 **One thing still to decide:** the migrator's copy says Tenet targets Minecraft 1.21.1 (the hero eyebrow,
 the alternative page's description and its "Which Minecraft versions?" answer). The manifest now

@@ -2086,19 +2086,74 @@ const iconTagFor = (file) => iconTags.find((tag) => tag.includes(file)) ?? null;
 check('the tab names two icons, one per theme', iconTags.length === 2, `${iconTags.length} <link rel="icon">`);
 check(
   'a light theme asks for the dark-ink mark',
-  Boolean(iconTagFor('mark-on-light.png')?.includes('media="(prefers-color-scheme:light)"')),
-  iconTagFor('mark-on-light.png') ?? 'no link names it',
+  Boolean(iconTagFor('tab-on-light.png')?.includes('media="(prefers-color-scheme:light)"')),
+  iconTagFor('tab-on-light.png') ?? 'no link names it',
 );
 check(
   'a dark theme asks for the light-ink mark',
-  Boolean(iconTagFor('mark-on-dark.png')?.includes('media="(prefers-color-scheme:dark)"')),
-  iconTagFor('mark-on-dark.png') ?? 'no link names it',
+  Boolean(iconTagFor('tab-on-dark.png')?.includes('media="(prefers-color-scheme:dark)"')),
+  iconTagFor('tab-on-dark.png') ?? 'no link names it',
 );
 check(
   'the light-ground mark is listed last, for anything that ignores media',
-  iconTags[iconTags.length - 1]?.includes('mark-on-light.png') ?? false,
+  iconTags[iconTags.length - 1]?.includes('tab-on-light.png') ?? false,
   iconTags.map((t) => t.match(/href="([^"]+)"/)?.[1] ?? '?').join(', ') || 'none',
 );
+
+/*
+ * THE TAB LOADS THE PAIR AT 64PX, EXPORTED FROM IT.
+ *
+ * The 879px pair is ~72KB a file, and a tab draws 16 or 32 pixels of it. `scripts/tab-icon.mjs` resizes the
+ * same two files to 64px (`tab-on-*.png`, ~2KB each) and writes them to both sites. It is the same drawing,
+ * so the properties asserted of the pair above are asserted of the export too: same size and place in both,
+ * no plate, and the ink each one is for. When the pair is re-copied from the studio repository, re-run
+ * `bun run tab-icon` with it; AGENT.md says so where it describes the copy.
+ */
+const TAB_ON_LIGHT = 'apps/docs/public/site/tab-on-light.png';
+const TAB_ON_DARK = 'apps/docs/public/site/tab-on-dark.png';
+const lightTab = existsSync(TAB_ON_LIGHT) ? readInk(TAB_ON_LIGHT) : null;
+const darkTab = existsSync(TAB_ON_DARK) ? readInk(TAB_ON_DARK) : null;
+check('the tab export is committed, one per theme', Boolean(lightTab && darkTab), `${TAB_ON_LIGHT}, ${TAB_ON_DARK}`);
+if (lightTab && darkTab) {
+  check(
+    'the tab export is 64px square, twice the 32px a high-density tab draws',
+    [lightTab, darkTab].every((t) => t.width === 64 && t.height === 64),
+    `${lightTab.width}x${lightTab.height} / ${darkTab.width}x${darkTab.height}`,
+  );
+  check(
+    'the tab export carries no plate',
+    [lightTab, darkTab].every((t) => t.cornerAlphas.every((a) => a === 0)),
+    [lightTab, darkTab].map((t) => `corners at ${t.cornerAlphas.join('/')}`).join(' · '),
+  );
+  check(
+    'the tab export keeps each ink for its ground',
+    lightTab.luminance !== null && lightTab.luminance < 0.2 && darkTab.luminance !== null && darkTab.luminance > 0.8,
+    `light ground ${lightTab.luminance?.toFixed(4)} · dark ground ${darkTab.luminance?.toFixed(4)}`,
+  );
+  check(
+    'both tab files draw the same mark in the same place',
+    lightTab.bbox !== null &&
+      darkTab.bbox !== null &&
+      ['minX', 'minY', 'maxX', 'maxY'].every((k) => lightTab.bbox[k] === darkTab.bbox[k]),
+    JSON.stringify(lightTab.bbox),
+  );
+  check(
+    'the build copied the tab export through unchanged',
+    existsSync(`${OUT}/site/tab-on-light.png`) &&
+      existsSync(`${OUT}/site/tab-on-dark.png`) &&
+      readFileSync(TAB_ON_LIGHT).equals(readFileSync(`${OUT}/site/tab-on-light.png`)) &&
+      readFileSync(TAB_ON_DARK).equals(readFileSync(`${OUT}/site/tab-on-dark.png`)),
+  );
+  check(
+    'the migrator names the same tab icon, byte for byte',
+    ['light', 'dark'].every(
+      (g) =>
+        existsSync(`apps/migrator/public/site/tab-on-${g}.png`) &&
+        readFileSync(`apps/docs/public/site/tab-on-${g}.png`).equals(readFileSync(`apps/migrator/public/site/tab-on-${g}.png`)),
+    ),
+    'apps/migrator/public/site/tab-on-*.png',
+  );
+}
 
 /*
  * The plated SVG this replaced, and this is worth an assertion rather than a deletion.
@@ -2205,7 +2260,7 @@ check(
   portraitRule || 'no rule',
 );
 check(
-  'the mark pair is fetched by no rule any more — the tab links are its only callers',
+  'the mark pair is fetched by no rule any more — the iOS icon and the link card are its only callers',
   !/site\/mark-on-light\.png/.test(allCss) && !/site\/mark-on-dark\.png/.test(allCss),
   show('mark-on-light.png'),
 );
@@ -2281,17 +2336,42 @@ if (home) {
  *
  * Two assertions, because either alone would pass while the file is wrong:
  *   - no comment key, which is the mistake that actually happened
- *   - exactly the five keys, so the fix cannot be "delete the note and drift"
+ *   - exactly the seven keys, so the fix cannot be "delete the note and drift"
  */
 const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
 const strayVercelKeys = Object.keys(vercel).filter((k) => k.startsWith('/'));
-const allowedVercelKeys = ['$schema', 'framework', 'installCommand', 'buildCommand', 'outputDirectory', 'redirects'];
+const allowedVercelKeys = ['$schema', 'framework', 'installCommand', 'buildCommand', 'outputDirectory', 'headers', 'redirects'];
 check('vercel.json carries no comment keys', strayVercelKeys.length === 0, strayVercelKeys.join(', ') || 'none');
 check(
   'vercel.json is exactly the keys the deploy needs',
   allowedVercelKeys.every((k) => k in vercel) && Object.keys(vercel).length === allowedVercelKeys.length,
   Object.keys(vercel).join(', '),
 );
+
+/*
+ * The hashed build output is cached for a year, and only it.
+ *
+ * With `framework: null` Vercel serves every file with `max-age=0, must-revalidate`, so a reader moving
+ * between pages re-asked for every script and stylesheet and got a 304 each time -- a round trip per file
+ * per page for files whose names change whenever their bytes do. `/_next/static/` holds only those, so
+ * it is the one path that can be told to keep them; anything not content-hashed (`public/`, the pages,
+ * `_pagefind/`) keeps the default, because a year-long cache on a file that changes in place is a stale
+ * site nobody can fix. Both projects carry the same rule.
+ */
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+const cacheRuleOf = (config) =>
+  (config.headers ?? []).map((rule) => ({
+    source: rule.source,
+    value: (rule.headers ?? []).find((h) => h.key.toLowerCase() === 'cache-control')?.value,
+  }));
+for (const [label, file] of [['vercel.json', 'vercel.json'], ['the migrator\'s vercel.json', 'apps/migrator/vercel.json']]) {
+  const rules = cacheRuleOf(JSON.parse(readFileSync(file, 'utf8')));
+  check(
+    `${label} caches /_next/static/ for a year, and nothing else`,
+    rules.length === 1 && rules[0].source === '/_next/static/(.*)' && rules[0].value === IMMUTABLE,
+    rules.map((r) => `${r.source} → ${r.value}`).join(' · ') || 'no header rules',
+  );
+}
 
 /*
  * Every redirect lands on a page that exists.

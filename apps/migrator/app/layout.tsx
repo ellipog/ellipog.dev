@@ -45,12 +45,13 @@ export const metadata: Metadata = {
    * under public/site/. A favicon cannot read [data-theme], so the pair switches
    * on prefers-color-scheme instead — resolved before first paint, same OS
    * preference the theme toggle falls back to. Last file wins for consumers
-   * that ignore media, so the dark-ink mark is the accidental default.
+   * that ignore media, so the dark-ink mark is the accidental default. The tab
+   * loads the 64px export of the pair (`bun run tab-icon`), not the 879px files.
    */
   icons: {
     icon: [
-      { url: '/site/mark-on-dark.png', type: 'image/png', media: '(prefers-color-scheme: dark)' },
-      { url: '/site/mark-on-light.png', type: 'image/png', media: '(prefers-color-scheme: light)' },
+      { url: '/site/tab-on-dark.png', type: 'image/png', media: '(prefers-color-scheme: dark)' },
+      { url: '/site/tab-on-light.png', type: 'image/png', media: '(prefers-color-scheme: light)' },
     ],
     apple: [{ url: '/site/mark-on-light.png', type: 'image/png' }],
   },

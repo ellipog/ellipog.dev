@@ -4,6 +4,12 @@
   "installCommand": "bun install --frozen-lockfile",
   "buildCommand": "bun run build",
   "outputDirectory": "apps/docs/out",
+  "headers": [
+    {
+      "source": "/_next/static/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    }
+  ],
   "redirects": [
     { "source": "/docs/tenet/quest-files", "destination": "/docs/tenet/authoring/quest-files/", "permanent": true },
     { "source": "/docs/tenet/quest-files/", "destination": "/docs/tenet/authoring/quest-files/", "permanent": true },

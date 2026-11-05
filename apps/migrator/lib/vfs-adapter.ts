@@ -3,7 +3,7 @@
  * Path normalisation (zip-slip, drive letters, `..`) is the core's
  * normalizePath — refused paths surface as report errors, never guesses.
  */
-import { normalizePath } from './core';
+import { normalizePath } from './paths';
 import type { VfsFile } from './core';
 
 const SKIP_DIRS: ReadonlyArray<string> = ['__MACOSX/', '.git/'];

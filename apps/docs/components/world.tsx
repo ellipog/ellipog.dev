@@ -8,18 +8,20 @@ import { firstStructure, rememberStructure, STRUCTURES } from '@/lib/structures'
 import { soften } from '@/lib/textures';
 import {
   boundsOf,
+  exposedOf,
   FACE_NAMES,
-  facesOf,
   key,
   MATERIALS,
   NORMALS,
   outlineOf,
   pick,
+  projectFaces,
   toCamera,
   toScreen,
   type Block,
   type Bounds,
   type Camera,
+  type Exposed,
   type Hatch,
   type World as WorldMap,
 } from '@/lib/voxels';
@@ -34,6 +36,15 @@ const START_YAW = -0.75;
 const SLOP = 4;
 /** How far past the printed structure a placed block may go, so building cannot wander off the canvas. */
 const REACH = 3;
+/** How long a placed block is drawn as a sketch before it counts as there, in milliseconds. */
+const NEW_MS = 160;
+/**
+ * While the structure only turns -- printed, no pointer on it, no debris, nothing just placed -- it is
+ * drawn at most this often. The idle orbit moves an edge under a pixel a frame at 30 fps, so the other
+ * half of a 60 Hz display's frames (and three quarters of a 120 Hz one's) redrew the same picture.
+ * Anything the hand does, and the print, still draws every frame.
+ */
+const IDLE_FRAME_MS = 1000 / 30;
 
 /**
  * The hatches, as tiles: the pixels of each that are inked. Laid at a third of the ink's strength, so a
@@ -121,6 +132,11 @@ export function World() {
     announce();
     const born = new Map<number, number>();
     const particles: Particle[] = [];
+    // Which faces touch air only changes when a block goes or comes, so once the print is done it is
+    // worked out once and kept: `version` counts edits, and a kept list from an older one is redone.
+    let version = 0;
+    let lastBornAt = -Infinity;
+    let kept: { version: number; exposed: Exposed[] } | null = null;
 
     let width = 0;
     let height = 0;
@@ -208,8 +224,6 @@ export function World() {
       // During the print a block is laid (solid), being laid (wire), or not there yet.
       const laid = (b: Block) => b.y < whole;
       const laying = (b: Block) => b.y === whole && order(b) < frac * 1.25;
-      const visible: Block[] = [];
-      for (const b of world.values()) if (!printing || laid(b) || laying(b)) visible.push(b);
 
       const present = (x: number, y: number, z: number) => {
         const b = world.get(key(x, y, z));
@@ -218,7 +232,20 @@ export function World() {
         return laid(b) ? b : undefined;
       };
 
-      const faces = facesOf(visible, present, cam);
+      // Printed and nothing just placed: every block is visible and `present` is the world itself, so the
+      // exposed faces are the kept ones. Otherwise they change frame to frame and are worked out fresh.
+      let exposed: Exposed[];
+      if (!printing && now - lastBornAt >= NEW_MS) {
+        if (!kept || kept.version !== version) kept = { version, exposed: exposedOf(world.values(), present) };
+        exposed = kept.exposed;
+      } else {
+        kept = null;
+        const visible: Block[] = [];
+        for (const b of world.values()) if (!printing || laid(b) || laying(b)) visible.push(b);
+        exposed = exposedOf(visible, present);
+      }
+
+      const faces = projectFaces(exposed, cam);
       const wire = modeRef.current === 'wire';
       ctx!.lineJoin = 'round';
 
@@ -355,7 +382,7 @@ export function World() {
 
     const isNew = (b: Block, now: number) => {
       const t = born.get(key(b.x, b.y, b.z));
-      return t !== undefined && now - t < 160;
+      return t !== undefined && now - t < NEW_MS;
     };
 
     /** Tell React what is selected, only when it changes. */
@@ -383,6 +410,7 @@ export function World() {
       if (!hovered) return;
       const b = hovered.block;
       world.delete(key(b.x, b.y, b.z));
+      version += 1;
       setEdited(true);
       if (reduced) return;
       // Where the block was on screen, roughly its centre.
@@ -421,7 +449,11 @@ export function World() {
       if (out) return;
       if (world.has(key(x, y, z))) return;
       world.set(key(x, y, z), { x, y, z, kind: block.kind });
-      if (!reduced) born.set(key(x, y, z), now);
+      version += 1;
+      if (!reduced) {
+        born.set(key(x, y, z), now);
+        lastBornAt = now;
+      }
       setEdited(true);
     }
 
@@ -430,9 +462,27 @@ export function World() {
     let raf = 0;
     let last = performance.now();
     let onScreen = true;
+    let drawnAt = -Infinity;
+    // Set by `kick`: something changed (input, a resize that cleared the canvas, the theme), so the next
+    // frame draws whatever the idle rate says.
+    let force = true;
 
     const frame = (now: number) => {
       raf = 0;
+      const idle =
+        !force &&
+        !pointer &&
+        !press &&
+        particles.length === 0 &&
+        printLayer(now) > fit.maxY + 1 &&
+        now - lastBornAt >= NEW_MS;
+      // A few milliseconds of slack, so a 60 Hz display draws every second frame rather than every third.
+      if (!reduced && idle && now - drawnAt < IDLE_FRAME_MS - 4) {
+        if (onScreen && !document.hidden) raf = requestAnimationFrame(frame);
+        return;
+      }
+      force = false;
+      drawnAt = now;
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       if (!reduced) {
@@ -445,6 +495,7 @@ export function World() {
       if (!reduced && onScreen && !document.hidden) raf = requestAnimationFrame(frame);
     };
     const kick = () => {
+      force = true;
       if (!raf) raf = requestAnimationFrame(frame);
     };
     kickRef.current = kick;
@@ -453,6 +504,7 @@ export function World() {
     loadRef.current = (next: number) => {
       index = next;
       world = STRUCTURES[index].build();
+      version += 1;
       fit = boundsOf(world);
       born.clear();
       particles.length = 0;

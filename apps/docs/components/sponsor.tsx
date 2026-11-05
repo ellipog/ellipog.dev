@@ -123,7 +123,9 @@ function SponsorCell({ s }: { s: Sponsor }) {
       <a className="sponsor-link" href={s.url} target="_blank" rel="sponsored noreferrer noopener">
                 {/* Full-colour host artwork on a paper plate — see the note above. Width/height reserve
             the manifest's box so nothing shifts; the plate in global.css keeps it legible in both
-            themes and out of the row's hover inversion. */}
+            themes and out of the row's hover inversion. `loading="lazy"` because the row sits at the
+            foot of the page: without it React puts a `<link rel="preload">` for the logo in every
+            page's head, where it competes with the page's own first requests. */}
         <span className="sponsor-plate">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -131,6 +133,8 @@ function SponsorCell({ s }: { s: Sponsor }) {
             alt={s.name}
             width={s.logoWidth ?? 123}
             height={s.logoHeight ?? 41}
+            loading="lazy"
+            decoding="async"
           />
         </span>
 
