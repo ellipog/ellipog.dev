@@ -114,9 +114,9 @@
       "repo": "https://github.com/ellipog/armature",
       "issues": "https://github.com/ellipog/armature/issues",
       "curseforge": "armature-lib",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "localPath": "../armature",
-      "pin": "fa27d3e017bd6f8414366100f68542b3e100e336",
+      "pin": "df483852b8d1186648331a24893c93da5c37ff5c",
       "docsPath": "docs",
       "minecraft": "26.3",
       "loaders": [
@@ -132,7 +132,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "fa27d3e017bd6f8414366100f68542b3e100e336",
+          "pin": "df483852b8d1186648331a24893c93da5c37ff5c",
           "branch": "main",
           "localPath": "../armature",
           "default": true
