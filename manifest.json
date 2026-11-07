@@ -70,9 +70,9 @@
       "repo": "https://github.com/ellipog/tenet",
       "issues": "https://github.com/ellipog/tenet/issues",
       "curseforge": "tenet",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "localPath": "../tenet",
-      "pin": "32c181d07485a79c2d7dd54a852b0e0dc2c0e2dc",
+      "pin": "b769e42d7411fc79615faa53f254bf41223c773c",
       "docsPath": "docs",
       "minecraft": "26.3",
       "loaders": [
@@ -88,7 +88,7 @@
             "fabric",
             "neoforge"
           ],
-          "pin": "32c181d07485a79c2d7dd54a852b0e0dc2c0e2dc",
+          "pin": "b769e42d7411fc79615faa53f254bf41223c773c",
           "branch": "main",
           "localPath": "../tenet",
           "default": true
