@@ -10,10 +10,13 @@
  * tree browser shows every emitted file's kind and full text instead, and
  * passthrough files are byte-identical by construction.
  */
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CONVERSION, Diagram } from '@/components/diagram';
+import { FilePreview, fmtBytes } from '@/components/file-preview';
 import { PixelBar, Stages } from '@/components/progress';
+import { REPORT_SEVS, Report, groupId, sevId } from '@/components/report';
+import type { ReportSev } from '@/components/report';
 import type { ReportEntry, VfsFile } from '@/lib/core';
 import { alreadyMigrated, detectBooks } from '@/lib/detect';
 import type { Detection } from '@/lib/detect';
@@ -35,12 +38,6 @@ import { canSaveToFolder, saveToFolder } from '@/lib/save-folder';
  */
 const loadZip = () => import('@/lib/zip');
 
-function fmtBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
 function totalBytes(files: ReadonlyArray<VfsFile>): number {
   return files.reduce((sum, f) => sum + f.bytes.length, 0);
 }
@@ -58,46 +55,34 @@ const FILE_KIND_SUB: Record<FileKind, string> = {
   report: 'conversion report + old→new id map',
 };
 
-const REPORT_SEVS = ['error', 'warning', 'note'] as const;
-type ReportSev = (typeof REPORT_SEVS)[number];
-const REPORT_SEV_LABEL: Record<ReportSev, string> = {
-  error: 'Errors',
-  warning: 'Warnings',
-  note: 'Notes',
-};
-
 function fileSize(f: PlacedFile): number {
   return f.text !== undefined ? f.text.length : (f.bytes?.length ?? 0);
 }
 
-const PREVIEW_LINES = 300;
+/** "a, b and c" */
+function listed(parts: ReadonlyArray<string>): string {
+  if (parts.length <= 1) return parts.join('');
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
 
-/** One open file: numbered lines in a sunken drawer, or the binary note. */
-function FilePreview({ file }: { file: PlacedFile }) {
-  if (file.text === undefined) {
-    return (
-      <div className="fileview">
-        <p className="muted">binary — {fmtBytes(file.bytes?.length ?? 0)} (passes through untouched)</p>
-      </div>
-    );
-  }
-  const body = file.text.endsWith('\n') ? file.text.slice(0, -1) : file.text;
-  const lines = body.split('\n');
-  const shown = lines.slice(0, PREVIEW_LINES);
+/**
+ * Why far more files come out than went in, in the run's own numbers. FTB keeps a chapter in one file and
+ * Tenet a quest per file, so the jump is expected; said plainly, it stops reading as something gone wrong.
+ */
+function whyMoreFiles(result: PipelineResult): string | null {
+  const { chapters, quests } = result.targets.shape;
+  if (result.failed || chapters === 0) return null;
+  const count = (kind: PlacedFile['kind']): number => result.placed.filter((f) => f.kind === kind).length;
+  const rest = count('converted') - chapters - quests;
+  const parts = [
+    rest > 0 ? `${rest} for the book's index, groups, reward tables and translations` : '',
+    count('passthrough') > 0 ? `${count('passthrough')} input files copied over untouched` : '',
+    count('report') > 0 ? `${count('report')} report files` : '',
+  ].filter((part) => part !== '');
   return (
-    <div className="fileview">
-      <div className="fileview-lines">
-        {shown.map((line, i) => (
-          <div className="fileview-line" key={i}>
-            <span className="fileview-no">{i + 1}</span>
-            <span className="fileview-code">{line}</span>
-          </div>
-        ))}
-      </div>
-      {lines.length > shown.length && (
-        <p className="fileview-more">…{lines.length - shown.length} more lines — download the zip for the full file</p>
-      )}
-    </div>
+    `Why ${result.filesOut} from ${result.filesIn}? FTB Quests keeps a whole chapter in one file; Tenet gives every quest its own. ` +
+    `So ${chapters} chapter${chapters === 1 ? '' : 's'} became ${chapters} folder${chapters === 1 ? '' : 's'} of ${quests} quest files, each with a chapter.json.` +
+    (parts.length > 0 ? ` The rest: ${listed(parts)}.` : '')
   );
 }
 
@@ -152,8 +137,42 @@ export default function MigratorPage() {
     });
   }
   const [foldFiles, setFoldFiles] = useState({ converted: true, passthrough: false, report: true });
-  const [foldReport, setFoldReport] = useState({ error: true, warning: true, note: false });
+  const [foldReport, setFoldReport] = useState<Record<ReportSev, boolean>>({ error: true, warning: true, note: false });
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(new Set());
+  const [jump, setJump] = useState<{ id: string; at: number } | null>(null);
   const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
+
+  function toggleGroup(key: string): void {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  /**
+   * A count in the result is a way in to its part of the page: it opens that part, then lands on it once
+   * it has rendered. The landing is instant, as every move on this sheet is, and the head it lands on draws
+   * its rule in frames so the eye can find it.
+   */
+  function jumpTo(id: string, open?: () => void): void {
+    open?.();
+    setJump({ id, at: Date.now() });
+  }
+
+  useEffect(() => {
+    if (jump === null) return;
+    const el = document.getElementById(jump.id);
+    if (el === null) return;
+    el.scrollIntoView({ block: 'start' });
+    el.focus({ preventScroll: true });
+    el.removeAttribute('data-landed');
+    void el.offsetWidth; // restart the frames when the same head is landed on twice
+    el.setAttribute('data-landed', '');
+    const done = setTimeout(() => el.removeAttribute('data-landed'), 1400);
+    return () => clearTimeout(done);
+  }, [jump]);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
   const folderRef = useRef<HTMLInputElement>(null);
@@ -288,6 +307,11 @@ export default function MigratorPage() {
     try {
       const res = await handle.done;
       if (!res.failed) void loadZip().catch(() => {}); // warm the export before Download is pressed
+      // Errors open on arrival, every kind of them: they are the reason the run stopped.
+      const errorCodes = (res.reportJson.entries as ReadonlyArray<ReportEntry>)
+        .filter((e) => e.severity === 'error')
+        .map((e) => groupId('error', e.code));
+      setOpenGroups(new Set(errorCodes));
       setResult(res);
       setLog((lines) => [
         ...lines,
@@ -351,6 +375,16 @@ export default function MigratorPage() {
   }
 
   const entries = (result?.reportJson.entries as ReadonlyArray<ReportEntry> | undefined) ?? [];
+  const placedByPath = useMemo(
+    () => new Map((result && !result.failed ? result.placed : []).map((f) => [f.path, f] as const)),
+    [result],
+  );
+  const why = result ? whyMoreFiles(result) : null;
+  const sevCount: Record<ReportSev, number> = {
+    error: result?.errors ?? 0,
+    warning: result?.warnings ?? 0,
+    note: result?.notes ?? 0,
+  };
   const placed = (result && !result.failed ? result.placed : []).filter((f) =>
     filter === '' ? true : f.path.toLowerCase().includes(filter.toLowerCase()),
   );
@@ -361,9 +395,13 @@ export default function MigratorPage() {
         <div className="hero-copy">
           <p className="eyebrow">ftb quests 1.21.1 → tenet · client-side</p>
           <h1>FTB Quests → Tenet migrator.</h1>
-          <p className="sub">
-            Drop a quest export, get back a Tenet tree. Parsing and conversion run in this page —{' '}
-            <strong>files never leave the browser</strong>.
+          <p className="sub">Drop a quest export, get back a Tenet tree.</p>
+          <p className="local">
+            <span className="pill">Runs locally</span>
+            <span>
+              <strong>Your files never leave your computer.</strong> Everything happens in this browser tab: the
+              book is read, converted and zipped right here, and nothing is uploaded anywhere.
+            </span>
           </p>
         </div>
         <figure className="hero-figure">
@@ -376,7 +414,7 @@ export default function MigratorPage() {
       </section>
 
       <section className="stage">
-        <div className="stage-head">
+        <div className="stage-head jump-target" id="intake" tabIndex={-1}>
           <span className="label">1 · Intake</span>
           <span className="faint mono">{files ? `${files.length} files · ${fmtBytes(totalBytes(files))}${skipped.length > 0 ? ` · ${skipped.length} too big, listed not copied` : ''}` : 'nothing loaded'}</span>
         </div>
@@ -394,7 +432,7 @@ export default function MigratorPage() {
           >
             <span className="dropzone-glyph" aria-hidden="true">↓</span>
             <h2>Drop a quest folder or .zip here</h2>
-            <p className="muted">…or pick below. Anything from the quest book up to the whole profile or instance zip works — the book is found where it lives, and files too big to hold (jars, saves) are listed, not copied.</p>
+            <p className="muted">…or pick below. Anything from the quest book up to the whole profile or instance zip works — the book is found where it lives, and files too big to hold (jars, saves) are listed, not copied. It all stays on this computer.</p>
             <div className="btnrow" onClick={(e) => e.stopPropagation()}>
               <button type="button" className="btn" onClick={() => folderRef.current?.click()}>Choose folder</button>
               <button type="button" className="btn" onClick={() => filesRef.current?.click()}>Choose files</button>
@@ -560,13 +598,44 @@ export default function MigratorPage() {
           </div>
           <div className="stage-body">
             <div className="counts">
-              <span><b>{result.filesIn}</b> in</span>
-              <span><b>{result.filesOut}</b> out</span>
-              <span><b>{result.errors}</b> errors</span>
-              <span><b>{result.warnings}</b> warnings</span>
-              <span><b>{result.notes}</b> notes</span>
-              {skipped.length > 0 && <span><b>{skipped.length}</b> too big, in report</span>}
+              <button type="button" className="count" onClick={() => jumpTo('intake')}>
+                <b>{result.filesIn}</b> files in
+              </button>
+              <button
+                type="button"
+                className="count"
+                disabled={result.failed}
+                onClick={() => jumpTo('files', () => setFoldFiles((f) => ({ ...f, converted: true })))}
+              >
+                <b>{result.filesOut}</b> files out
+              </button>
+              {REPORT_SEVS.map((sev) => (
+                <button
+                  key={sev}
+                  type="button"
+                  className="count"
+                  disabled={sevCount[sev] === 0}
+                  onClick={() => jumpTo(sevId(sev), () => setFoldReport((f) => ({ ...f, [sev]: true })))}
+                >
+                  <b>{sevCount[sev]}</b> {sev}{sevCount[sev] === 1 ? '' : 's'}
+                </button>
+              ))}
+              {skipped.length > 0 && (
+                <button
+                  type="button"
+                  className="count"
+                  onClick={() =>
+                    jumpTo(groupId('note', 'passthrough-skipped'), () => {
+                      setFoldReport((f) => ({ ...f, note: true }));
+                      setOpenGroups((g) => new Set(g).add(groupId('note', 'passthrough-skipped')));
+                    })
+                  }
+                >
+                  <b>{skipped.length}</b> too big, in report
+                </button>
+              )}
             </div>
+            {why && <p className="help">{why}</p>}
             {result.evidence && <p className="evidence">{result.evidence} → {result.outputRoot === '' ? '(book root)' : <span className="mono">{result.outputRoot}/</span>}</p>}
 
             {result.failed && (
@@ -603,7 +672,22 @@ export default function MigratorPage() {
                 </div>
                 {savedMsg && <p className="muted">{savedMsg}</p>}
                 {verifyMsg && <p className="mono" style={{ fontSize: 12.5 }}>{verifyMsg}</p>}
+              </>
+            )}
 
+            <Report
+              entries={entries}
+              targets={result.targets}
+              files={placedByPath}
+              open={foldReport}
+              onToggle={(sev) => setFoldReport((f) => ({ ...f, [sev]: !f[sev] }))}
+              openGroups={openGroups}
+              onToggleGroup={toggleGroup}
+            />
+
+            {!result.failed && (
+              <>
+                <h2 className="label section-label jump-target" id="files" tabIndex={-1}>Files</h2>
                 <div className="toolbar">
                   <input type="text" placeholder="filter files…" value={filter} onChange={(e) => setFilter(e.target.value)} />
                 </div>
@@ -677,44 +761,6 @@ export default function MigratorPage() {
             {placed.length > 0 && placed.filter((f) => filter === '' || f.path.toLowerCase().includes(filter.toLowerCase())).length === 0 && (
               <p className="muted">No files match this filter.</p>
             )}
-            {REPORT_SEVS.map((sev) => {
-              const rows = entries.filter((e) => e.severity === sev);
-              if (rows.length === 0) return null;
-              const folded = !foldReport[sev];
-              return (
-                <div key={sev}>
-                  <button
-                    type="button"
-                    className="fold-head"
-                    aria-expanded={!folded}
-                    onClick={() => setFoldReport({ ...foldReport, [sev]: folded })}
-                  >
-                    <span className="fold-title">
-                      <span className="fold-caret" aria-hidden>{folded ? '[+]' : '[−]'}</span>
-                      {REPORT_SEV_LABEL[sev]}
-                    </span>
-                    <span className="fold-count">{rows.length}</span>
-                  </button>
-                  {!folded && (
-                    <>
-                      <table className="reporttable">
-                        <thead><tr><th>Code</th><th>Where</th><th>Message</th></tr></thead>
-                        <tbody>
-                          {rows.slice(0, 500).map((e, i) => (
-                            <tr key={i}>
-                              <td className="mono">{e.code}</td>
-                              <td className="mono">{e.path ?? ''}{e.line !== undefined && e.line > 0 ? `:${e.line}` : ''}</td>
-                              <td>{e.message}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {rows.length > 500 && <p className="muted">showing 500 of {rows.length} — download report.json for the rest.</p>}
-                    </>
-                  )}
-                </div>
-              );
-            })}
           </div>
         </section>
       )}

@@ -17,9 +17,11 @@ import {
   validateOutput,
   vfsCaseCollisions,
 } from './core';
-import type { VfsFile } from './core';
+import type { QuestBookInput, VfsFile } from './core';
 import { alreadyMigrated, detectBooks, outputRootFor, rebaseToRoot } from './detect';
 import type { PipelineOptions } from './options';
+import { NO_TARGETS, buildTargets } from './targets';
+import type { QuestSpan, ReportTargets } from './targets';
 import type { SkippedFile } from './vfs-adapter';
 
 // The options live in lib/options.ts so the page can read the defaults without loading the converter.
@@ -44,6 +46,8 @@ export interface PipelineResult {
   readonly placed: ReadonlyArray<PlacedFile>;
   readonly reportJson: { entries: unknown };
   readonly reportMd: string;
+  /** Which quest or file each report entry is about, for the result's links. Empty when the run failed. */
+  readonly targets: ReportTargets;
   readonly filesIn: number;
   readonly filesOut: number;
   readonly errors: number;
@@ -59,6 +63,35 @@ function fmtSize(n: number): string {
   if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
   if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+/**
+ * Each chapter's quest blocks by source path, for linking a report line to its quest: a quest runs from its
+ * opening line to the line before the next one, and the last runs to the chapter's next key (or the end of
+ * the file). Lines that fall outside every block (images, the chapter's own settings) belong to no quest.
+ */
+function questSpans(book: QuestBookInput): Map<string, Array<QuestSpan>> {
+  const out = new Map<string, Array<QuestSpan>>();
+  for (const chapter of book.chapters) {
+    let bound = Number.POSITIVE_INFINITY;
+    const root = chapter.node;
+    const at = root.kind === 'compound' ? root.keyLines.get('quests')?.[0] : undefined;
+    if (root.kind === 'compound' && at !== undefined) {
+      for (const lines of root.keyLines.values()) {
+        for (const line of lines) if (line > at && line < bound) bound = line;
+      }
+    }
+    const spans: Array<QuestSpan> = [];
+    chapter.quests.forEach((quest, index) => {
+      const id = quest.kind === 'compound' ? snbtGet(quest, 'id') : undefined;
+      const next = chapter.quests[index + 1];
+      if (id?.kind === 'string') {
+        spans.push({ start: quest.line, end: (next === undefined ? bound : next.line) - 1, id: id.value.toLowerCase() });
+      }
+    });
+    out.set(chapter.path, spans);
+  }
+  return out;
 }
 
 function versionOf(book: { data: { root: Parameters<typeof snbtGet>[0] } }): number | null {
@@ -110,6 +143,7 @@ function fail(
     placed: [],
     reportJson: report.toJson() as PipelineResult['reportJson'],
     reportMd: reportMarkdown(report),
+    targets: NO_TARGETS,
     filesIn,
     filesOut: 0,
     errors: report.errorCount,
@@ -287,6 +321,7 @@ export async function convertVfs(
   }
 
   onProgress('report', 7, 7);
+  const reportJson = report.toJson();
   return {
     failed: false,
     fatal: null,
@@ -294,8 +329,9 @@ export async function convertVfs(
     outputRoot,
     evidence: picked.evidence,
     placed,
-    reportJson: report.toJson() as PipelineResult['reportJson'],
+    reportJson: reportJson as PipelineResult['reportJson'],
     reportMd: reportMarkdown(report),
+    targets: buildTargets(emitted, reportJson.entries, prefix, questSpans(book)),
     filesIn: allFiles.length,
     filesOut: placed.length,
     errors: report.errorCount,

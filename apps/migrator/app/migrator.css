@@ -641,6 +641,294 @@
   font-size: 12px;
 }
 
+/* ------------------------------------------------------------------------------------ runs locally */
+
+/* The privacy line under the hero's statement: a chip and a sentence, the sentence's first clause in ink. */
+.local {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  max-width: 60ch;
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+.local strong {
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.local .pill {
+  flex: none;
+  border-color: var(--line-ink);
+  color: var(--fg);
+}
+
+/* --------------------------------------------------------------------------------- counts as links */
+
+/*
+ * Each figure in the result is a way to its part of the page. It is drawn as the figure it was, and its
+ * hover is the fold head's: a rule along its foot in four frames, the same rule the head it lands on draws.
+ */
+.counts .count {
+  position: relative;
+  display: block;
+  padding: 0 0 var(--s1);
+  text-align: left;
+  color: var(--fg-faint);
+}
+
+.counts .count::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 1px;
+  background: var(--select);
+  transition: width 0.16s steps(4, end);
+}
+
+.counts .count:hover:not(:disabled)::after {
+  width: 100%;
+}
+
+.counts .count:hover:not(:disabled) {
+  color: var(--fg-muted);
+}
+
+.counts .count:disabled {
+  cursor: default;
+}
+
+.counts .count:disabled b {
+  color: var(--fg-faint);
+}
+
+/* Where a count lands: clear of the sticky masthead, and the head draws its rule once to say "here". */
+.jump-target {
+  scroll-margin-top: calc(var(--masthead) + var(--s4));
+}
+
+.fold-head[data-landed]::after,
+.codegroup-head[data-landed]::after {
+  animation: landed 1.4s steps(4, end) both;
+}
+
+@keyframes landed {
+  0% {
+    width: 0;
+  }
+  20%,
+  80% {
+    width: 100%;
+  }
+  100% {
+    width: 0;
+  }
+}
+
+/* A section's name inside a stage: the small caps, set on a rule, with room above. */
+.section-label {
+  margin-top: var(--s6);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--frame);
+}
+
+/* ------------------------------------------------------------------------------------------ report */
+
+.report > * + * {
+  margin-top: var(--s4);
+}
+
+/* What each severity means, once, as a row of cells. */
+.report-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.report-legend > div {
+  padding: var(--s3) var(--s4);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.report-legend dd {
+  margin: var(--s1) 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+/*
+ * A kind of entry: a head with its name, its code, what it asks of the reader and how many there are, then
+ * what it means, shown folded or not. The entries open under it. Indented a step under the severity, with a
+ * hairline down the left, so the two levels of folding read as a tree.
+ */
+.codegroup {
+  margin-left: var(--s2);
+  padding-left: var(--s4);
+  border-left: 1px solid var(--line);
+}
+
+.codegroup-head {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s3);
+  width: 100%;
+  padding: var(--s3) 0 var(--s1);
+  text-align: left;
+}
+
+.codegroup-head::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 1px;
+  background: var(--select);
+  transition: width 0.16s steps(4, end);
+}
+
+.codegroup-head:hover::after {
+  width: 100%;
+}
+
+.codegroup-head:hover .fold-caret {
+  color: var(--select);
+}
+
+.codegroup-head .fold-caret {
+  flex: none;
+  width: 3ch;
+}
+
+.codegroup-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.codegroup-code {
+  margin-left: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--fg-faint);
+}
+
+.codegroup-meaning {
+  max-width: 78ch;
+  margin: 0;
+  padding: 0 0 var(--s3) calc(3ch + var(--s3));
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+.codegroup > .reporttable,
+.codegroup > .toolbar {
+  margin-bottom: var(--s4);
+}
+
+/*
+ * What a kind asks of the reader, in the callouts' weights: the quietest edge for nothing to do, ink for a
+ * look, the heaviest ink for manual work. Red stays the errors' alone, as it is the only red on the sheet.
+ */
+.action {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px dashed var(--frame);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--fg-faint);
+}
+
+.action[data-action="check"] {
+  border-style: solid;
+  border-color: var(--line-ink);
+  color: var(--fg-muted);
+}
+
+.action[data-action="manual"] {
+  border-style: solid;
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+.action[data-action="fix"] {
+  border-style: solid;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* An entry: the quest it is about, as a link that opens its converted file, over its source line. */
+.entry-where {
+  width: 34%;
+  min-width: 200px;
+}
+
+.entry-link,
+.entry-title {
+  display: inline;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--fg);
+}
+
+.entry-link {
+  text-decoration: underline;
+  text-decoration-color: var(--line-ink);
+  text-underline-offset: 3px;
+}
+
+.entry-link:hover,
+.entry-link[aria-expanded="true"] {
+  text-decoration-color: var(--select);
+}
+
+.entry-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--fg-faint);
+  overflow-wrap: anywhere;
+}
+
+.entry-sub .mono {
+  font-size: 11px;
+}
+
+.reporttable tr[data-sel="true"] td {
+  background: var(--bg-sunken);
+}
+
+.preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--s1) var(--s3);
+  margin: 0;
+  padding: var(--s2) var(--s4) 0;
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
 /* ------------------------------------------------------------------------------------------ narrow */
 
 @media (max-width: 700px) {
@@ -663,5 +951,40 @@
 
   .stage-head::after {
     display: none;
+  }
+
+  .local {
+    flex-direction: column;
+    gap: var(--s2);
+  }
+
+  /* An entry's two cells stack: the quest over what happened, a rule between entries. */
+  .codegroup {
+    margin-left: 0;
+    padding-left: var(--s3);
+  }
+
+  .codegroup-meaning {
+    padding-left: 0;
+  }
+
+  .codegroup .reporttable thead {
+    display: none;
+  }
+
+  .codegroup .reporttable td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding-right: 0;
+    border-bottom: 0;
+  }
+
+  .codegroup .reporttable td + td {
+    padding-top: 0;
+  }
+
+  .codegroup .reporttable tr {
+    border-bottom: 1px solid var(--line);
   }
 }

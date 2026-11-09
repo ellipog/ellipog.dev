@@ -1749,6 +1749,32 @@ link card and the profile id say that, and stay. If Tenet's schemas ever differ 
 "loads on either" stops being true; the vendored stamp (`SCHEMA_STAMP`, shown on the reference page)
 names the Tenet commit the schemas were copied from, `11579ee`, which is where to start comparing.
 
+**The report is laid out to be reviewed, not read top to bottom.** A flat table of 87 warnings read as 87
+problems when, on Medieval MC, it is one kind 82 times and two others besides. So `components/report.tsx`
+groups each severity by code, and heads each group with what that kind means and what it asks of the
+reader — *nothing to do*, *worth a look*, *manual work*, or *must fix* — from `lib/codes.ts`, which
+covers every code the core emits. The explanation shows while the group is folded, and the groups that
+ask for work come first. A code missing from that table still renders, under its code and its severity's
+default, so a newer core is untidy rather than wrong; add its line when the core is re-vendored. The
+action is judged per code, not per severity: `player-level-command` is a note but worth a look, because a
+command that failed for non-operators in FTB now succeeds for everybody.
+
+**Each entry names its quest and opens the converted file.** The core reports a source (FTB file, line,
+and usually a quest id in the message or language key); `lib/targets.ts` turns that into the other end in
+the worker, from what was emitted rather than from a guess at a path. `_migrator/ids.json` maps an id to
+its slug and chapter, and each `chapter.json` gives the folder that chapter became. An entry that names no
+quest goes by its line, inside the quest block that holds it. The parsed chapter keeps each quest's
+opening line, and a block runs to the next one. Failing that, it goes to the file its source became. Only
+quests some entry names are parsed for a title: ~18ms on ATM10. Titles are shown as written, so a pack
+that titles quests with resource-pack keys shows `{chapter.8.title}`.
+
+The result's counts jump to their part of the page, opening it first, and the head they land on draws its
+rule in frames. The scroll is instant, because a smooth scroll is an eased tween this sheet does not use.
+The report sits above the file browser so the warnings are not under hundreds of file rows. A line under
+the counts says why far more files come out than went in, in the run's own numbers, and the hero says in
+so many words that nothing is uploaded. That claim is true because the page makes no network request with
+the input, and it has to stay true: anything added that sends data anywhere must change that sentence.
+
 ---
 
 ## Running it
