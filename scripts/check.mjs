@@ -2327,86 +2327,335 @@ if (home) {
   check('the hero figure is the largest type on the page', /\.hero-total b\{[^}]*font-size:clamp\(44px/.test(css), show('.hero-total b{'));
   check('the hero label only targets its own span', !/\.hero-total span\{/.test(css), show('.hero-total span{'));
 }
+console.log('\n== the hosting rules ==');
 /*
- * `vercel.json` is validated against Vercel's published schema, which sets
- * `additionalProperties: false`. An unknown top-level key there is a rejected
- * deploy rather than a warning, and a `"/*"` comment key is exactly that -- it
- * reads perfectly well locally and fails in the build. Notes about the deploy
- * live in AGENT.md, and this is what keeps them out of the file.
+ * THE HOST'S RULES ARE A FILE IN THIS REPOSITORY, AND THIS SECTION READS THEM THE WAY THE HOST DOES.
  *
- * Two assertions, because either alone would pass while the file is wrong:
- *   - no comment key, which is the mistake that actually happened
- *   - exactly the seven keys, so the fix cannot be "delete the note and drift"
- */
-const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
-const strayVercelKeys = Object.keys(vercel).filter((k) => k.startsWith('/'));
-const allowedVercelKeys = ['$schema', 'framework', 'installCommand', 'buildCommand', 'outputDirectory', 'headers', 'redirects'];
-check('vercel.json carries no comment keys', strayVercelKeys.length === 0, strayVercelKeys.join(', ') || 'none');
-check(
-  'vercel.json is exactly the keys the deploy needs',
-  allowedVercelKeys.every((k) => k in vercel) && Object.keys(vercel).length === allowedVercelKeys.length,
-  Object.keys(vercel).join(', '),
-);
-
-/*
- * The hashed build output is cached for a year, and only it.
+ * Both sites are folders on the VPS, served by Caddy, and everything Caddy does beyond handing out a file
+ * comes from `hosting/<domain>.json`: the redirects, the one cache header, and the rule that sends a
+ * folder's slashless address to the folder. The VPS generates its Caddy rules from those files, so they
+ * ARE the deploy's configuration and a mistake in one ships. AGENT.md → *Hosting* gives the format and
+ * the order a request is answered in. `answer()` below is that order, written once, and every assertion
+ * asks it rather than re-deriving a piece of it.
  *
- * With `framework: null` Vercel serves every file with `max-age=0, must-revalidate`, so a reader moving
- * between pages re-asked for every script and stylesheet and got a 304 each time -- a round trip per file
- * per page for files whose names change whenever their bytes do. `/_next/static/` holds only those, so
- * it is the one path that can be told to keep them; anything not content-hashed (`public/`, the pages,
- * `_pagefind/`) keeps the default, because a year-long cache on a file that changes in place is a stale
- * site nobody can fix. Both projects carry the same rule.
+ * That replaces rebuilding a regex the way Vercel compiled it. The semantics are this repository's now,
+ * small enough to state in a paragraph, so the check states them in a function and runs the build
+ * through it.
+ *
+ * The migrator's file is checked against `apps/migrator/out` when that build is present. `bun run build`
+ * does not make it, so a docs-only build checks the file itself and records the rest as a note, not a pass.
  */
 const IMMUTABLE = 'public, max-age=31536000, immutable';
-const cacheRuleOf = (config) =>
-  (config.headers ?? []).map((rule) => ({
-    source: rule.source,
-    value: (rule.headers ?? []).find((h) => h.key.toLowerCase() === 'cache-control')?.value,
-  }));
-for (const [label, file] of [['vercel.json', 'vercel.json'], ['the migrator\'s vercel.json', 'apps/migrator/vercel.json']]) {
-  const rules = cacheRuleOf(JSON.parse(readFileSync(file, 'utf8')));
-  check(
-    `${label} caches /_next/static/ for a year, and nothing else`,
-    rules.length === 1 && rules[0].source === '/_next/static/(.*)' && rules[0].value === IMMUTABLE,
-    rules.map((r) => `${r.source} → ${r.value}`).join(' · ') || 'no header rules',
+const HOSTING_KEYS = ['trailingSlash', 'headers', 'redirects'];
+const HEADER_KEYS = ['path', 'set'];
+const REDIRECT_KEYS = ['from', 'to', 'status'];
+const SEGMENT = "[A-Za-z0-9_~%@!$&'()+,;=:.-]+";
+// An address to match: one or more segments, no trailing slash, and `*` only as a whole last segment.
+const MATCH_PATTERN = new RegExp(`^(?:/${SEGMENT})+(?:/\\*)?$`);
+// An address to send a request to: a path, which may end in its slash, with `*` only straight after the last one.
+const TARGET_PATTERN = new RegExp(`^(?:/${SEGMENT})*/\\*?$|^(?:/${SEGMENT})+$`);
+const DOT_SEGMENT = /(^|\/)\.\.?(\/|$)/;
+
+/** True when `value` is a plain object with exactly these keys: a key the host does not read is a rule that silently does nothing. */
+function hasExactly(value, keys) {
+  return (
+    Boolean(value) &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key))
   );
 }
 
-/*
- * Every redirect lands on a page that exists.
+/**
+ * What a pattern leaves over when it matches a request path: `''` for an exact match, the part after
+ * the prefix for a wildcard, `null` when it does not match.
  *
- * A redirect is a promise that an old address still means something, and it rots like any other
- * link: move the target and the rule still "works" -- a 301 to a 404 is worse than the 404 was,
- * because a crawler follows it and a reader is told the page moved to nowhere. The destination is a
- * URL in the built tree, so that is what it is checked against.
- *
- * A destination may be a *tree* rather than one page, and there are two shapes of that here. The
- * rename left `/docs/tasked/:path*` -> `/docs/tenet/:path*`, so an old section address keeps meaning
- * whatever its new counterpart means -- the whole point of a wildcard, and it has no single
- * `index.html` to resolve. And `/tasked/_schema/quest.schema.json` is a *file* a published quest pack
- * names in its `$schema`; it is an asset rather than a page, so no `index.html` will ever exist for
- * it either. Both are still promises that something is there, so what is resolved is the prefix
- * before any `:path*`, and it counts as present when it is a page **or** a path in the build.
- * Anything that resolves to neither is the 301-to-a-404 this assertion exists to catch.
+ * `/a/b` matches `/a/b` and `/a/b/` -- one rule for both spellings of an address, where Vercel needed
+ * two. `/a/*` matches `/a`, `/a/` and everything under `/a/`.
  */
-const redirects = vercel.redirects ?? [];
-const destinationExists = (destination) => {
-  const prefix = destination.replace(/\/:path\*$/, '/');
-  return existsSync(`${OUT}${prefix}index.html`) || existsSync(`${OUT}${prefix}`);
-};
-// The trailing-slash rule's destination is the request itself plus a slash, not a page; it is asserted on
-// its own below, against every page and file the build emitted.
-const SLASH_SOURCE = /^\/docs\/:page\((.+)\)$/;
-const missingDestinations = redirects
-  .filter((rule) => !SLASH_SOURCE.test(rule.source))
-  .map((rule) => rule.destination)
-  .filter((destination) => !destinationExists(destination));
-check(
-  'every redirect lands on a page that exists',
-  missingDestinations.length === 0,
-  `${redirects.length} rule(s)` + (missingDestinations.length ? `, missing: ${missingDestinations.join(', ')}` : ''),
-);
+function patternRest(pattern, path) {
+  if (pattern.endsWith('/*')) {
+    const base = pattern.slice(0, -2);
+    if (path === base) return '';
+    return path.startsWith(`${base}/`) ? path.slice(base.length + 1) : null;
+  }
+  return path === pattern || path === `${pattern}/` ? '' : null;
+}
+
+function redirectIsWellFormed(rule) {
+  return (
+    hasExactly(rule, REDIRECT_KEYS) &&
+    typeof rule.from === 'string' &&
+    MATCH_PATTERN.test(rule.from) &&
+    !DOT_SEGMENT.test(rule.from) &&
+    typeof rule.to === 'string' &&
+    TARGET_PATTERN.test(rule.to) &&
+    !DOT_SEGMENT.test(rule.to) &&
+    rule.from.endsWith('/*') === rule.to.endsWith('/*') &&
+    (rule.status === 301 || rule.status === 308)
+  );
+}
+
+/** Every file under `root`, as the request path that names it. */
+function filesUnder(root, prefix = '/') {
+  return readdirSync(`${root}${prefix}`, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? filesUnder(root, `${prefix}${entry.name}/`) : [`${prefix}${entry.name}`],
+  );
+}
+
+/**
+ * How the host answers one request path, in the documented order:
+ *
+ *   1. `/api/*` goes to the function server, on the site that has one;
+ *   2. the redirects, in file order, and the first that matches answers;
+ *   3. a path without its slash, where `<path>/index.html` exists, is a 308 to `<path>/`;
+ *   4. the file: `{path}`, then `{path}/index.html`, then `{path}.html`;
+ *   5. otherwise `404.html`, with a 404.
+ */
+function answer(site, path) {
+  if (site.functions && path.startsWith('/api/')) return { status: 'function' };
+  for (const rule of site.config.redirects) {
+    const rest = patternRest(rule.from, path);
+    if (rest !== null) {
+      return { status: rule.status, location: rule.to.endsWith('*') ? `${rule.to.slice(0, -1)}${rest}` : rule.to, rule };
+    }
+  }
+  if (site.config.trailingSlash === true && !path.endsWith('/') && site.files.has(`${path}/index.html`)) {
+    return { status: 308, location: `${path}/` };
+  }
+  const tries = path.endsWith('/') ? [`${path}index.html`] : [path, `${path}/index.html`, `${path}.html`];
+  const file = tries.find((candidate) => site.files.has(candidate));
+  return file ? { status: 200, file } : { status: 404, file: '/404.html' };
+}
+
+const migratorDomain = /domain:\s*'([^']+)'/.exec(read('apps/migrator/lib/metadata.ts') ?? '')?.[1] ?? null;
+const HOSTED = [
+  { domain: manifest.site.domain, root: OUT, functions: true, required: true },
+  { domain: migratorDomain, root: 'apps/migrator/out', functions: false, required: false },
+];
+
+/*
+ * One file per site, named for the domain it configures, and nothing else in the folder: a file the
+ * VPS might read that this check does not would be configuration nobody has tested.
+ */
+{
+  const expected = HOSTED.map((site) => `${site.domain}.json`).sort();
+  const present = existsSync('hosting') ? readdirSync('hosting').sort() : [];
+  check(
+    'hosting/ holds one file per site, named for its domain',
+    expected.join(' ') === present.join(' '),
+    present.join(', ') || 'no hosting/ folder',
+  );
+}
+
+for (const site of HOSTED) {
+  const file = `hosting/${site.domain}.json`;
+  const config = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null;
+  if (!config) continue; // named by the folder check above
+
+  /*
+   * Exactly three keys, and exactly the keys inside each rule. The VPS turns what it recognises into
+   * Caddy rules, so a key it does not -- a comment, a `rewrites` somebody hoped would work -- would sit in
+   * the file looking like configuration and do nothing. Notes about hosting belong in AGENT.md.
+   * (`vercel.json` had the same rule for a harsher reason: Vercel rejected the deploy outright.)
+   */
+  check(`${file} is exactly ${HOSTING_KEYS.join(', ')}`, hasExactly(config, HOSTING_KEYS), Object.keys(config).join(', '));
+  check(
+    `${file} sends a folder's slashless address to the folder`,
+    config.trailingSlash === true,
+    `trailingSlash: ${JSON.stringify(config.trailingSlash)}`,
+  );
+
+  /*
+   * The hashed build output is cached for a year, and only it.
+   *
+   * `/_next/static/` holds only content-hashed files, whose names change whenever their bytes do, so it is
+   * the one path that can be told to keep them; without the rule a reader moving between pages re-asks
+   * for every script and stylesheet (on Vercel, measured: a 304 per file per page). Anything not
+   * content-hashed -- `public/`, the pages, `_pagefind/` -- keeps the host's default, because a year-long
+   * cache on a file that changes in place is a stale site nobody can fix. Both sites carry the same rule.
+   */
+  const headers = Array.isArray(config.headers) ? config.headers : [];
+  check(
+    `${file} caches /_next/static/ for a year, and nothing else`,
+    Array.isArray(config.headers) &&
+      headers.length === 1 &&
+      hasExactly(headers[0], HEADER_KEYS) &&
+      headers[0].path === '/_next/static/*' &&
+      hasExactly(headers[0].set, ['Cache-Control']) &&
+      headers[0].set['Cache-Control'] === IMMUTABLE,
+    headers.map((rule) => `${rule.path} → ${JSON.stringify(rule.set)}`).join(' · ') || 'no header rules',
+  );
+
+  /*
+   * Every redirect is `{ from, to, status }` in the documented pattern form: an exact `from` written
+   * without its slash (it matches both spellings), a wildcard only as a trailing `/*` on both sides, and a
+   * permanent status -- a redirect here is a page that moved, and that is a promise, not a detour.
+   */
+  const redirects = Array.isArray(config.redirects) ? config.redirects : null;
+  const malformed = (redirects ?? []).filter((rule) => !redirectIsWellFormed(rule));
+  check(
+    `${file} writes every redirect in the documented form`,
+    redirects !== null && malformed.length === 0,
+    redirects === null ? 'redirects is not a list' : malformed.map((rule) => JSON.stringify(rule)).join(' · ') || `${redirects.length} rule(s)`,
+  );
+  const froms = (redirects ?? []).map((rule) => rule?.from);
+  const repeated = [...new Set(froms.filter((from, i) => froms.indexOf(from) !== i))];
+  check(`no two redirects in ${file} share an address`, repeated.length === 0, repeated.join(', ') || 'each from once');
+  if (site.functions) {
+    const underApi = froms.filter((from) => from === '/api' || String(from).startsWith('/api/'));
+    check(`${file} redirects nothing under /api/, which the function server answers`, underApi.length === 0, underApi.join(', ') || 'none');
+  }
+
+  if (!existsSync(site.root)) {
+    if (site.required) check(`${site.root} is built, so ${file} can be checked against it`, false);
+    else notes.push(`${site.root} is not built, so ${file} was checked as a file only: build the migrator to check it against its pages`);
+    continue;
+  }
+  if (!hasExactly(config, HOSTING_KEYS) || redirects === null || malformed.length > 0) continue; // failed above
+
+  const served = { ...site, config, files: new Set(filesUnder(site.root)) };
+  const pages = [...served.files].filter((f) => f.endsWith('/index.html')).map((f) => f.slice(0, -'index.html'.length));
+  const assets = [...served.files].filter((f) => !f.endsWith('/index.html'));
+
+  /*
+   * ONE ADDRESS PER PAGE: THE SLASHLESS FORM REDIRECTS.
+   *
+   * Every page is built as `<path>/index.html`, and the canonical tag, the sitemap and every internal link
+   * name the slash form. `trailingSlash` makes the slashless one a 308 to it. It decides by what is on
+   * disk -- a folder with an `index.html` -- rather than by a pattern, so a version folder
+   * (`/docs/tenet/1.21.1`) is a page like any other, and a file never is. On Vercel this was two regex
+   * rules scoped to `/docs`, because Vercel's own `trailingSlash` would have redirected `/api/stats` too.
+   */
+  const unredirected = pages
+    .filter((page) => page !== '/')
+    .filter((page) => {
+      const bare = answer(served, page.slice(0, -1));
+      const own = answer(served, page);
+      return !(bare.status === 308 && bare.location === page && own.status === 200 && own.file === `${page}index.html`);
+    });
+  check(
+    `${site.domain} answers every page's slashless address with a 308 to the page`,
+    unredirected.length === 0,
+    `${pages.length - 1} pages` + (unredirected.length ? `, not: ${unredirected.slice(0, 5).join(', ')}` : ''),
+  );
+
+  // A file is never redirected: not to a folder that does not exist, and not by a rule meant for a page.
+  const misdirected = assets.filter((asset) => {
+    const own = answer(served, asset);
+    return !(own.status === 200 && own.file === asset);
+  });
+  check(
+    `every file ${site.domain} emits is served at its own address`,
+    misdirected.length === 0,
+    misdirected.slice(0, 5).join(', ') || `${assets.length} files: payloads, images and feeds pass through`,
+  );
+  if (site.functions) {
+    const apiFiles = assets.filter((asset) => asset.startsWith('/api/'));
+    check(`the build emits nothing under /api/, which the function server answers`, apiFiles.length === 0, apiFiles.join(', ') || 'nothing');
+  }
+
+  /*
+   * No redirect hides something the build serves.
+   *
+   * Redirects answer before the files do, so a rule whose old address is a page again -- a page moved back,
+   * or a new page written where an old one used to be -- would make that page unreachable while the build
+   * passes. Every address the build answers is tried: each page with and without its slash, each file,
+   * and an `.html` file without its extension.
+   */
+  const addresses = [...served.files].flatMap((f) =>
+    f.endsWith('/index.html')
+      ? [f, f.slice(0, -'index.html'.length), f.slice(0, -'/index.html'.length) || '/']
+      : f.endsWith('.html')
+        ? [f, f.slice(0, -'.html'.length)]
+        : [f],
+  );
+  const hidden = addresses.flatMap((address) => {
+    const rule = config.redirects.find((r) => patternRest(r.from, address) !== null);
+    return rule ? [`${rule.from} hides ${address}`] : [];
+  });
+  check(
+    `no redirect in ${file} hides a page or a file the build serves`,
+    hidden.length === 0,
+    hidden.slice(0, 5).join(', ') || `${new Set(addresses).size} addresses`,
+  );
+
+  /*
+   * Every redirect answers its old address, and lands -- in one hop -- on something the build serves.
+   *
+   * A redirect is a promise that an old address still means something, and it rots like any other link:
+   * move the target and the rule still "works", but a 308 to a 404 is worse than the 404 was, because a
+   * crawler follows it and a reader is told the page moved to nowhere. So each rule's old addresses are
+   * run through `answer()` and the answer is followed once. It has to be this rule that answers, which
+   * catches a rule something earlier has made unreachable (`/tasked/*` above `/tasked` would send `/tasked`
+   * to `/tenet/`, a folder with no page), and the place it sends the reader has to be served as written,
+   * which catches a target written without its slash: that is a second redirect, not a landing.
+   *
+   * A wildcard's promise is a whole tree, so it is tried against every page and file the build serves
+   * under its new home -- `/docs/tasked/authoring/quests/` must reach `/docs/tenet/authoring/quests/` --
+   * and an empty tree fails. `/tasked/_schema/quest.schema.json` is a file a published quest pack names
+   * in its `$schema`, which is why a file counts as much as a page.
+   */
+  const canonical = [...pages, ...assets];
+  const broken = [];
+  for (const rule of config.redirects) {
+    let tried;
+    if (rule.from.endsWith('/*')) {
+      const fromBase = rule.from.slice(0, -2);
+      const toBase = rule.to.slice(0, -1);
+      const rests = canonical.filter((path) => path.startsWith(toBase)).map((path) => path.slice(toBase.length));
+      if (rests.length === 0) broken.push(`${rule.from}: nothing is served under ${toBase}`);
+      tried = [...new Set([fromBase, `${fromBase}/`, ...rests.map((rest) => `${fromBase}/${rest}`)])];
+    } else {
+      tried = [rule.from, `${rule.from}/`];
+    }
+    const ownAnswers = tried.filter((address) => answer(served, address).rule === rule);
+    if (rule.from.endsWith('/*') ? ownAnswers.length === 0 : ownAnswers.length !== tried.length) {
+      broken.push(`${rule.from} is answered before this rule is reached`);
+    }
+    for (const address of tried) {
+      const first = answer(served, address);
+      const landing = first.location ? answer(served, first.location) : null;
+      if (!landing || landing.status !== 200) {
+        broken.push(`${address} → ${first.location ?? first.status} → ${landing?.location ?? landing?.status ?? 'nothing'}`);
+        break;
+      }
+    }
+  }
+  check(
+    `every redirect in ${file} answers its old address and lands, in one hop, on something the build serves`,
+    broken.length === 0,
+    [...new Set(broken)].slice(0, 5).join('; ') || `${config.redirects.length} rule(s)`,
+  );
+
+  // The 404 the host answers a missing path with, and the hashed files the cache rule is for.
+  check(`${site.domain} ships the 404.html the host answers a missing path with`, served.files.has('/404.html'));
+  const hashed = assets.filter((asset) => asset.startsWith('/_next/static/')).length;
+  check(`${site.domain} emits the hashed files its cache rule is for`, hashed > 0, `${hashed} under /_next/static/`);
+
+  /*
+   * Every internal link on the site is served as written: no redirect, no 404.
+   *
+   * With the host's rules in hand this is one question per link, and it is the strong form of the
+   * canonical-spelling check further down: a slashless link is a redirect on every click, and a link to a
+   * page that moved is two. Only `<a href>` in the markup is read -- the RSC payload repeats every link --
+   * and only the path, so a fragment or a query does not count against it.
+   */
+  const unserved = new Set();
+  for (const page of pages) {
+    const html = readFileSync(`${site.root}${page}index.html`, 'utf8');
+    for (const [, href] of withoutScripts(html).matchAll(/<a\s[^>]*href="(\/(?!\/)[^"#?]*)/g)) {
+      const own = answer(served, href);
+      if (own.status !== 200 && own.status !== 'function') unserved.add(`${page} → ${href} (${own.location ?? own.status})`);
+    }
+  }
+  check(
+    `every internal link on ${site.domain} is served as written`,
+    unserved.size === 0,
+    [...unserved].slice(0, 5).join(', ') || `${pages.length} pages read`,
+  );
+}
 
 console.log('\n== the crawler files, and the card a link shows ==');
 /*
@@ -2462,63 +2711,6 @@ function pagesIn(dir, prefix = '') {
 
 const builtPaths = pagesIn(OUT).sort();
 const declaredPaths = locs.map((url) => url.replace(siteUrl, '') || '/').sort();
-
-/*
- * ONE ADDRESS PER PAGE: THE SLASHLESS FORM REDIRECTS.
- *
- * Every page is built as `<path>/index.html`, and Vercel serves that directory at `/docs/tenet` and at
- * `/docs/tenet/` alike: two 200s for one page. The canonical tag already names the slash form; the last two
- * redirects make the slashless one a 308 to it. Vercel's own `trailingSlash: true` would do the same
- * site-wide, and is not used because it would redirect `/api/stats` as well, a function the live counter
- * polls. These two rules only reach `/docs`.
- *
- * The rule's pattern is a regex in the rule's own source, so it is rebuilt here exactly as Vercel compiles
- * it (`^/docs/(<pattern>)$`, checked against `@vercel/routing-utils`) and run over the build: every page's
- * slashless address must come back to that page, and no file the build emitted may be caught -- that is
- * what keeps a `.txt` payload or an image from being redirected to a directory that does not exist.
- * Version folders (`/docs/tenet/1.21.1`) have dots and are pages, which is why the last segment is "no dot,
- * or a version number" rather than Vercel's plain "no dot".
- */
-const slashRule = redirects.find((rule) => SLASH_SOURCE.test(rule.source));
-const slashPattern = slashRule ? new RegExp(`^/docs/(${SLASH_SOURCE.exec(slashRule.source)[1]})$`) : null;
-const docsRootRule = redirects.find((rule) => rule.source === '/docs');
-check(
-  'the slashless /docs redirects to /docs/',
-  Boolean(docsRootRule && docsRootRule.destination === '/docs/' && docsRootRule.permanent),
-  docsRootRule ? `${docsRootRule.source} → ${docsRootRule.destination}` : 'no rule',
-);
-check(
-  'the trailing-slash rule is the last redirect, so a moved page goes straight to its new home',
-  Boolean(slashRule) && redirects[redirects.length - 1] === slashRule && slashRule.destination === '/docs/:page/',
-  slashRule ? `${slashRule.source} → ${slashRule.destination}` : 'no rule',
-);
-if (slashPattern) {
-  const docsPages = builtPaths.filter((path) => path.startsWith('/docs/') && path !== '/docs/');
-  const unredirected = docsPages.filter((path) => {
-    const match = slashPattern.exec(path.slice(0, -1));
-    return !match || `/docs/${match[1]}/` !== path;
-  });
-  check(
-    'every page under /docs/ answers its slashless address with a redirect to itself',
-    unredirected.length === 0,
-    `${docsPages.length} pages` + (unredirected.length ? `, not redirected: ${unredirected.slice(0, 5).join(', ')}` : ''),
-  );
-  const filesUnder = (dir, prefix) =>
-    readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
-      entry.isDirectory()
-        ? filesUnder(`${dir}/${entry.name}`, `${prefix}${entry.name}/`)
-        : entry.name === 'index.html'
-          ? []
-          : [`${prefix}${entry.name}`],
-    );
-  const caughtFiles = filesUnder(`${OUT}/docs`, '/docs/').filter((path) => slashPattern.test(path));
-  check(
-    'no file the build emitted is caught by the trailing-slash rule',
-    caughtFiles.length === 0,
-    caughtFiles.slice(0, 5).join(', ') || 'payloads, images and feeds pass through',
-  );
-  check('the trailing-slash rule leaves /api/stats alone', !slashPattern.test('/api/stats') && !slashPattern.test('/api/stats/'));
-}
 
 /**
  * The page a built path should name as its canonical, worked out here from the content rather than read
@@ -2656,10 +2848,11 @@ for (const path of builtPaths) {
   titles.push([path, titleOf(html)]);
 
   /*
-   * Every link to a docs page uses the spelling the canonical names. Vercel answers `/docs/tenet` and
-   * `/docs/tenet/` with the same file and a 200 each, so a slashless link is a link to a second URL for
-   * the page; the rail alone used to put forty of those on every page, about 2,500 across the site,
-   * all disagreeing with the canonical tag. Fragments and queries are ignored; only the path is read.
+   * Every link to a docs page uses the spelling the canonical names. On Vercel `/docs/tenet` and
+   * `/docs/tenet/` were the same file and a 200 each, so a slashless link was a link to a second URL for
+   * the page; the rail alone used to put forty of those on every page, about 2,500 across the site, all
+   * disagreeing with the canonical tag. The host redirects the slashless form now, which makes the same
+   * link a 308 on every click instead. Fragments and queries are ignored; only the path is read.
    */
   const slashless = [...new Set(
     [...withoutScripts(html).matchAll(/<a\s[^>]*href="(\/docs[^"#?]*)/g)]

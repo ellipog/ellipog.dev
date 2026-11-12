@@ -1,0 +1,20 @@
+{
+  "trailingSlash": true,
+  "headers": [
+    { "path": "/_next/static/*", "set": { "Cache-Control": "public, max-age=31536000, immutable" } }
+  ],
+  "redirects": [
+    { "from": "/docs/tenet/quest-files", "to": "/docs/tenet/authoring/quest-files/", "status": 308 },
+    { "from": "/docs/tenet/quests", "to": "/docs/tenet/authoring/quests/", "status": 308 },
+    { "from": "/docs/tenet/tasks", "to": "/docs/tenet/authoring/tasks/", "status": 308 },
+    { "from": "/docs/tenet/rewards", "to": "/docs/tenet/authoring/rewards/", "status": 308 },
+    { "from": "/docs/tenet/validation", "to": "/docs/tenet/authoring/validation/", "status": 308 },
+    { "from": "/docs/tenet/kubejs", "to": "/docs/tenet/authoring/kubejs/", "status": 308 },
+    { "from": "/docs/armature/data", "to": "/docs/armature/api/data/", "status": 308 },
+    { "from": "/docs/armature/teams", "to": "/docs/armature/api/teams/", "status": 308 },
+
+    { "from": "/docs/tasked/*", "to": "/docs/tenet/*", "status": 308 },
+    { "from": "/tasked", "to": "/docs/tenet/", "status": 308 },
+    { "from": "/tasked/*", "to": "/tenet/*", "status": 308 }
+  ]
+}
