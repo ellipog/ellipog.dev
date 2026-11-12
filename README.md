@@ -47,7 +47,8 @@ will not work as written; see `AGENT.md`.
     ├── glossary.json          terms defined once, referenced from any mod's docs
     ├── .github/workflows/     update-pins.yml
     ├── api/
-    │   └── stats.mjs          the live download counts, edge-cached for a minute; the only code that runs
+    │   └── stats.mjs          the live download counts, cached for a minute; the only code that runs
+    ├── hosting/               the host's redirects, cache header and slash rule, one file per domain
     ├── design/
     │   ├── icons-source/      the brand SVGs the mod marks are generated from
     │   └── brand-source/      the host's logo and Ko-fi's wordmark, same idea
@@ -177,19 +178,25 @@ in **`AGENT.md` → Writing documentation**.
 
 ## Deploying
 
-`apps/docs/out/` is the whole site. Upload it to any static host; there is nothing to configure and
-no rewrite rules are needed, because `trailingSlash` makes Next emit `docs/tenet/index.html` rather
-than `docs/tenet.html`.
+`apps/docs/out/` is the whole site, and `apps/migrator/out/` is tenet.ellipog.dev. Both are served from
+a VPS that checks `main` every minute, runs the same `bun run build` (and the migrator's build), and
+switches the live folder over atomically, so **pushing to `main` is the deploy**. `AGENT.md` → *Hosting*
+has the rest.
 
-**The download figures are live on Vercel.** The home page polls `/api/stats` once a minute. That
-route is the function in `api/stats.mjs`, which Vercel serves from the repository root whatever the
-framework preset is, so `vercel.json` needs no extra key. Its answer is edge-cached for sixty seconds,
-so one upstream fetch serves every open tab in a region. That matters because the CurseForge half
-costs about twenty requests: cfwidget's author listing carries no download counts.
+Any static host could serve the folder as it is, with no rewrite rules, because `trailingSlash` makes
+Next emit `docs/tenet/index.html` rather than `docs/tenet.html`. What this host adds is written in
+`hosting/ellipog.dev.json` and `hosting/tenet.ellipog.dev.json`: the redirects for pages that moved, the
+year-long cache on `/_next/static/`, and a 308 from `/docs/tenet` to `/docs/tenet/`. The VPS turns
+those files into its Caddy rules, and `check.mjs` reads them against the build.
+
+**The download figures are live.** The home page polls `/api/stats` once a minute. That route is the
+function in `api/stats.mjs`, which the VPS runs on a small Bun server beside the static folders. Its
+answer is cached for sixty seconds, so one upstream fetch serves every open tab. That matters because
+the CurseForge half costs about twenty requests: cfwidget's author listing carries no download counts.
 
 **Anywhere else, the browser asks the platforms itself.** That covers `next dev` and any static host
-that is not Vercel. The browser uses the same `lib/platforms.mjs`, but polls every five minutes rather
-than every minute. With JavaScript off, the page shows the build's snapshot.
+with no function server beside it. The browser uses the same `lib/platforms.mjs`, but polls every five
+minutes rather than every minute. With JavaScript off, the page shows the build's snapshot.
 
 **The snapshot is kept fresh by a scheduled rebuild.** The VPS that hosts the site rebuilds it at 06:00
 and 18:00 UTC, so the numbers in the static HTML are never more than half a day behind. See `AGENT.md` → *Freshness of the numbers*.

@@ -55,6 +55,7 @@ and no fallback.
 | `scripts/sync.mjs` | **committed** | The only thing that writes into `content/`. |
 | `scripts/stats.mjs` | **committed** | Fetches both platforms' download counts. |
 | `scripts/check.mjs` | **committed** | Asserts the built site contains what it should. Run by `bun run build`. |
+| `hosting/*.json` | **committed** | The host's redirects, cache header and slash rule, one file per domain. The VPS generates its Caddy rules from them, and `check.mjs` reads them against the build. See *Hosting*. |
 | `apps/docs/**` | **committed** | The site itself. |
 | `apps/docs/content/` | **committed** | The docs, copied from each mod's repository. Generated — never authored here — and committed so the documentation is readable in the repository as well as on the site. |
 | `apps/docs/manifest.json` | gitignored | Copied from the root by `sync.mjs`. |
@@ -1240,19 +1241,21 @@ Every page emits `<link rel="canonical">` for its own URL, built by `absoluteUrl
 trailing slash that `trailingSlash: true` gives the export. `/docs/tenet` and `/docs/tenet/` are two
 URLs to a static host, and the canonical is what says which one is the page.
 
-**Every internal link has to agree with it, and for a while almost none did.** Vercel answers both
+**Every internal link has to agree with it, and for a while almost none did.** Vercel answered both
 spellings with the same file and a `200` (checked with `curl` against the live site), so a slashless link
-is a link to a second URL rather than a redirect. `page.url` from Fumadocs has no trailing slash, and the
+was a link to a second URL rather than a redirect. `page.url` from Fumadocs has no trailing slash, and the
 rail, the contents list and the previous/next row all rendered it as it came — about 2,500 links across the
 site, forty on every page, pointing at the spelling the canonical says is *not* the page. They all go
 through `canonicalPath()` now (in `lib/metadata.ts`, the function `absoluteUrl` uses too), and `check.mjs`
 fails on any `/docs` link without its slash. `page.url` itself is untouched, because a dozen comparisons
 across `lib/docs.ts` and the components are written against its slashless form.
 
-The host could also redirect the slashless form (`"trailingSlash": true` in `vercel.json`). That is not
-done here, because it applies to `/api/stats` as well and nobody has yet watched a preview deploy prove
-the function still answers at `/api/stats/`. With every link, the sitemap and the canonical agreeing, the
-redirect would only tidy up after links from other sites.
+**The host redirects the slashless form now, too.** `trailingSlash` in `hosting/ellipog.dev.json` makes
+`/docs/tenet` a 308 to `/docs/tenet/` (see *Hosting*). On Vercel this was never done site-wide, because
+Vercel's own setting would have redirected `/api/stats` as well. Deciding by the folder on disk leaves the
+function alone. The redirect tidies up after links from other sites, and the links here still have to be
+right on their own: a slashless one costs a 308 on every click, so `check.mjs` also asserts that every
+internal link is served as written.
 
 ### Two manuals, and which page is canonical
 
@@ -1454,11 +1457,12 @@ The figures come in **two layers**:
    `check.mjs` asserts the snapshot total is in the HTML, and that the status reads `snapshot`
    rather than `live`. A page that cannot poll has no business claiming to be live.
 2. **The live reading.** `components/live-stats.tsx` polls once the page is open. **It asks
-   `/api/stats` first**: the function in `api/stats.mjs`, with an edge cache of sixty seconds plus
-   `stale-while-revalidate`. However many tabs are open, upstream sees one fetch per region per minute.
-   **When that route is not there** (`next dev`, or any host that is not Vercel), the route answers
-   404 or HTML. The page then fetches the platforms itself through the same `lib/platforms.mjs`, every
-   five minutes rather than every one. Polling pauses while the tab is hidden.
+   `/api/stats` first**: the function in `api/stats.mjs`, run by the VPS's function server, which caches
+   its answer for sixty seconds plus `stale-while-revalidate`, as the function's own headers ask. However
+   many tabs are open, upstream sees one fetch a minute. **When that route is not there** (`next dev`, or
+   a static host with no function server beside it), the route answers 404 or HTML. The page then fetches
+   the platforms itself through the same `lib/platforms.mjs`, every five minutes rather than every one.
+   Polling pauses while the tab is hidden.
 
 **Why the function exists, rather than the browser alone.** Both APIs are CORS-open, so the browser
 can do it, and as a fallback it does. But **cfwidget's author listing returns ids and names with no
@@ -1478,9 +1482,9 @@ next poll.
 
 **The scheduled rebuild still exists, and now it only refreshes the snapshot.** Without it, the
 first paint of a long-lived deploy would show week-old numbers until the first poll replaced them.
-**Vercel's own Cron Jobs cannot do this**, even with a function deployed: cron invokes a route, but the
-snapshot is in files that only a *build* writes. A **Deploy Hook** triggers a build, which is what a
-static export needs.
+**A cron that calls a route cannot do this**, even with a function deployed: the snapshot is in files
+that only a *build* writes. Vercel's Cron Jobs could not do it for that reason, which is why it was a
+Deploy Hook there, and it is a rebuild on the VPS.
 
 | Workflow | Cadence | What it does |
 |---|---|---|
@@ -1494,16 +1498,17 @@ it builds main as it is, so the numbers are re-fetched without a commit.
 cannot parse, so neither workflow ever registered: the crons never fired, and every push produced two
 instant failed runs with no jobs in them. The tell is in the API — a workflow whose `name` comes back as
 its own file path is a file whose `name:` key never parsed — and the run pages say `Invalid workflow
-file`. The headers are `#` comments now, and each file carries a note saying why.
+file`. The headers are `#` comments now, and `update-pins.yml`, the one still here, carries a note
+saying why.
 
 **GitHub disables a scheduled workflow after 60 days of repository inactivity**, and this repository is
-worked in bursts. After a long quiet period, open the Actions tab and dispatch `Refresh stats` once by
+worked in bursts. After a long quiet period, open the Actions tab and dispatch `Update pins` once by
 hand: a disabled schedule produces no failing run, so nothing else will tell you.
 
 **Why the pin bump is a pull request and the stats refresh is not.** Moving a pin changes *which
 documentation a visitor reads* — a page can gain a section, lose one, or change what it says — and that
-deserves a look. Refreshing a download count does not. The two workflows are split along exactly that
-line.
+deserves a look. Refreshing a download count does not. The two are split along exactly that line: one is
+a workflow that opens a pull request, the other is a rebuild of `main` as it stands.
 
 ---
 
@@ -1543,10 +1548,12 @@ the way fan sites commonly use it, but it is not this project's and no licence w
 ever matters, the fix is to redraw the five textures by hand. Nothing else depends on them being
 exact.
 
-**6b. `/api/stats` has only been run locally.** The function was exercised by importing its module
-and calling `GET()`, and the page's fallback path ran in the browser against both platforms. It has
-not yet been deployed. The first deploy should check that `/api/stats` answers JSON, and that the
-status in the hero reads `live` within a minute.
+**6b. `/api/stats` is half verified on the VPS.** It was first exercised locally, by importing its
+module and calling `GET()`, and the page's fallback path ran in the browser against both platforms. On
+2026-11-12 the deployed route answered JSON with both platforms' figures and
+`s-maxage=60, stale-while-revalidate=600`, through Caddy and the VPS's function server. Nobody has yet
+watched the hero's status turn `live` in a browser against the deployed site, and that is the other
+half.
 
 **7. `bun run build` and `bun run dev` must not run at the same time.**
 `sync.mjs` calls `rmSync` on `apps/docs/content/` and then rebuilds it. `bun run dev` is watching that
@@ -1567,124 +1574,174 @@ for a local annoyance, but worth knowing before it costs an hour.
 
 ---
 
-## Deploying to Vercel
+## Hosting
 
-`vercel.json` carries seven keys and nothing else:
+**Both sites are folders on a VPS, since 2026-11-12.** Until then they were two Vercel projects. The VPS
+does four things, and the last is configured from this repository:
+
+1. **It checks `main` every minute** and, on a new commit, runs the commands a local build runs:
+   `bun run build` for ellipog.dev, which writes `apps/docs/out`, and `bun run --filter @ellipog/migrator
+   build` for tenet.ellipog.dev, which writes `apps/migrator/out`. It switches the live folder over
+   atomically, so a reader never gets half of one build and half of the next. It also rebuilds `main` at
+   06:00 and 18:00 UTC, for the numbers (see *Freshness of the numbers*).
+2. **Caddy serves the two folders**, one per domain.
+3. **`api/stats.mjs` runs on a small Bun server beside them**, and Caddy sends ellipog.dev's `/api/*`
+   there. The server honours the function's `s-maxage` and `stale-while-revalidate` the way Vercel's edge
+   did, so upstream still sees about one fetch a minute however many tabs are open.
+4. **Everything else Caddy does comes from `hosting/<domain>.json`**: the redirects, the one cache
+   header, and the rule that sends a folder's slashless address to the folder. The VPS generates its
+   Caddy rules from those files.
+
+**`bun run build` is the deploy's build, and it is the same command used locally.** It syncs from the
+pinned commits, fetches the platform numbers, builds the static site, and then asserts the result,
+exiting non-zero if a check fails. A deploy that ran a different sequence from a local build is a deploy
+nobody has tested. The install before it should be `bun install --frozen-lockfile`, as `vercel.json`'s
+`installCommand` said, so the deploy uses the committed `bun.lock` and fails loudly if it has drifted
+from `package.json`: an install that silently resolves different versions is a build that cannot be
+reproduced.
+
+**Each site is served from its own folder, and the two are not interchangeable.** On Vercel the
+migrator's project once reported a Ready deployment that 404ed on every route, because it had been
+pointed at the other half's output, where nothing it serves exists. A site pointed at the wrong folder
+builds successfully and serves nothing, so the folders are named here rather than guessed:
+`apps/docs/out` for ellipog.dev, `apps/migrator/out` for tenet.ellipog.dev.
+
+### The hosting files
+
+```
+hosting/
+├── ellipog.dev.json         rules for apps/docs/out
+└── tenet.ellipog.dev.json   rules for apps/migrator/out
+```
+
+One file per site, named for its domain, and each holds exactly three keys:
 
 ```json
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "bun install --frozen-lockfile",
-  "buildCommand": "bun run build",
-  "outputDirectory": "apps/docs/out",
+  "trailingSlash": true,
   "headers": [
-    {
-      "source": "/_next/static/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
-    }
+    { "path": "/_next/static/*", "set": { "Cache-Control": "public, max-age=31536000, immutable" } }
   ],
   "redirects": [
-    { "source": "/docs/tenet/quests", "destination": "/docs/tenet/authoring/quests/", "permanent": true }
+    { "from": "/docs/tenet/quests", "to": "/docs/tenet/authoring/quests/", "status": 308 },
+    { "from": "/docs/tasked/*", "to": "/docs/tenet/*", "status": 308 }
   ]
 }
 ```
 
-Each of the three settings is doing real work, and none of them is what you would guess:
+**An address pattern is exact or a wildcard, and nothing else.**
 
-**`buildCommand`.** `bun run build` — the same command used locally and in CI. It syncs from the
-pinned commits, fetches the platform numbers, builds the static site, and then asserts the result. A
-deploy that ran a different sequence from a local build is a deploy nobody has tested.
+| Pattern | Matches | Leaves over |
+|---|---|---|
+| `/docs/tenet/quests` | `/docs/tenet/quests` and `/docs/tenet/quests/` | nothing |
+| `/docs/tasked/*` | `/docs/tasked`, `/docs/tasked/`, and every path under `/docs/tasked/` | what follows `/docs/tasked/`, which is empty for the first two |
 
-**`outputDirectory`.** `apps/docs/out`, because this is a static export (`output: 'export'` in
-`next.config.mjs`). Vercel's Next.js preset looks in `.next`, which is the intermediate build
-directory, not the exported site — so without this the deploy would have nothing to serve.
+An exact pattern is written without its trailing slash and matches both spellings, so one rule covers an
+old address however it was linked; on Vercel that took two rules. A `*` is only ever a whole last segment,
+after a `/`. There are no regexes, no named parameters and no `*` anywhere else, and the query string
+plays no part in matching.
 
-**`framework: null`** stops Vercel applying that preset at all. There is no server and no ISR here,
-just files, plus **one function**. `api/stats.mjs` sits at the repository root, outside the export,
-and Vercel deploys anything in a root `api/` folder as a function whatever the preset. That is why the
-live download counts did not need a key of their own. The function imports `apps/docs/lib/platforms.mjs` by
-relative path, and Vercel's file tracer bundles that file in with it. See *Freshness of the numbers*.
+**A redirect is `{ "from", "to", "status" }`.** `from` is a pattern. `to` is a path on the same site,
+either a page in its slashed form or a file. When `from` is a wildcard, `to` must end in `/*` too, and
+its `*` is replaced by what `from` left over: `/docs/tasked/authoring/quests/` goes to
+`/docs/tenet/authoring/quests/`, and `/docs/tasked` goes to `/docs/tenet/`. `status` is 308 or 301. A
+redirect here is a page that moved, and that is permanent.
 
-**`installCommand`.** `bun install --frozen-lockfile`, so the deploy uses the committed `bun.lock` and
-fails loudly if it has drifted from `package.json`. An install that silently resolves different
-versions is a build that cannot be reproduced.
+**A header rule is `{ "path", "set" }`.** Every response whose path matches `path`, a pattern as above,
+carries the headers in `set`.
 
-**`headers`.** One rule: everything under `/_next/static/` is cached for a year, `immutable`. With
-`framework: null` Vercel serves every file with `max-age=0, must-revalidate`, so each page a reader
-opened asked again for every script and stylesheet and got a 304 back — a round trip per file for files
-whose names change whenever their bytes do. That folder holds only content-hashed files, so it is the one
-place a year-long cache is safe; pages, `public/` and `_pagefind/` keep the default, because a long cache
-on a file that changes in place is a stale site nobody can fix. The migrator's `vercel.json` carries the
-same rule, and `check.mjs` asserts both.
+**`trailingSlash: true`** answers a path that has no trailing slash, but where `<path>/index.html` exists
+in the folder, with a 308 to `<path>/`. It decides by what is on disk, not by a pattern.
 
-**`redirects`.** Every page that has ever moved, kept alive at its old address — with **both slash
-forms**, because Vercel matches the path as written and `/docs/tenet/quests` and
-`/docs/tenet/quests/` are two different requests. The list is short and written by hand; the moment
-it stops being short, it belongs in a generated file instead. A redirect is a promise that an old
-address still means something, so `check.mjs` asserts every destination is a page that exists: a 301
-to a 404 is worse than the 404 was, because a crawler follows it and a reader is told the page moved
-to nowhere.
+**The order a request is answered in.** The VPS's Caddy rules have to reproduce this order, and
+`check.mjs` models it in `answer()`:
+
+1. `/api/*` goes to the function server. That is ellipog.dev only, and it is the VPS's rule, not the
+   file's.
+2. The redirects, in file order: the first that matches answers.
+3. `trailingSlash`.
+4. The file: `{path}`, then `{path}/index.html`, then `{path}.html`.
+5. `404.html`, with a 404.
+
+Headers apply to whatever answers. Because the redirects come before the files, a redirect could hide a
+page, which is why the check asserts that none does. Order within the list matters in one place: the
+exact `/tasked` rule sits above the `/tasked/*` wildcard, so that `/tasked` goes to `/docs/tenet/` while
+`/tasked/_schema/…` goes to `/tenet/_schema/…`.
+
+**No comments in them.** `check.mjs` holds each file to exactly its keys, and each rule to exactly its
+own. The VPS turns what it recognises into Caddy rules, so a key it does not recognise (a `"/*"` note, or
+a `rewrites` somebody hoped would work) would sit in the file looking like configuration and do nothing.
+`vercel.json` had the same rule for a harsher reason: its schema set `additionalProperties: false`, so a
+`"/*"` comment key that read perfectly well was a rejected deploy. The `"/*"` trick is still a fine habit
+in `manifest.json` and `glossary.json`. Notes about hosting belong in this section.
+
+**`headers`.** One rule: everything under `/_next/static/` is cached for a year, `immutable`. That
+folder holds only content-hashed files, whose names change whenever their bytes do, so it is the one
+place a year-long cache is safe. Without the rule, a reader moving between pages asks again for every
+script and stylesheet. On Vercel, which served every file with `max-age=0, must-revalidate`, that was
+measured as a 304 round trip per file per page. Pages, `public/` and `_pagefind/` keep the host's
+default, because a long cache on a file that changes in place is a stale site nobody can fix. Both files
+carry the same rule, and `check.mjs` asserts both.
+
+**`redirects`.** Every page that has ever moved, kept alive at its old address. The list is short and
+written by hand; the moment it stops being short, it belongs in a generated file instead. A redirect is
+a promise that an old address still means something, so `check.mjs` asserts that every one lands, in one
+hop, on something the build serves. A 308 to a 404 is worse than the 404 was, because a crawler follows
+it and a reader is told the page moved to nowhere. The two wildcards are the Tasked rename:
+`/docs/tasked/*` keeps the old manual's whole tree, and `/tasked/*` keeps
+`/tasked/_schema/quest.schema.json` working, a file that a published quest pack names in its `$schema`.
+That is why a file counts as much as a page.
 
 **Moving a page is therefore two edits, not one**: the page itself, and a redirect from where it was.
 The URL is the one thing about a page that a reader can hold on to — a bookmark, a Discord link, a
 search result — and a folder reorganisation that breaks all of them is a reorganisation that cost
 more than it bought.
 
-**The last two redirects give every page one address.** A page is built as `<path>/index.html`, and
-Vercel serves that directory at `/docs/tenet` and `/docs/tenet/` alike, two 200s for one page. `/docs`
-and `/docs/:page(<pattern>)` turn the slashless form into a 308 to the slash form, which is the one the
-canonical tag, the sitemap and every internal link already use. The pattern's last segment is "no dot,
-or a version number", so `/docs/tenet/1.21.1` is redirected but `index.txt`, the `__next.*.txt`
-payloads and anything else with an extension are not. Vercel's own `"trailingSlash": true` would do this
-site-wide, and is not used because it would redirect `/api/stats` too. **They stay last**, so a moved
-page's rule answers first and sends the reader to the new address in one hop. `check.mjs` rebuilds the
-pattern the way Vercel compiles it and runs it over the build: every page's slashless address must come
-back to that page, and no emitted file may be caught.
+**`trailingSlash` gives every page one address.** A page is built as `<path>/index.html`, and the
+canonical tag, the sitemap and every internal link name the slashed form. The slashless form is a 308 to
+it. On Vercel this took two regex redirects scoped to `/docs`. Vercel's own `"trailingSlash": true`
+would have redirected `/api/stats` too, and the regex needed a carve-out so that a version folder
+(`/docs/tenet/1.21.1`) was redirected while `index.txt` was not. Deciding by the folder on disk needs
+neither: `/api/stats` is not a folder in the export, a file is never a folder, and a version folder is a
+page like any other. The rule now covers the whole of both sites. The migrator had it on Vercel already.
+
+**What `check.mjs` asserts about them**, against each site's built folder:
+
+- each file has exactly its three keys, each rule exactly its own, and every pattern is in the form
+  above;
+- the cache rule is the only header rule, and the build emits files under `/_next/static/` for it;
+- every page's slashless address is a 308 to the page, and every file is served at its own address;
+- no redirect hides a page or a file the build serves, and none sits under `/api/`;
+- every redirect answers its own old addresses, rather than being pre-empted by something earlier, and
+  lands in one hop on a page or file that is served; a wildcard is tried against every page and file
+  under its new home;
+- `404.html` ships, and every internal link is served as written, with no redirect and no 404;
+- `hosting/` holds exactly the two files.
+
+The migrator's half needs `apps/migrator/out`. `bun run build` does not make it, so a docs-only build
+checks the migrator's file alone, and its notes say so.
 
 ### Node is pinned, and deliberately not to a range
 
-`package.json` declares `"engines": { "node": "24.x" }`. **Not `>=22`.** An open range would move the
-build to a new Node major the day one is released, which is a build that changes without a commit and
-without anyone having tested it — the exact failure the lockfile exists to prevent. `.nvmrc` pins the
-same major for local use. Bun is the package manager and is pinned separately, via `packageManager`.
+`package.json` declares `"engines": { "node": "24.x" }`. **Not `>=22`.** On a host that picks Node from
+`engines`, as Vercel did, an open range moves the build to a new Node major the day one is released.
+That is a build that changes without a commit and without anyone having tested it, which is the exact
+failure the lockfile exists to prevent. `.nvmrc` pins the same major for local use, and the VPS should
+build with that major too. Bun is the package manager and is pinned separately, via `packageManager`.
 
-### `vercel.json` cannot hold comments
-
-This is worth knowing before it costs you a deploy. `vercel.json` is validated against a published
-JSON Schema, and that schema sets `additionalProperties: false`. **An unknown top-level key is a
-rejected deploy, not a warning** — which is exactly what happened to a `"/*"` comment key that read
-perfectly well and had been sitting in the file unnoticed.
-
-The `"/*"` trick is a fine habit in `manifest.json` and `glossary.json`, where nothing validates the
-file against a schema and the notes are worth having where the data is. It is never fine here. Notes
-about the deploy belong in this section, where prose is allowed and nobody's build depends on the
-parser tolerating them.
-
-`check.mjs` asserts both halves of this — that `vercel.json` carries no comment key, and that the
-seven keys above are the whole file — so the mistake fails locally rather than in Washington.
-
-### The migrator is a second project, on a subdomain
+### The migrator is a second site, on a subdomain
 
 `apps/migrator` is its own static export (the FTB Quests → Tenet converter, client-side only) and it
 is served from `tenet.ellipog.dev`, not from a path on this site — the migrator band atop every
-Tenet page links there. One Vercel project cannot serve two static exports, so this is a second
-project from the same repository, with **Root Directory `apps/migrator`**, and it carries its own
-`apps/migrator/vercel.json` pinning the other half: `npm run build` into `out/`.
-
-**The failure this records:** a Ready deployment 404ing on every route, including its own
-`*.vercel.app` address. That is an empty deployment — the build succeeded and produced nothing the
-output directory points at. `apps/docs/out` does not exist under `apps/migrator/`, and `out/` does
-not exist at the repository root, so either half pointed at the other half's tree 404s everything
-while reporting Ready. The fix is the Root Directory, not a rebuild: set it to `apps/migrator`,
-clear any dashboard Build/Output overrides so the committed `vercel.json` is what runs, and
-redeploy. The two domains (`tenet.ellipog.dev`, assigned; the `*.vercel.app` one, automatic) stay
-where they are — neither was the problem, and the DNS CNAME already points at Vercel.
+Tenet page links there. The VPS builds it with `bun run --filter @ellipog/migrator build` into
+`apps/migrator/out`, and `hosting/tenet.ellipog.dev.json` holds its rules: the same cache header,
+`trailingSlash`, and no redirects yet. On Vercel it was a second project, with Root Directory
+`apps/migrator`, because one Vercel project could not serve two static exports.
 
 **It wears this site's design, copied rather than shared.** `apps/migrator/app/global.css` is the main
 site's sheet down to the colophon: the same tokens, the construction lines and registration crosses,
 the corner-bracket selection, the masthead, and the dithered page transition. It is copied because the
-two are separate Vercel projects and the migrator's `@/` alias cannot reach into `apps/docs`. **When
+two are separate exports and the migrator's `@/` alias cannot reach into `apps/docs`. **When
 the two disagree, the main site's file is the right one.** `migrator.css` holds what only the tool has:
 a dashed drop target that dithers while a folder is held over it, square pixel checkboxes, and
 progress drawn in cells. The intake bar fills or sweeps, the pipeline strip names its eight stages and
@@ -1705,9 +1762,8 @@ said `0.2.0` while Tenet shipped 1.2.1, and this app cannot read the manifest.
 
 The section names on the three content pages are `<h2 class="label">`, not spans, so the pages have a
 heading outline. The universal margin reset and `.label` make that change invisible. The comparison page
-is in the masthead (`Compare`); before that only one paragraph linked to it. `vercel.json` here sets
-`"trailingSlash": true`, because there is no `/api` function for the redirect to break; the main site gets
-the same result from two redirect rules scoped to `/docs` (see *Deploying to Vercel*).
+is in the masthead (`Compare`); before that only one paragraph linked to it. A slashless address is a 308
+to its page here as on the main site, from `trailingSlash` in its hosting file (see *Hosting*).
 
 **What the page loads, and when.** The converter runs in a Web Worker that Turbopack compiles from
 `new Worker(new URL('./worker.ts', import.meta.url))`; the raw `worker.*.ts` that also lands in
@@ -1807,6 +1863,9 @@ content by forgetting a step, and no way to ship one that is structurally wrong 
 - no two pages share a title or a description, no description runs past 160 characters, and no title
   carries markdown backticks
 - every link to a docs page uses the canonical, slashed spelling
+- **the hosting files, read the way the host reads them**: exactly their keys, the one cache rule, every
+  redirect landing in one hop on something the build serves, none hiding a page, every page's slashless
+  address a 308 to it, and every internal link served as written — see *Hosting*
 - each docs page's breadcrumb trail steps only through pages that exist, and names no two steps alike
 - every indexable page asks for the large image preview
 - the home page's structured data parses, and declares `WebSite` and `Person`
