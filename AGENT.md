@@ -1484,13 +1484,10 @@ static export needs.
 
 | Workflow | Cadence | What it does |
 |---|---|---|
-| `refresh-stats.yml` | 06:00 and 18:00 UTC | Calls the Deploy Hook; Vercel rebuilds and re-fetches the numbers |
 | `update-pins.yml` | Mondays 03:00 UTC | `bun run pins --write`, then opens a pull request |
 
-**One setup step, once:** create a Deploy Hook in Vercel (Project → Settings → Git → Deploy Hooks, branch
-`main`) and add its URL as the repository secret `VERCEL_DEPLOY_HOOK`. `refresh-stats.yml` fails loudly
-when it is missing, on purpose — a schedule that stopped working silently is the failure this whole
-arrangement exists to prevent.
+The twice-daily rebuild (06:00 and 18:00 UTC) now runs on the VPS that hosts the site, not in a workflow:
+it builds main as it is, so the numbers are re-fetched without a commit.
 
 **Both workflow files were unparseable for a day, and nothing said so.** Their headers were written as
 `/** ... */` blocks — natural in this repository, and **not a comment in YAML**. GitHub rejects a file it

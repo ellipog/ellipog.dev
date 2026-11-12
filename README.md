@@ -45,7 +45,7 @@ will not work as written; see `AGENT.md`.
     ellipog.dev/
     ├── manifest.json          the author, the studio, the sponsor and the support link, the suite, releases
     ├── glossary.json          terms defined once, referenced from any mod's docs
-    ├── .github/workflows/     refresh-stats.yml, update-pins.yml
+    ├── .github/workflows/     update-pins.yml
     ├── api/
     │   └── stats.mjs          the live download counts, edge-cached for a minute; the only code that runs
     ├── design/
@@ -191,9 +191,8 @@ costs about twenty requests: cfwidget's author listing carries no download count
 that is not Vercel. The browser uses the same `lib/platforms.mjs`, but polls every five minutes rather
 than every minute. With JavaScript off, the page shows the build's snapshot.
 
-**The snapshot is kept fresh by a scheduled rebuild.** Add a Deploy Hook URL as the repository secret
-`VERCEL_DEPLOY_HOOK`; `.github/workflows/refresh-stats.yml` calls it twice a day, so the numbers in the
-static HTML are never more than half a day behind. See `AGENT.md` → *Freshness of the numbers*.
+**The snapshot is kept fresh by a scheduled rebuild.** The VPS that hosts the site rebuilds it at 06:00
+and 18:00 UTC, so the numbers in the static HTML are never more than half a day behind. See `AGENT.md` → *Freshness of the numbers*.
 
 The one thing to know when deploying: **the docs come from the pinned commits in `manifest.json`**, not
 from the branches. If a page looks out of date, the pin needs moving — `bun run pins` says which.
