@@ -14,16 +14,17 @@ import type { ProjectCount, Stats } from '@/lib/platforms.mjs';
  * or an API that is down all get a correct figure that simply does not move. `check.mjs` asserts the
  * snapshot total is in the HTML and that the status starts out saying `snapshot` rather than `live`.
  *
- * Then it polls. **`/api/stats` first** -- a Vercel function with a one-minute edge cache, so every open
- * tab costs one small request a minute however many are open. When that route is not there (`next dev`,
- * or a static host that is not Vercel) it answers 404 or HTML, and the provider switches to fetching the
- * platforms itself through the same `lib/platforms.mjs` the function uses, every five minutes rather than
- * every one, because that path is ~23 requests instead of one.
+ * Then it polls. **`/api/stats` first** -- the function the VPS runs beside the site, with a one-minute
+ * cache in front of it, so every open tab costs one small request a minute however many are open. When
+ * that route is not there (`next dev`, or a static host with no function server beside it) it answers
+ * 404 or HTML, and the provider switches to fetching the platforms itself through the same
+ * `lib/platforms.mjs` the function uses, every five minutes rather than every one, because that path is
+ * ~23 requests instead of one.
  *
  * Polling stops while the tab is hidden and catches up the moment it is shown again.
  */
 
-/** How often each source is asked. The API is edge-cached for 60s, so asking more often gains nothing. */
+/** How often each source is asked. The API is cached for 60s, so asking more often gains nothing. */
 const API_EVERY_MS = 60_000;
 const DIRECT_EVERY_MS = 5 * 60_000;
 

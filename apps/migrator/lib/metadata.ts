@@ -3,8 +3,9 @@ import type { Metadata } from 'next';
 /**
  * The migrator's own facts, written down once.
  *
- * The domain is `tenet.ellipog.dev` — this app is its own Vercel project
- * (Root Directory `apps/migrator`), not a path on ellipog.dev — so the
+ * The domain is `tenet.ellipog.dev` — this app is its own static export,
+ * served from its own folder (`hosting/tenet.ellipog.dev.json` at the
+ * repository root holds its rules), not a path on ellipog.dev — so the
  * canonical links, `robots.txt`, `sitemap.xml` and the share card all read
  * it from here rather than each typing their own copy. Same arrangement as
  * `apps/docs/lib/metadata.ts`, subdomain values.

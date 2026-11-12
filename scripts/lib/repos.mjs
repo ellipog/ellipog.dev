@@ -109,7 +109,8 @@ export function materialiseVersion(mod, version, problems) {
  * need.
  *
  * The `.pin` stamp is a marker rather than bookkeeping: a re-build with the same pin skips the network
- * entirely, which matters because a Vercel build runs this on every deploy.
+ * entirely, which matters because the VPS runs this on every build: every push to `main`, and twice a
+ * day besides.
  */
 export function checkoutPin(mod) {
   const dir = join(CACHE, mod.id);

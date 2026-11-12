@@ -4,15 +4,16 @@
  * The same numbers are fetched from three places, and they must not be three implementations:
  *
  *   1. `scripts/stats.mjs`, at build time, which writes the snapshot baked into the static HTML.
- *   2. `api/stats.mjs`, the Vercel function the catalog page polls, cached at the edge.
+ *   2. `api/stats.mjs`, the function the catalog page polls, run by a Bun server on the VPS with a
+ *      cache in front of it.
  *   3. `components/live-stats.tsx`, in the visitor's browser, only when that function is not there --
- *      `next dev`, or any static host that is not Vercel.
+ *      `next dev`, or any static host with no function server beside it.
  *
  * So this file is plain ESM with no Node APIs: `fetch`, `AbortSignal` and `setTimeout` exist in all
  * three runtimes. It is `.mjs` rather than `.ts` because the function and the build script import it
  * by relative path from outside the Next project, and an untranspiled `.mjs` is the one format all of
- * Node, Bun, Vercel's tracer and Turbopack read without a build step. `platforms.d.mts` beside it gives
- * the page its types.
+ * Node, Bun (the build script and the VPS's function server) and Turbopack read without a build step.
+ * `platforms.d.mts` beside it gives the page its types.
  *
  * MODRINTH needs one request: `/user/{id}/projects` returns every project with its download count. It
  * used to be `/search`, which also answers in one request but reads an *indexed* count that lagged the
@@ -119,7 +120,7 @@ function slugFromUrl(url) {
  * Every project this author has on CurseForge, keyed by slug, with the hand-listed extras appended.
  *
  * A small worker pool with a pause between requests, because this is a free service: the build runs
- * two workers at 250ms, the function four at 100ms (it answers a waiting request, and the edge cache in
+ * two workers at 250ms, the function four at 100ms (it answers a waiting request, and the cache in
  * front of it means it runs a few times an hour, not per visitor).
  */
 export async function fetchCurseForge({ headers, concurrency = 2, delay = 250 } = {}) {

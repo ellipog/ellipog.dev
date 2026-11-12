@@ -143,10 +143,11 @@ export function plainTitle(title: string): string {
  * A site path in the form the export serves: with its trailing slash, query and fragment kept.
  *
  * `trailingSlash: true` in `next.config.mjs` means `/docs/tenet/` is the address the export writes.
- * Vercel also answers `/docs/tenet` with the same file and a 200, so the slashless spelling is a
- * second URL for the same page rather than a redirect. The canonical tag says which one is the
- * page, and **every internal link has to agree with it**: a rail of forty links per page pointing at
- * the other spelling tells a crawler the opposite of what the canonical does.
+ * The host answers `/docs/tenet` with a 308 to it (`trailingSlash` in `hosting/ellipog.dev.json`), so
+ * a slashless link costs every reader a redirect, and on Vercel, which served both spellings with a
+ * 200, it was a second URL for the same page. The canonical tag says which one is the page, and
+ * **every internal link has to agree with it**: a rail of forty links per page pointing at the other
+ * spelling tells a crawler the opposite of what the canonical does.
  *
  * Only site paths are touched. External URLs, bare fragments and anything with a file extension
  * (`/og.png`, `/llms.txt`) are returned as they are; a docs path's version segment (`1.21.1`) is not

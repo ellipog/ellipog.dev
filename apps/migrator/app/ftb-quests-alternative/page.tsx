@@ -36,7 +36,7 @@ const STRUCTURED_DATA = {
     },
     /*
      * No `softwareVersion`. It said `0.2.0` while Tenet shipped 1.2.1: this app cannot read the main
-     * site's manifest (separate Vercel project, and `@/` stops at apps/migrator), so a typed version is
+     * site's manifest (a separate export, and `@/` stops at apps/migrator), so a typed version is
      * a fact nobody keeps true, the reason apps/docs gives for leaving `lastModified` out of its sitemap.
      * `GameApplication` is the schema.org category; `Game` is not one of the values Google accepts.
      * The author is the main site's person, by `@id`, as in the layout.

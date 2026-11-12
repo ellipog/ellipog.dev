@@ -17,10 +17,10 @@ const config = {
   // The converter is a verbatim vendor snapshot of @ellipog/migrator-core
   // (vendor/migrator-core, refreshed by bun scripts/sync-migrator-core.mjs).
   // A `file:` dep was tried first and rejected: bun copies out-of-workspace file
-  // deps (Windows EPERM on the core's nested node_modules), and the copy would
-  // break when Vercel roots at ellipog.dev. The snapshot lives inside this app,
-  // so Next compiles it natively — no transpilePackages needed. Never hand-edit
-  // vendor/: re-sync and commit instead.
+  // deps (Windows EPERM on the core's nested node_modules), and the path would
+  // not exist on the VPS, which builds from a checkout of ellipog.dev alone.
+  // The snapshot lives inside this app, so Next compiles it natively — no
+  // transpilePackages needed. Never hand-edit vendor/: re-sync and commit instead.
   devIndicators: false,
 };
 

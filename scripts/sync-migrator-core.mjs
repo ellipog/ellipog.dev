@@ -2,7 +2,8 @@
  * Vendor a verbatim snapshot of @ellipog/migrator-core into apps/migrator/vendor.
  *
  * Why a copy instead of a `file:` dependency: the core lives outside this workspace
- * (../../migrator), so a `file:` dep breaks when Vercel roots at ellipog.dev — and bun
+ * (../../migrator), so a `file:` dep breaks on the VPS, which builds from a checkout of
+ * ellipog.dev alone — and bun
  * copies (rather than links) out-of-workspace file deps, which trips Windows EPERM on
  * the core's nested node_modules. A committed snapshot keeps this app self-contained
  * and its builds reproducible.

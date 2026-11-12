@@ -24,7 +24,7 @@ export const metadata: Metadata = {
    * The base every absolute URL in the metadata is resolved against — the canonical links, the
    * icons' hrefs, and the share card. Without it Next emits paths, and a path is not a URL to
    * anything that reads a link from somewhere else. The domain is tenet.ellipog.dev: this app is
-   * its own Vercel project (Root Directory apps/migrator), not a path on ellipog.dev.
+   * its own static export, served from its own folder, not a path on ellipog.dev.
    */
   metadataBase: new URL(SITE.url),
 
