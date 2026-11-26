@@ -173,7 +173,7 @@ export function toMonochrome(raw, options = {}) {
   /*
    * GRADIENTS, WHICH A MONOCHROME MARK CANNOT HAVE.
    *
-   * Shockbyte's flat wordmark is one colour, but the export keeps the full-colour file's bolt gradient
+   * Shockbyte's flat wordmark is one colour, but the export keeps the blue file's bolt gradient
    * and one shape that uses it: a path with no area, a single point at the bolt's tip. The class pass
    * only folds hex fills, so that shape keeps a `class` nothing defines once the `<style>` block is gone,
    * and its gradient's four stop colours survive as literal hex. Both are dropped: the gradient

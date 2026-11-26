@@ -936,9 +936,10 @@ A background coming back would bring the old failure back with it.
 list and can be skipped deliberately — which a plain div would not allow.
 
 **Which files are the brands':** the host's are three files from Shockbyte's branding kit, committed
-verbatim — `design/brand-source/shockbyte-flat.svg` (the single-colour wordmark the site's glyph is
-generated from), `shockbyte.svg` (full colour, dark wordmark, for the banners on light grounds) and
-`shockbyte-on-dark.svg` (full colour, white wordmark, for dark grounds). The tip jar's is
+verbatim, both flat and one colour — `design/brand-source/shockbyte.svg` (black: the site's glyph is
+generated from it, and the banners use it on light grounds) and `shockbyte-on-dark.svg` (white, for the
+banners on dark grounds). The kit's blue gradient versions are deliberately not used: the brand here is
+black and white. The tip jar's is
 `design/brand-source/kofi.svg` (Ko-fi's own wordmark, committed verbatim from their brand asset pack); the
 generated glyphs are `apps/docs/public/brand/shockbyte.svg` and `.../kofi.svg`. Regenerate both with
 `bun run brand`, which is a table of marks rather than a script per logo — the transform is shared and

@@ -11,12 +11,12 @@
  *
  * THE SOURCES
  *
- * `design/brand-source/shockbyte-flat.svg` — `NEW-Shockbyte-Logo+Wordmark-Dark (flat).svg`, committed
+ * `design/brand-source/shockbyte.svg` — `NEW-Shockbyte-Logo+Wordmark-Dark (flat).svg`, committed
  * verbatim from the branding kit linked from https://shockbyte.com/branding (a Google Drive folder with
- * SVG and PNG exports). The kit ships the wordmark flat in dark and in white, so a one-colour mark is
- * Shockbyte's own variant rather than a recolour of ours. Its two siblings in the same folder are the
- * full-colour files the banners use: `shockbyte.svg` (`…-Dark.svg`, dark wordmark, for light grounds)
- * and `shockbyte-on-dark.svg` (`NEW-Shockbyte-Logo+Wordmark.svg`, white wordmark).
+ * SVG and PNG exports). The kit ships the wordmark flat in black and in white, so a one-colour mark is
+ * Shockbyte's own variant rather than a recolour of ours. The banners use the same file on light grounds
+ * and its white twin, `shockbyte-on-dark.svg` (`…-Light (flat).svg`), on dark ones. The kit's blue
+ * gradient versions are deliberately not used: the brand here is black and white.
  *
  * `design/brand-source/kofi.svg` — Ko-fi's wordmark, committed verbatim from their brand asset pack
  * (the `kofi_brandasset.zip` that also carries a symbol and four coloured "Support me on Ko-fi" badges,
@@ -30,7 +30,7 @@
  *    the entire page. It is folded into `fill` attributes and the block is deleted, which is the only safe
  *    way to inline a file that carries one.
  *
- * 2. **A leftover gradient.** The flat file is one colour, but Illustrator kept the full-colour bolt's
+ * 2. **A leftover gradient.** The flat file is one colour, but Illustrator kept the blue bolt's
  *    `<linearGradient>` and one zero-area path painted with it (`class="st1"`, a single point). The class
  *    pass folds hex fills only, so that path would keep a class nothing defines and the gradient's four
  *    stop colours would survive as hex. `dropGradients` removes both.
@@ -92,9 +92,6 @@ const OUT_DIR = join(SITE, 'apps', 'docs', 'public', 'brand');
 const MARKS = [
   {
     id: 'shockbyte',
-    // The kit's single-colour wordmark, not `shockbyte.svg` (the full-colour one the banners use): a
-    // gradient bolt has no faithful monochrome reading, and Shockbyte ship the flat file for exactly this.
-    source: 'shockbyte-flat.svg',
     options: {
       // Fold the `<style>` classes in and delete the block, or it leaks into the page.
       resolveClasses: true,
