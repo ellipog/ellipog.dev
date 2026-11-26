@@ -10,7 +10,7 @@ URL works in every description. If a banner is re-exported, copy it into
 | header-tenet | https://ellipog.dev/branding/header-tenet.png |
 | header-armature | https://ellipog.dev/branding/header-armature.png |
 | tenet-migrator | https://ellipog.dev/branding/tenet-migrator.png |
-| bisect | https://ellipog.dev/branding/bisect.png |
+| shockbyte | https://ellipog.dev/branding/shockbyte.png |
 | discord | https://ellipog.dev/branding/discord.png |
 | studio | https://ellipog.dev/branding/studio.png |
 
@@ -33,26 +33,22 @@ so the markdown wraps it in the destination):
 [![Coming from FTB Quests? Convert your quest books to Tenet JSON at tenet.ellipog.dev](https://ellipog.dev/branding/tenet-migrator.png)](https://tenet.ellipog.dev)
 ```
 
-Bisect banner (bottom of the description, ellipog.dev copy for CurseForge/GitHub):
+Shockbyte banner (bottom of the description; the same URL on Modrinth, CurseForge and GitHub):
 
 ```md
-[![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://ellipog.dev/branding/bisect.png)](https://www.bisecthosting.com/mcstellar)
+[![Shockbyte Minecraft server hosting, 25 percent off with code STELLAR25 (affiliate link)](https://ellipog.dev/branding/shockbyte.png)](https://shockbyte.com/partner/stellar)
 ```
 
-Modrinth descriptions use the Modrinth-hosted copy instead (uploaded once through the editor,
-same blue banner, pixel-identical):
+To use a Modrinth-hosted copy instead, upload `shockbyte.png` once through the Modrinth editor and
+swap its `cdn.modrinth.com/data/cached_images/...` URL in for the image URL above.
 
-```md
-[![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://cdn.modrinth.com/data/cached_images/b8548210eac7c7338b01fe0469e84a7bbbed41fc.png)](https://www.bisecthosting.com/mcstellar)
-```
-
-Discord banner (directly above the Bisect banner):
+Discord banner (directly above the Shockbyte banner):
 
 ```md
 [![Join the ellipog Discord server](https://ellipog.dev/branding/discord.png)](https://discord.gg/uy9QFaQWR7)
 ```
 
-Studio banner (under the Bisect banner, closes the page):
+Studio banner (under the Shockbyte banner, closes the page):
 
 ```md
 [![Engineered by Aaen Studios: aaenz.no](https://ellipog.dev/branding/studio.png)](https://aaenz.no)

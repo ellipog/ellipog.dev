@@ -1,19 +1,19 @@
 <!doctype html>
 <!--
-  bisect-light.html - white-outlined version for DARK grounds.
+  shockbyte-light.html - white-outlined version for DARK grounds.
 
   Same 1920x400 canvas and CTA — but nothing solid: transparent canvas,
   white 4px outer outline, white text, transparent CTA with white button
-  outline. No solid white fill anywhere. Logo stays full-colour original
-  (brand rules) on transparency inside a thin white-hairline plate.
+  outline. No solid white fill anywhere. Logo is Shockbyte's own
+  white-wordmark artwork (design/brand-source/shockbyte-on-dark.svg).
 
   Export: chrome --headless --screenshot --window-size=1920,400
-    --default-background-color=00000000 bisect-light.html
+    --default-background-color=00000000 shockbyte-light.html
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>bisect light - ellipog branding</title>
+<title>shockbyte light - ellipog branding</title>
 <style>
   :root {
     --paper: #ffffff;
@@ -48,15 +48,7 @@
     font-size: 24px; letter-spacing: 3px; color: var(--paper);
     border: 2px solid var(--paper); padding: 6px 16px; white-space: nowrap;
   }
-  /* Full-colour original artwork (brand rules) on transparency with a
-     thin white hairline around the plate — no solid fill. */
-  .logo-plate {
-    background: transparent;
-    border: 2px solid var(--paper);
-    padding: 12px 16px;
-    display: inline-block;
-  }
-  .logo { width: 688px; height: auto; display: block; }
+  .logo { width: 720px; height: auto; display: block; }
 
   /* Transparent offer cell: white figures, white button outline. */
   .cta {
@@ -78,12 +70,12 @@
 <body>
   <div class="canvas">
     <div class="main">
-      <span class="logo-plate"><img class="logo" src="../design/brand-source/bisecthosting.svg" alt="BisectHosting"></span>
-      <div class="eyebrow mono"><span class="badge">HOSTING PARTNER</span><span class="url">bisecthosting.com/mcstellar</span></div>
+      <img class="logo" src="../design/brand-source/shockbyte-on-dark.svg" alt="Shockbyte">
+      <div class="eyebrow mono"><span class="badge">HOSTING PARTNER</span><span class="url">shockbyte.com/partner/stellar</span></div>
     </div>
     <div class="cta mono">
       <span class="label">USE CODE:</span>
-      <span class="code">mcstellar</span>
+      <span class="code">STELLAR25</span>
       <span class="btn">GET 25% OFF &#8599;</span>
     </div>
   </div>

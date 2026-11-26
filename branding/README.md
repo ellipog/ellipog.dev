@@ -16,16 +16,17 @@ gradients, no webfonts. Nothing that can fail to load at screenshot time.
 |---|---|---|
 | `header-slim.html` (`?mod=tenet` \| `?mod=armature`) | `out/header-<mod>.png` (1920×320) | Top of every mod description: icon + title + summary, no versions |
 | `tenet-migrator.html` | `out/tenet-migrator.png` | Mid-page CTA on **Tenet's** pages only: FTB Quests → migrator funnel |
-| `bisect.html` | `out/bisect.png` | Bottom of descriptions: BisectHosting affiliate banner |
-| `discord.html` | `out/discord.png` (1920×180) | Directly above bisect: Discord community strip |
-| `studio.html` | `out/studio.png` (1920×80) | Under bisect, closes the page: studio credit strip |
+| `shockbyte.html` | `out/shockbyte.png` (1920×400) | Bottom of descriptions: Shockbyte partner banner |
+| `shockbyte-transparent.html` / `shockbyte-light.html` | `out/shockbyte-transparent.png` / `out/shockbyte-light.png` (1920×400) | The same banner on a transparent canvas, for light / dark grounds |
+| `discord.html` | `out/discord.png` (1920×180) | Directly above shockbyte: Discord community strip |
+| `studio.html` | `out/studio.png` (1920×80) | Under shockbyte, closes the page: studio credit strip |
 | `md/tenet-modrinth.md` / `md/armature-modrinth.md` / `md/create-stellar.md` / `md/stellar-companion.md` | copy-paste | Full Modrinth bodies: banners + copy, Alt text included, CTAs link-wrapped |
 
 `out/` is where exports land. It is not committed. Upload the PNG through
 each platform's UI (Modrinth and CurseForge re-host; GitHub READMEs can use
 the repo raw URL or the platform upload).
 
-## Export (same for all three)
+## Export
 
 1. Open the HTML file in Chromium/Edge at **100% zoom**.
 2. DevTools → Elements → select `div.canvas`.
@@ -34,6 +35,14 @@ the repo raw URL or the platform upload).
 
 No build step, no dependency. If the canvas ever renders wider than 1920,
 check the zoom first. That is the failure this procedure has.
+
+Without a desktop, headless Chromium does the same at the canvas size
+(add `--default-background-color=00000000` for the transparent masters):
+
+```sh
+chrome --headless=new --hide-scrollbars --force-device-scale-factor=1 \
+  --window-size=1920,400 --screenshot=out/shockbyte.png shockbyte.html
+```
 
 ## Embed snippets (copy-paste)
 
@@ -50,17 +59,17 @@ markdown wraps it in the destination.
 ```
 
 ```md
-[![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](bisect.png)](https://www.bisecthosting.com/mcstellar)
+[![Shockbyte Minecraft server hosting, 25 percent off with code STELLAR25 (affiliate link)](shockbyte.png)](https://shockbyte.com/partner/stellar)
 ```
 
 ## Placement rules
 
 - Header first, migrator mid-page (Tenet only, above the quest docs),
-  bisect LAST. CurseForge asks partnership banners to live at the bottom;
+  shockbyte LAST. CurseForge asks partnership banners to live at the bottom;
   Modrinth reviewers think the same way even where it is unwritten.
 - One header per page. Never put the migrator banner on Armature's page.
   It is Tenet's funnel, and a CTA for another mod reads as a misplaced ad.
-- The `HOSTING PARTNER` badge in `bisect.html` is load-bearing disclosure,
+- The `HOSTING PARTNER` badge in the `shockbyte*.html` banners is load-bearing disclosure,
   same rule as the site's sponsor band. Do not export a version without it.
 
 ## Adding a mod

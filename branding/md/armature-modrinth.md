@@ -22,5 +22,5 @@ For mod developers: compile against the published artifact (see the releases pag
 
 - [Manual](https://ellipog.dev/docs/armature) · [Source](https://github.com/ellipog/armature) · [Issues](https://github.com/ellipog/armature/issues)
 
-[![BisectHosting Minecraft server hosting, 25 percent off with code mcstellar (affiliate link)](https://cdn.modrinth.com/data/cached_images/b8548210eac7c7338b01fe0469e84a7bbbed41fc.png)](https://www.bisecthosting.com/mcstellar)
+[![Shockbyte Minecraft server hosting, 25 percent off with code STELLAR25 (affiliate link)](https://ellipog.dev/branding/shockbyte.png)](https://shockbyte.com/partner/stellar)
 [![Engineered by Aaen Studios: aaenz.no](https://ellipog.dev/branding/studio.png)](https://aaenz.no)

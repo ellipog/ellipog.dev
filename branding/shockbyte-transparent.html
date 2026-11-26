@@ -1,20 +1,20 @@
 <!doctype html>
 <!--
-  bisect-transparent.html - transparent-background fix of bisect.html.
+  shockbyte-transparent.html - transparent-background fix of shockbyte.html.
 
   Same 1920x400 canvas, logo, badge, and code CTA — but NO solid page
   background: the canvas is transparent so the banner sits on whatever
   ground embeds it (Modrinth/CurseForge description) instead of shipping
   its own white box. Dark artwork (black border, black text) for LIGHT
-  grounds. Logo stays full-colour original (brand rules).
+  grounds. Logo is Shockbyte's own full-colour artwork.
 
   Export: chrome --headless --screenshot --window-size=1920,400
-    --default-background-color=00000000 bisect-transparent.html
+    --default-background-color=00000000 shockbyte-transparent.html
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>bisect transparent - ellipog branding</title>
+<title>shockbyte transparent - ellipog branding</title>
 <style>
   :root {
     --fg: #09090b;
@@ -51,7 +51,7 @@
     font-size: 24px; letter-spacing: 3px; color: var(--fg);
     border: 2px solid var(--fg); padding: 6px 16px; white-space: nowrap;
   }
-  /* Full-colour original artwork — brand rules forbid a monochrome recolour. */
+  /* Shockbyte's own full-colour artwork, verbatim from their kit. */
   .logo { width: 720px; height: auto; display: block; }
 
   .cta {
@@ -72,12 +72,12 @@
 <body>
   <div class="canvas">
     <div class="main">
-      <img class="logo" src="../design/brand-source/bisecthosting.svg" alt="BisectHosting">
-      <div class="eyebrow mono"><span class="badge">HOSTING PARTNER</span><span class="url">bisecthosting.com/mcstellar</span></div>
+      <img class="logo" src="../design/brand-source/shockbyte.svg" alt="Shockbyte">
+      <div class="eyebrow mono"><span class="badge">HOSTING PARTNER</span><span class="url">shockbyte.com/partner/stellar</span></div>
     </div>
     <div class="cta mono">
       <span class="label">USE CODE:</span>
-      <span class="code">mcstellar</span>
+      <span class="code">STELLAR25</span>
       <span class="btn">GET 25% OFF &#8599;</span>
     </div>
   </div>
