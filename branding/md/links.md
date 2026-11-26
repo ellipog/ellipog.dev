@@ -13,6 +13,7 @@ URL works in every description. If a banner is re-exported, copy it into
 | shockbyte | https://ellipog.dev/branding/shockbyte.png |
 | discord | https://ellipog.dev/branding/discord.png |
 | studio | https://ellipog.dev/branding/studio.png |
+| extra-origins-smp (modpack logo, moved off bisecthosting.com) | https://ellipog.dev/branding/extra-origins-smp.png |
 
 ## Copy-paste
 
