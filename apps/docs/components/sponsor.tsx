@@ -16,15 +16,6 @@ type Sponsor = Cell & {
   code: string;
   discount: string;
   badge?: { label: string; note?: string };
-  /**
-   * Full-colour artwork for the host's own mark, e.g. `/brand/bisecthosting-color.svg`.
-   *
-   * The host's brand rules do not allow a monochrome recolour, so the sponsor cell renders this
-   * file as an `<img>` in original colours on a paper plate — the one exception to the inline
-   * monochrome `<BrandMark>` the tip jar still uses. `logo` stays as the generated monochrome
-   * glyph (pipeline output, kept committed); this is what actually renders.
-   */
-  logoColor?: string;
 };
 
 /**
@@ -36,6 +27,13 @@ type Sponsor = Cell & {
 const bare = (url: string) => url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
 /**
+ * The host's domain alone, for the CTA: `shockbyte.com`, not `shockbyte.com/partner/stellar`. The referral
+ * path is where the link goes, not what the reader needs to read. Derived from `url`, so it cannot disagree
+ * with it.
+ */
+const domain = (url: string) => new URL(url).host.replace(/^www\./, '');
+
+/**
  * The band at the foot of every page: **two cells in one row**, the host at two parts and the tip jar at
  * one.
  *
@@ -43,7 +41,7 @@ const bare = (url: string) => url.replace(/^https?:\/\//, '').replace(/\/$/, '')
  * page's reader is being sent to, and what the arrangement is — so stacking them as two full-width bands
  * would read as two sections that happen to sit together. Side by side they read as one row with two
  * answers, which is what they are. The ratio is measured rather than preferred: the host's cell needs
- * about 660px before `25% off with code mcstellar · Affiliate link` breaks, and Ko-fi's needs about 330,
+ * about 660px before `25% off with code STELLAR25 · Affiliate link` breaks, and Ko-fi's needs about 330,
  * which is where `2fr 1fr` and the 1000px collapse in `global.css` come from.
  *
  * **The two cells are separate landmarks, and that is the load-bearing part.** The host's section is
@@ -98,15 +96,13 @@ export function SponsorBanner() {
  * 2. **`rel="sponsored"`** on the link. That is the correct value for a paid or affiliate link, and it is
  *    what search engines expect; `noreferrer noopener` come along for the same reason they do on every
  *    outbound link here. **The cell beside this one deliberately does not carry it** — see `SupportCell`.
- * 3. **The mark is a full-colour `<img>` on a paper plate, not the inline monochrome glyph.**
- *    The host's brand rules do not allow a black-and-white recolour, so this cell renders
- *    `s.logoColor` in original colours. An `<img>` is a separate document with no access to the
- *    page's CSS, which is exactly what full-colour artwork wants — nothing to resolve, nothing
- *    to invert. The plate behind it stays paper on hover (see global.css), so the black wordmark
- *    stays legible in both themes. The tip jar beside it still uses inline `<BrandMark>`.
- * 4. **`alt` names the host on the image**, because unlike the inline glyph this one is readable
- *    content rather than `aria-hidden` decoration. The section's `aria-label` names it too, so a
- *    screen reader gets the region label either way.
+ * 3. **The mark is inlined by `<BrandMark>`, not loaded as an `<img>`.** It takes its ink from
+ *    `currentColor`, which an `<img>` cannot see. It is Shockbyte's own single-colour wordmark (their
+ *    kit ships it flat in dark and in white), so following the page's ink is their variant rather than a
+ *    recolour. It was a full-colour `<img>` on a paper plate while the previous host's brand rules
+ *    forbade a monochrome version.
+ * 4. **No `alt` is needed on the mark** because it is an `<svg aria-hidden>`. The host is named in text
+ *    twice over regardless — the CTA carries its domain, and the section's own `aria-label` names it.
  *
  * **It is a `<section>` rather than a `<div>`**, so it appears in a screen reader's landmark list as a
  * region called "Sponsored" and the reader can skip it deliberately, which a plain div would not allow.
@@ -121,22 +117,7 @@ function SponsorCell({ s }: { s: Sponsor }) {
      */
     <section className="sponsor" aria-label={`Sponsored: ${s.name}`}>
       <a className="sponsor-link" href={s.url} target="_blank" rel="sponsored noreferrer noopener">
-                {/* Full-colour host artwork on a paper plate — see the note above. Width/height reserve
-            the manifest's box so nothing shifts; the plate in global.css keeps it legible in both
-            themes and out of the row's hover inversion. `loading="lazy"` because the row sits at the
-            foot of the page: without it React puts a `<link rel="preload">` for the logo in every
-            page's head, where it competes with the page's own first requests. */}
-        <span className="sponsor-plate">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={s.logoColor ?? s.logo}
-            alt={s.name}
-            width={s.logoWidth ?? 123}
-            height={s.logoHeight ?? 41}
-            loading="lazy"
-            decoding="async"
-          />
-        </span>
+        <BrandMark entry={s} />
 
         <span className="sponsor-copy">
           {/*
@@ -151,14 +132,15 @@ function SponsorCell({ s }: { s: Sponsor }) {
            * the *relationship*, and "partner of what?" is the question a two-word chip can answer and a
            * one-word one cannot.
            *
-           * `Infrastructure` names a category this is not. BisectHosting is somewhere a server can be run,
+           * `Infrastructure` names a category this is not. Shockbyte is somewhere a server can be run,
            * which is neither what the chip is doing in this row nor a claim the arrangement supports — and
            * a label that makes the arrangement sound larger than it is, is the same fault as one that
            * makes it sound better than it is.
            *
-           * `Verified`/`Verified partner` is the one to keep out entirely. BisectHosting run a
-           * `Partner Program` and separately an `Affiliate Program`, and neither of their pages uses the
-           * word *verified* — so it would assert a status the host does not confer. A trust mark that
+           * `Verified`/`Verified partner` is the one to keep out entirely. Shockbyte call this their
+           * partner program and the link an affiliate link, and none of their material uses the word
+           * *verified* — so it would assert a status the host does not confer. (`Official Partner` on
+           * their site means the games they host for officially, which this is not either.) A trust mark that
            * overstates is worse than no mark, because it is the one kind of claim a reader is entitled to
            * take literally.
            *
@@ -197,7 +179,7 @@ function SponsorCell({ s }: { s: Sponsor }) {
         </span>
 
         <span className="sponsor-cta">
-          {s.url.replace(/^https?:\/\//, '').replace(/\/mcstellar$/, '')} <Arrow />
+          {domain(s.url)} <Arrow />
         </span>
       </a>
     </section>
@@ -221,11 +203,7 @@ function SponsorCell({ s }: { s: Sponsor }) {
  * offer — so it is the offer line. It is set in mono and faint, because it is an identifier rather
  * than prose: the same treatment `.link-handle` and `.colophon-domain` get.
  *
- * **The mark is drawn smaller than the host's — 124x34 against 123x41 — and that is optical rather than
- * arbitrary.** The host's mark is a hexagon with a two-line wordmark inside it, so its ink fills about
- * half its box; Ko-fi's is one line of fat lettering that fills nearly all of it, and at the same 41px
- * the tip jar out-weighed the cell it was introducing. The size lives in the manifest with the mark, so
- * there is one place to change it.
+ * **The size lives in the manifest with the mark**, so there is one place to change it.
  *
  * **`target="_blank"` and `rel="noreferrer noopener"`**, like every other outbound link on the site. The
  * reader leaves this page either way; the pair only says they come back to it.

@@ -1352,7 +1352,7 @@ if (sponsor) {
    *   1. it renders at all, and what renders is what the manifest says — so changing the wording is one
    *      edit and the page cannot drift from the data;
    *   2. it is not worded as a status the host does not confer. `Verified` is the specific word to keep
-   *      out: BisectHosting run a Partner Program and an Affiliate Program, and neither of their pages
+   *      out: Shockbyte call it a partner program with an affiliate link, and none of their material
    *      uses it. A trust mark that overstates is worse than no mark;
    *   3. **it sits inside the row's link, and it used to be asserted out of it.** The old assertion read
    *      "a badge inside an `<a>` is one the reader can click, which would make a decoration behave like a
@@ -1394,81 +1394,62 @@ if (sponsor) {
     );
   }
 
+
   check(
     'the brand mark is in the repo',
-    existsSync('apps/docs/public/brand/bisecthosting.svg'),
-    'apps/docs/public/brand/bisecthosting.svg',
+    existsSync(`apps/docs/public${sponsor.logo}`),
+    `apps/docs/public${sponsor.logo}`,
   );
   check(
     'the brand mark is copied into the build',
-    existsSync(`${OUT}/brand/bisecthosting.svg`),
+    existsSync(`${OUT}${sponsor.logo}`),
   );
 
   /*
-   * The tip jar's mark is monochrome and inline, which is the whole point of the transform.
-   * (Reversal 2026-10-12: the sponsor cell renders full-colour `bisecthosting-color.svg` as an
-   * `<img>` — the host's brand rules forbid a monochrome recolour — so the assertions split: the
-   * monochrome ones below read the tip jar's glyph, and the sponsor's artwork gets presence-of-colour
-   * assertions of its own.)
+   * Both marks are monochrome and inline, which is the whole point of the transform.
+   *
+   * (History: from 2026-10-12 the sponsor cell rendered the previous host's full-colour artwork as an
+   * `<img>` on a paper plate, because that host's brand rules forbade a monochrome version. Shockbyte's
+   * kit ships its wordmark flat in dark and in white, so the cell is back to the inline glyph and the
+   * plate is gone. The assertions below are the ones the plate had split off.)
    *
    * A hex colour left in the file would render a coloured logo in a monochrome design. A surviving
    * `<style>` block is worse than cosmetic: an inline SVG's styles are **document-scoped**, so
-   * `.cls-1 { fill: #000 }` would leak into the entire page. Both are invisible in a screenshot until
+   * `.st0 { fill: #1D1E21 }` would leak into the entire page. Both are invisible in a screenshot until
    * something else on the page loses its colour.
    */
-  check(
-    'the full-colour sponsor artwork is in the repo',
-    existsSync('apps/docs/public/brand/bisecthosting-color.svg'),
-    'apps/docs/public/brand/bisecthosting-color.svg',
-  );
-  check(
-    'the full-colour sponsor artwork is copied into the build',
-    existsSync(`${OUT}/brand/bisecthosting-color.svg`),
-  );
-  const sponsorSvg = existsSync('apps/docs/public/brand/bisecthosting-color.svg')
-    ? readFileSync('apps/docs/public/brand/bisecthosting-color.svg', 'utf8')
+  const sponsorSvg = existsSync(`apps/docs/public${sponsor.logo}`)
+    ? readFileSync(`apps/docs/public${sponsor.logo}`, 'utf8')
     : '';
+  const sponsorSection = /<section class="sponsor"[\s\S]*?<\/section>/.exec(home ?? '')?.[0] ?? '';
 
-  check(
-    'the sponsor artwork keeps its brand colour',
-    /03ddff/i.test(sponsorSvg),
-    'cyan hexagon present, not mapped to the ground',
-  );
-  check(
-    'the sponsor artwork is the approved source verbatim',
-    /<style/i.test(sponsorSvg),
-    'copied from design/brand-source without recolouring',
-  );
-
-  const brandSvg = existsSync('apps/docs/public/brand/kofi.svg')
-    ? readFileSync('apps/docs/public/brand/kofi.svg', 'utf8')
-    : '';
-
-  check('the brand mark is monochrome', !/#[0-9a-f]{6}\b/i.test(brandSvg), 'no hex colours');
-  check('it carries no <style> block', !/<style/i.test(brandSvg), 'classes are folded into fill attributes');
-  check('it takes its colour from the text', brandSvg.includes('currentColor'), 'currentColor');
-  check('its knockouts use the ground token', brandSvg.includes('var(--icon-ground)'), 'var(--icon-ground)');
-  // `#03ddff` lives in the sponsor's full-colour artwork now (asserted present above) — the tip
-  // jar's glyph carries no brand cyan, so there is nothing to map here.
+  check('the brand mark is monochrome', !/#[0-9a-f]{6}\b/i.test(sponsorSvg), 'no hex colours');
+  check('it carries no <style> block', !/<style/i.test(sponsorSvg), 'classes are folded into fill attributes');
+  check('it carries no gradient', !/Gradient|url\(#/i.test(sponsorSvg), 'a gradient cannot take currentColor');
+  check('nothing inlined carries an id', !/\bid="/.test(sponsorSvg), 'the exporter\'s layer names are page-wide ids once inlined');
+  check('it takes its colour from the text', sponsorSvg.includes('currentColor'), 'currentColor');
 
   check(
     'the mark is inlined, not an <img>',
-    /<svg class="brand-mark"/.test(home),
+    /<svg class="brand-mark"/.test(sponsorSection),
     'an <img> could not see the page CSS',
   );
-  check('no brand asset except the sponsor artwork is loaded as an <img>', !/<img[^>]*(?:kofi\.svg|bisecthosting\.svg)(?!-color)/.test(home));
+  check('no brand asset is loaded as an <img>', !/<img[^>]*brand\//.test(home));
   check(
-    'the sponsor artwork renders as a labelled image',
-    /<img[^>]*brand\/bisecthosting-color\.svg[^>]*alt="BisectHosting"/.test(home),
-    'full-colour <img> with the host name as alt',
+    'the mark box is reserved from the manifest',
+    new RegExp(
+      `<svg class="brand-mark"[^>]*width="${sponsor.logoWidth}"[^>]*height="${sponsor.logoHeight}"`,
+    ).test(sponsorSection),
+    `${sponsor.logoWidth} x ${sponsor.logoHeight}`,
   );
+  check('the CTA names the host by its domain', sponsorSection.includes(`class="sponsor-cta">${new URL(sponsor.url).host.replace(/^www\./, '')}<`), new URL(sponsor.url).host);
 
   /*
-   * The two variants and the four CSS rules that switched between them are gone. Asserted rather than
-   * assumed, because a leftover `.sponsor-logo` rule would be dead code that reads as a live mechanism —
-   * and the next person would try to edit it.
+   * The plate, the light/dark pair, and the four CSS rules that once switched between them are gone.
+   * Asserted rather than assumed, because a leftover rule would be dead code that reads as a live
+   * mechanism — and the next person would try to edit it.
    */
-  check('the light/dark pair is retired', !existsSync('apps/docs/public/brand/bisecthosting-light.svg'));
+  check('the paper plate is retired', !/sponsor-plate/.test(allCss) && !home.includes('sponsor-plate'));
   check('no display-switching rules remain', !/sponsor-logo/.test(allCss));
 
   /*
@@ -1626,13 +1607,11 @@ if (support) {
     `${support.logoWidth} x ${support.logoHeight} — the size the manifest gives, not one the component chose`,
   );
 
-  /* Reversal 2026-10-12: only the tip jar inlines its mark now. The sponsor cell renders
-   * full-colour artwork as an `<img>` (asserted above), so "both inline" is one inline plus one image. */
+  /* Two marks in the band, so the "one is inlined" assertions are not the whole story. */
   check(
-    'the tip jar inlines its mark while the sponsor renders artwork',
-    (home?.match(/<svg class="brand-mark"/g) ?? []).length === 1 &&
-      /<img[^>]*brand\/bisecthosting-color\.svg/.test(home ?? ''),
-    'one inline mark plus the full-colour sponsor image',
+    'both cells inline their own mark',
+    (home?.match(/<svg class="brand-mark"/g) ?? []).length === 2,
+    `${(home?.match(/<svg class="brand-mark"/g) ?? []).length} inline mark(s)`,
   );
 
   /*

@@ -1225,22 +1225,6 @@ main {
   padding: var(--s5) var(--pad);
 }
 
-/* The host's artwork is full colour, on a white plate in both themes: their brand rules forbid a
-   monochrome recolour, so the plate is what keeps it legible on the dark ground. */
-.sponsor-plate {
-  flex: none;
-  display: block;
-  padding: 6px 10px;
-  background: #ffffff;
-  border: 1px solid var(--line);
-}
-
-.sponsor-plate img {
-  display: block;
-  width: 98px;
-  height: auto;
-}
-
 .sponsor-copy,
 .support-copy {
   flex: 1;
@@ -1309,8 +1293,8 @@ main {
   color: var(--fg-muted);
 }
 
-/* Ko-fi's mark takes its ink from `currentColor` and its knockouts from `--icon-ground`, which is always
-   the ground it sits on. */
+/* Both marks take their ink from `currentColor` and their knockouts from `--icon-ground`, which is always
+   the ground they sit on. */
 .brand-mark {
   --icon-ground: var(--bg);
   flex: none;
@@ -1782,7 +1766,7 @@ main {
   }
 }
 
-/* The sponsor row stacks rather than squeezing the host's artwork against the tip jar. */
+/* The sponsor row stacks rather than squeezing the host's mark against the tip jar. */
 @media (max-width: 1024px) {
   .band-row {
     flex-direction: column;

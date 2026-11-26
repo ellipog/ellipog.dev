@@ -11,9 +11,12 @@
  *
  * THE SOURCES
  *
- * `design/brand-source/bisecthosting.svg` — the **light** variant, committed. The dark one is the same
- * artwork recoloured for a dark background, so once the mark takes its colour from the page there is only
- * one file to keep and the four-state CSS that switched between two images disappears entirely.
+ * `design/brand-source/shockbyte-flat.svg` — `NEW-Shockbyte-Logo+Wordmark-Dark (flat).svg`, committed
+ * verbatim from the branding kit linked from https://shockbyte.com/branding (a Google Drive folder with
+ * SVG and PNG exports). The kit ships the wordmark flat in dark and in white, so a one-colour mark is
+ * Shockbyte's own variant rather than a recolour of ours. Its two siblings in the same folder are the
+ * full-colour files the banners use: `shockbyte.svg` (`…-Dark.svg`, dark wordmark, for light grounds)
+ * and `shockbyte-on-dark.svg` (`NEW-Shockbyte-Logo+Wordmark.svg`, white wordmark).
  *
  * `design/brand-source/kofi.svg` — Ko-fi's wordmark, committed verbatim from their brand asset pack
  * (the `kofi_brandasset.zip` that also carries a symbol and four coloured "Support me on Ko-fi" badges,
@@ -22,22 +25,18 @@
  *
  * THREE THINGS THE HOST'S FILE HAS THAT THE MOD ICONS DO NOT
  *
- * 1. **A `<style>` block.** `.cls-1{fill:#000}` and `.cls-3{fill:#0d1129}`, referenced by `class="cls-1"`
- *    on the shapes. An inline SVG's `<style>` is **document-scoped** — inlining this with the block
- *    intact would leak those two rules into the entire page. They are folded into `fill` attributes and
- *    the block is deleted, which is the only safe way to inline a file that carries one.
+ * 1. **A `<style>` block.** `.st0{fill:#1D1E21}`, referenced by `class="st0"` on the shapes. An inline
+ *    SVG's `<style>` is **document-scoped** — inlining this with the block intact would leak the rule into
+ *    the entire page. It is folded into `fill` attributes and the block is deleted, which is the only safe
+ *    way to inline a file that carries one.
  *
- * 2. **Two nearly-identical blacks.** The wordmark is `#000` (luminance 0.000) and the hexagon beside it
- *    is `#0d1129` (0.006). Per-colour ranking would give them different weights and the artwork would fall
- *    apart into a black word and a grey icon, which was never the design. The transform clusters colours
- *    within a luminance distance before ranking, so they share the darkest rank — and the threshold is
- *    small enough that the mod icons' genuine facet tones stay apart.
+ * 2. **A leftover gradient.** The flat file is one colour, but Illustrator kept the full-colour bolt's
+ *    `<linearGradient>` and one zero-area path painted with it (`class="st1"`, a single point). The class
+ *    pass folds hex fills only, so that path would keep a class nothing defines and the gradient's four
+ *    stop colours would survive as hex. `dropGradients` removes both.
  *
- * 3. **A brand colour that is structurally the ground.** `#03ddff` is not a tone: it fills the hexagon's
- *    interior, with the ink brackets drawn on top of it. Mapping it to a grey would give three values and
- *    a muddy middle. Mapping it to the ground gives **ink hexagon, paper interior, ink detail** — which is
- *    both the faithful reading of the artwork and literally two-colour, which is what "purely black and
- *    white" asks for.
+ * 3. **Layer names as ids.** `id="SHOCKBYTE"` and `id="bolt"`. In a file of its own they are harmless;
+ *    inlined into a page they are page-wide ids. `stripIds` drops them.
  *
  * THREE THINGS KO-FI'S FILE HAS, AND THE THIRD IS A DARK-MODE BUG
  *
@@ -57,21 +56,21 @@
  *    below counts them so a re-export that changes shape says so.
  *
  * 3. **The cup is a tone, not the ground, and the difference is the heart.** `#ff5a16` fills the cup's
- *    interior, and the heart is a hole knocked out of it. Declared as ground — which is what the host's
- *    cyan is — the interior *and* the heart become paper and the heart disappears. Left as a tone it
+ *    interior, and the heart is a hole knocked out of it. Declared as ground, the interior *and* the
+ *    heart become paper and the heart disappears. Left as a tone it
  *    ranks at `currentColor @ 0.6`, and the mark reads as an engraved cup with a knocked-out heart. So
  *    this entry passes no `ground`, and that is a decision rather than an omission.
  *
  * WHERE THEY GO
  *
- * `apps/docs/public/brand/bisecthosting.svg` and `.../kofi.svg`, both committed, and inlined by
+ * `apps/docs/public/brand/shockbyte.svg` and `.../kofi.svg`, both committed, and inlined by
  * `components/brand-mark.tsx` — **not** loaded as an `<img>`, for the same reason the mod icons are not:
  * an SVG in an `<img>` is a separate document with no access to the page's CSS, so `currentColor` and
  * `var(--icon-ground)` would both fail to resolve and the mark would be black-on-dark with its interior
  * filled in.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -87,18 +86,22 @@ const OUT_DIR = join(SITE, 'apps', 'docs', 'public', 'brand');
  * The two marks, and everything that differs between them.
  *
  * `clusterWithin` is stated by both rather than left to the default, because the number is a judgement
- * about the artwork: 0.02 is small enough that the mod icons' genuine facet tones stay apart, and the
- * host's two blacks (0.000 and 0.006) land in one cluster.
+ * about the artwork: 0.02 is small enough that the mod icons' genuine facet tones stay apart, and near-
+ * identical blacks in one logo land in one cluster.
  */
 const MARKS = [
   {
-    id: 'bisecthosting',
+    id: 'shockbyte',
+    // The kit's single-colour wordmark, not `shockbyte.svg` (the full-colour one the banners use): a
+    // gradient bolt has no faithful monochrome reading, and Shockbyte ship the flat file for exactly this.
+    source: 'shockbyte-flat.svg',
     options: {
       // Fold the `<style>` classes in and delete the block, or it leaks into the page.
       resolveClasses: true,
-      // The cyan is the hexagon's interior field, not a tone. Named rather than inferred, because "is
-      // this fill a field or a tone" is a judgement about the artwork that no amount of parsing answers.
-      ground: ['#03ddff'],
+      // The flat export keeps the colour file's bolt gradient and one zero-area shape painted with it.
+      dropGradients: true,
+      // `id="SHOCKBYTE"` and `id="bolt"` are Illustrator layer names; inlined, they are page-wide ids.
+      stripIds: true,
       clusterWithin: 0.02,
     },
   },
@@ -118,7 +121,7 @@ mkdirSync(OUT_DIR, { recursive: true });
 let failed = false;
 
 for (const mark of MARKS) {
-  const source = join(SOURCE_DIR, `${mark.id}.svg`);
+  const source = join(SOURCE_DIR, mark.source ?? `${mark.id}.svg`);
   const out = join(OUT_DIR, `${mark.id}.svg`);
 
   if (!existsSync(source)) {
@@ -134,6 +137,8 @@ for (const mark of MARKS) {
   console.log(`  viewBox            ${report.viewBox}`);
   console.log(`  class refs folded  ${report.classesResolved}   (the <style> block is gone)`);
   console.log(`  export wrappers    ${report.wrappersDropped}   (defs, mask, and the refs to them)`);
+  console.log(`  gradients dropped  ${report.gradientsDropped}   (definitions, and shapes painted by one)`);
+  console.log(`  ids stripped       ${report.idsStripped}`);
   console.log(`  colours mapped     ${report.mapped}`);
   console.log(`  ranks              ${report.clusters.join('  ')}`);
   console.log(`  background plate   ${report.removedPlate ? 'removed' : 'none found'}`);
@@ -162,18 +167,18 @@ for (const mark of MARKS) {
 if (failed) process.exitCode = 1;
 
 /*
- * A leftover variant, reported rather than deleted.
+ * A leftover mark, reported rather than deleted.
  *
- * The migration is done — `brand-mark.tsx` inlines these glyphs and the four `sponsor-logo` rules are
- * gone — so the old files have no job. Deleting them from a build script would be a surprise, but leaving
- * them silently in `public/` would ship two unused images and invite somebody to wire them back up. So:
- * named, with the command to remove them.
+ * An SVG in `public/brand/` that this table does not produce is one nothing generates — a previous host's
+ * glyph, say. Deleting it from a build script would be a surprise, but leaving it silently in `public/`
+ * would ship an unused image and invite somebody to wire it back up. So: named.
  */
-for (const stale of ['bisecthosting-light.svg', 'bisecthosting-dark.svg']) {
-  if (existsSync(join(OUT_DIR, stale))) {
+const produced = new Set(MARKS.map((m) => `${m.id}.svg`));
+for (const file of readdirSync(OUT_DIR)) {
+  if (file.endsWith('.svg') && !produced.has(file)) {
     console.log(
-      `\n  ! ${stale} is still in apps/docs/public/brand/ — it has no job since the mark went monochrome.\n` +
-        `    Delete it: the glyph takes its colour from the page, so one file serves both themes.`,
+      `\n  ! ${file} is in apps/docs/public/brand/ but no entry here generates it.\n` +
+        `    Delete it if nothing on the site reads it.`,
     );
   }
 }

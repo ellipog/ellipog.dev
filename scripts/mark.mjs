@@ -11,7 +11,7 @@
  * the masthead, the colophon and the tab all draw the studio's mark, the pair in
  * `apps/docs/public/site/` copied from `aaenz/public/assets/`. A previous revision of this script
  * wrote straight over that pair, which put the modpack's logo beside the studio's name at the foot of
- * every page. The output directory below (`public/brand/`, the folder that holds `bisecthosting.svg`)
+ * every page. The output directory below (`public/brand/`, the folder that holds `shockbyte.svg`)
  * is what keeps that from being a one-word mistake.
  *
  * THE SOURCES
@@ -78,7 +78,7 @@ const SITE = resolve(HERE, '..');
 const SOURCE_DIR = join(SITE, 'design', 'brand-source');
 
 /**
- * `public/brand/`, where the third-party product marks live -- `bisecthosting.svg` is here. Deliberately
+ * `public/brand/`, where the third-party product marks live -- `shockbyte.svg` is here. Deliberately
  * NOT `public/site/`: that pair is the studio's mark, it is not produced by any script, and writing the
  * modpack's logo there is the mistake this path exists to prevent. See the header.
  */

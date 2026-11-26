@@ -78,6 +78,11 @@ function classFills(svg) {
  * @param {boolean} [options.resolveClasses]  Fold `<style>` classes into `fill` and delete the block.
  * @param {boolean} [options.stripExportWrappers]  Drop the `<defs>`, the full-bleed `<mask>` and the
  *   `mask`/`clip-path` attributes of an export that wraps its artwork in both.
+ * @param {boolean} [options.dropGradients]  Delete every `<linearGradient>`/`<radialGradient>` and each
+ *   shape still painted by one. For a flat export that keeps a gradient-filled shape of no area: a
+ *   gradient cannot take `currentColor`, so it is either empty or a coloured patch in a monochrome mark.
+ * @param {boolean} [options.stripIds]  Drop every `id` attribute: an exporter's layer names, which become
+ *   page-wide ids once the mark is inlined. Only safe once nothing references one (run with the above).
  * @param {string[]} [options.ground]  Extra colours that mean "the ground shows through" — for artwork
  *   where a bright fill is structurally the interior field rather than a tone.
  * @param {number} [options.glowFloor]   Below this opacity, a shape is considered vestigial.
@@ -91,6 +96,8 @@ export function toMonochrome(raw, options = {}) {
   const {
     resolveClasses = false,
     stripExportWrappers = false,
+    dropGradients = false,
+    stripIds = false,
     ground = [],
     glowFloor = 0.15,
     accentFloor = 0.45,
@@ -159,6 +166,36 @@ export function toMonochrome(raw, options = {}) {
     }
     body = body.replace(/\s(?:mask|clip-path)="url\(#[^)]*\)"/gi, (attr) => {
       wrappersDropped += 1;
+      return '';
+    });
+  }
+
+  /*
+   * GRADIENTS, WHICH A MONOCHROME MARK CANNOT HAVE.
+   *
+   * Shockbyte's flat wordmark is one colour, but the export keeps the full-colour file's bolt gradient
+   * and one shape that uses it: a path with no area, a single point at the bolt's tip. The class pass
+   * only folds hex fills, so that shape keeps a `class` nothing defines once the `<style>` block is gone,
+   * and its gradient's four stop colours survive as literal hex. Both are dropped: the gradient
+   * definitions, and every shape still pointing at one by class or by `fill="url(#…)"`.
+   */
+  let gradientsDropped = 0;
+  if (dropGradients) {
+    body = body.replace(/\s*<(linear|radial)Gradient\b[\s\S]*?<\/\1Gradient>/gi, () => {
+      gradientsDropped += 1;
+      return '';
+    });
+    body = body.replace(/\s*<(path|polygon|rect|circle|ellipse)\b[^>]*(?:\sclass="[^"]*"|fill="url\([^)]*\)")[^>]*\/>/gi, () => {
+      gradientsDropped += 1;
+      return '';
+    });
+    body = body.replace(/\s*<g>\s*<\/g>/g, '');
+  }
+
+  let idsStripped = 0;
+  if (stripIds) {
+    body = body.replace(/\sid="[^"]*"/g, () => {
+      idsStripped += 1;
       return '';
     });
   }
@@ -285,6 +322,8 @@ export function toMonochrome(raw, options = {}) {
       glowsDropped,
       classesResolved,
       wrappersDropped,
+      gradientsDropped,
+      idsStripped,
       mapped,
       tones: tones.length,
       clusters: clusters.map((c) => `${c.colours.join('+')}@${ranks[Math.min(clusters.indexOf(c), ranks.length - 1)]}`),

@@ -253,15 +253,15 @@ layout's own segment. `check.mjs` asserts both, and that no two pages share a ti
 
 ## The sponsor band, and the tip jar beside it
 
-Every page carries two cells at its foot, in one row: **BisectHosting** — one affiliate arrangement, with
-the code `mcstellar` for 25% off — at two parts, and **Ko-fi**, where the mods' running costs are tipped
+Every page carries two cells at its foot, in one row: **Shockbyte** — one partner arrangement with an
+affiliate link, and the code `STELLAR25` for 25% off — at two parts, and **Ko-fi**, where the mods' running costs are tipped
 into, at one. Below 1024px they stack, because that is where the host's cell starts wrapping its offer
 line; the ratio and the breakpoint are both measured rather than picked, and `global.css` carries the
 numbers.
 
 The host's cell is **disclosed as an affiliate link in the row itself**, beside the offer, and its link
 carries `rel="sponsored"`, because a paid link that does not declare itself is a link pretending to be a
-recommendation. Its section carries `aria-label="Sponsored: BisectHosting"`.
+recommendation. Its section carries `aria-label="Sponsored: Shockbyte"`.
 
 **Ko-fi's cell is not a sponsorship, so it carries none of that**: no `rel="sponsored"` — nobody paid for
 that link — no `Affiliate link` note, no `Hosting partner`-style chip, and its **own** landmark,
@@ -281,15 +281,16 @@ asserts no `sponsor-head` is rendered, so the second bar cannot return unnoticed
 
 The details live in `manifest.json` under `sponsor` and `support`; removing either object removes its cell,
 and the row falls back to one full-width cell. `check.mjs` skips the assertions for whichever is absent.
-The generated marks are in `apps/docs/public/brand/`, committed, from `design/brand-source/` — and Ko-fi's
-is drawn smaller (124x34 against the host's 123x41) because one line of fat lettering fills its box where
-a hexagon with a two-line wordmark does not.
+The generated marks are in `apps/docs/public/brand/`, committed, from `design/brand-source/`: both are
+monochrome and inlined, and their boxes (129x28 and 124x34) are in the manifest. The host's comes from the
+single-colour wordmark in Shockbyte's own branding kit (linked from shockbyte.com/branding), which ships
+it in dark and in white.
 
 The small `Hosting partner` chip beside the host's tagline is a deliberate wording choice, not a default.
 It is two words rather than one because `Minecraft server hosting` beside `PARTNER` says what the host does
 without saying what the arrangement is about; `Infrastructure` was rejected for claiming a category this
-is not, and it does **not** say "Verified", because BisectHosting do not confer that status and their own
-terms are `Partner Program` and `affiliate`. Change the label in `manifest.json`; `check.mjs` will hold you
+is not, and it does **not** say "Verified", because Shockbyte do not confer that status and their own
+terms are `partner` and `affiliate link`. Change the label in `manifest.json`; `check.mjs` will hold you
 to whatever is written there.
 
 ---

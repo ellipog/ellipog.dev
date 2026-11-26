@@ -6,18 +6,18 @@ import { join } from 'node:path';
  *
  * **Inlined rather than an `<img>`, and for the same reason the mod icons are.** The mark uses
  * `currentColor` for its ink and `var(--icon-ground)` for the knockout — the wordmark's gaps, the
- * hexagon's interior, Ko-fi's own capsule. An SVG loaded through `<img>` is a separate document with
+ * Ko-fi's own capsule. An SVG loaded through `<img>` is a separate document with
  * **no access to the page's CSS**, so neither would resolve: the ink would fall back to black and the
  * ground to nothing, and the mark's interior would fill in solid. It would look correct in light mode,
  * which is exactly why it is not something to judge by eye.
  *
- * **This replaced a pair of files and four CSS rules.** There used to be `bisecthosting-light.svg` and
+ * **This replaced a pair of files and four CSS rules.** There used to be a host `-light.svg` and
  * `-dark.svg` — the same artwork recoloured — with `[data-theme='dark']` and `:hover` rules switching
  * between two `<img>` elements. Once the mark takes its colour from the page there is one file, and the
  * switching has nothing left to do.
  *
  * **It takes the manifest's own entry now, and that closed a small lie.** The component used to read the
- * dimensions out of `manifest.sponsor` while hardcoding `bisecthosting.svg` as the filename — so
+ * dimensions out of `manifest.sponsor` while hardcoding the host's filename — so
  * `sponsor.logo` was written in the manifest, validated by nothing, and read by nothing. With two marks
  * in the band that would have become two hardcoded names, so the entry itself is the argument: `logo` is
  * the path read, `logoWidth`/`logoHeight` are the ratio the box is reserved from.
@@ -62,7 +62,7 @@ function mark(entry: Mark) {
  *
  * **The box comes from the entry, and that is one place per mark rather than two.** `logoHeight` is the
  * height the mark is drawn at and `logoWidth`/`logoHeight` is the ratio the width is derived from — so
- * the host is drawn at 123x41 and the tip jar at 124x34, and neither number is repeated in the component
+ * the host is drawn at 129x28 and the tip jar at 124x34, and neither number is repeated in the component
  * that draws it. It used to be a `height` prop on every call with 41 as the default, which was the same
  * decision written twice, and it could not express two marks at different sizes without a third copy.
  *

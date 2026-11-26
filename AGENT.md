@@ -725,13 +725,14 @@ what label-in-name asks for.
 
 ## The band at the foot of every page: the host, and the tip jar beside it
 
-**Two cells in one row.** BisectHosting — one affiliate arrangement, with the code `mcstellar` for 25% off
-— takes the left two parts, and Ko-fi takes the third: where the mods' own running costs are tipped into.
+**Two cells in one row.** Shockbyte — one partner arrangement (their partner program, set up July 2026:
+an affiliate link, `https://shockbyte.com/partner/stellar`, with a recurring commission), with the code
+`STELLAR25` for 25% off — takes the left two parts, and Ko-fi takes the third: where the mods' own running costs are tipped into.
 Both live in `manifest.json` like every other fact about the site, and `components/sponsor.tsx` renders
 them.
 
 **The ratio is measured, and so is the width at which the two cells stop being a row.** The host's cell
-needs about 680px before `25% off with code mcstellar · Affiliate link` breaks onto a second line — it
+needs about 680px before `25% off with code STELLAR25 · Affiliate link` breaks onto a second line — it
 does at 1001px and does not at 1024 — and the tip jar's needs about 330 for a wordmark, a tagline and a
 handle. Two to one is the first split that serves both at the shell's 1200px — at 50/50 the host's offer
 line wraps at a 1200px viewport and the row reads lopsided — and below **1024px** they stack. That number
@@ -746,10 +747,8 @@ a 124px mark and a monospace handle at 11.5px, and the host's cell — which is 
 wraps its offer line at 1001px in the built page. A breakpoint copied from a mock is a number nobody
 measured; the one in `global.css` was read off the artifact.
 
-**The tip jar's mark is drawn smaller than the host's — 124x34 against 123x41 — and the size lives in the
-manifest with the mark.** The host's is a hexagon with a two-line wordmark inside it, so its ink fills
-about half its box; Ko-fi's is one line of fat lettering that fills nearly all of it, and at the same 41px
-the tip jar out-weighed the cell it introduces. `BrandMark` reads `logoHeight` as the height it draws at,
+**Each mark's size lives in the manifest with the mark** — the host's 129x28, the tip jar's 124x34, both
+the ratio of their own viewBox. `BrandMark` reads `logoHeight` as the height it draws at,
 so the box is stated once per mark instead of a prop at every call site.
 
 **`flex` rather than `grid`, and that is what removes the need for a modifier class.** The manifest may
@@ -840,13 +839,19 @@ than it was part of the footer. `check.mjs` asserts the band sits *above* the co
 relationship that matters, rather than that it is last — so adding a row below the colophon later does not
 fail the build.
 
-**The mark is inlined, and monochrome, and it used to be neither.**
+**The mark is inlined, and monochrome.**
 
 `BrandMark` renders it inline rather than as an `<img>`, for the same reason the mod icons are: the glyph
 takes its ink from `currentColor` and its knockouts from `var(--icon-ground)`, and an SVG in an `<img>` is
-a separate document that **cannot see the page's CSS**. The ink would fall back to black and the hexagon's
-interior would fill in solid — and it would look correct in light mode, which is exactly why it is not
-something to judge by eye.
+a separate document that **cannot see the page's CSS**. The ink would fall back to black — and it would
+look correct in light mode, which is exactly why it is not something to judge by eye.
+
+**A monochrome host mark is allowed only because the host's own kit has one.** Shockbyte's branding kit
+(linked from https://shockbyte.com/branding, a Drive folder of SVG and PNG exports) ships the wordmark
+flat in dark (`NEW-Shockbyte-Logo+Wordmark-Dark (flat).svg`) and in white, so drawing it in the page's ink
+is their variant rather than a recolour. The previous host's brand rules forbade one, and from October to
+November 2026 the cell showed full-colour artwork as an `<img>` on a paper plate instead. If a future host
+forbids it again, that is the arrangement to go back to (`git log -S sponsor-plate`).
 
 **That replaced two files and four rules.** There was a `-light.svg` and a `-dark.svg` — the same artwork
 recoloured — plus `[data-theme='dark']` and `:hover` selectors switching between two `<img>` elements.
@@ -858,17 +863,17 @@ page there is one file and nothing to switch.
 
 | In the source | Why it matters |
 |---|---|
-| A `<style>` block with `.cls-1` / `.cls-3` | An inline SVG's styles are **document-scoped**. Inlining it with the block intact leaks `.cls-1 { fill: #000 }` into the whole page |
-| `#000` **and** `#0d1129` | Luminance 0.000 and 0.006 — two blacks the artwork means as *one* value. Per-colour ranking splits them into a black wordmark and a grey hexagon |
-| `#03ddff` | Not a tone: it fills the hexagon's **interior**, with the ink brackets drawn on top. As a grey it gives a muddy middle; as the ground it gives ink mark, paper interior, ink detail |
+| A `<style>` block with `.st0` / `.st1` | An inline SVG's styles are **document-scoped**. Inlining it with the block intact leaks `.st0 { fill: #1D1E21 }` into the whole page |
+| A leftover `<linearGradient>` and one zero-area path painted with it | The flat file kept the colour file's bolt gradient. Its four stop colours would survive as hex, and the path would keep a class nothing defines. `dropGradients` removes both |
+| `id="SHOCKBYTE"`, `id="bolt"` | Illustrator layer names, which become page-wide ids once inlined. `stripIds` removes them |
 
 The shared transform (`scripts/lib/monochrome.mjs`) clusters colours within a luminance distance before
-ranking, so the two blacks share the darkest rank. The threshold is **0.02** — small enough that Armature's
-genuine facet tones (`#0f172a` and `#334155`, 0.043 apart) stay distinguishable, large enough that the
-brand's blacks merge. Both callers state it; neither relies on the default.
+ranking, so near-identical blacks share the darkest rank. The threshold is **0.02** — small enough that
+Armature's genuine facet tones (`#0f172a` and `#334155`, 0.043 apart) stay distinguishable. Both callers
+state it; neither relies on the default.
 
 **`width` and `height` come from the manifest**, and they matter more than they look: the SVG declares a
-`viewBox` of `243.7 × 81.21` and no dimensions of its own, so without the attributes the box is nothing
+`viewBox` of `1019.2 × 222` and no dimensions of its own, so without the attributes the box is nothing
 until it parses and the band and everything below it shifts. The numbers live in the manifest
 because they come from the file rather than from a design decision, and `BrandMark` derives the width from
 them rather than from its own `height` prop.
@@ -892,15 +897,16 @@ other half. `Hosting partner` carries both.
 
 **Two alternatives were rejected, and both are worth keeping on the record.**
 
-`Infrastructure` names a category this arrangement is not. BisectHosting is somewhere a server can be run,
+`Infrastructure` names a category this arrangement is not. Shockbyte is somewhere a server can be run,
 which is neither what the chip is doing in that row nor a claim the arrangement supports — and a label
 that makes the arrangement sound *larger* than it is is the same fault as one that makes it sound better
 than it is.
 
-`Verified` / `Verified partner` is the one to keep out entirely. BisectHosting run a
-[Partner Program](https://www.bisecthosting.com/partnerships) and, separately, an **Affiliate Program** —
-the self-serve one that issues a unique link and a discount code, which is what `mcstellar` is. Those are
-not the same thing, and **neither of their pages uses the word _verified_**. Putting it on the site would
+`Verified` / `Verified partner` is the one to keep out entirely. Shockbyte run a
+[partnership program](https://partners.shockbyte.com/) whose partners get a custom affiliate link and a
+discount code, which is what `shockbyte.com/partner/stellar` and `STELLAR25` are. **None of their material
+uses the word _verified_**, and `Official Partner` on their site means the games they are an official host
+for, which this is not either. Putting it on the site would
 assert a status the host does not confer, and a trust mark that overstates is worse than no mark at all:
 it is the one kind of claim a reader is entitled to take literally.
 
@@ -929,10 +935,12 @@ A background coming back would bring the old failure back with it.
 **It is a `<section aria-label="Sponsored: <host>">`**, not a `<div>`, so it appears in a screen reader's landmark
 list and can be skipped deliberately — which a plain div would not allow.
 
-**Which files are the brands':** the host's source is `design/brand-source/bisecthosting.svg` (the light
-variant, committed — the dark one was the same artwork recoloured and is gone) and the tip jar's is
+**Which files are the brands':** the host's are three files from Shockbyte's branding kit, committed
+verbatim — `design/brand-source/shockbyte-flat.svg` (the single-colour wordmark the site's glyph is
+generated from), `shockbyte.svg` (full colour, dark wordmark, for the banners on light grounds) and
+`shockbyte-on-dark.svg` (full colour, white wordmark, for dark grounds). The tip jar's is
 `design/brand-source/kofi.svg` (Ko-fi's own wordmark, committed verbatim from their brand asset pack); the
-generated glyphs are `apps/docs/public/brand/bisecthosting.svg` and `.../kofi.svg`. Regenerate both with
+generated glyphs are `apps/docs/public/brand/shockbyte.svg` and `.../kofi.svg`. Regenerate both with
 `bun run brand`, which is a table of marks rather than a script per logo — the transform is shared and
 only the quirks differ.
 
